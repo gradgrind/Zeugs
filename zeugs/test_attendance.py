@@ -3,9 +3,9 @@
 """
 test_attendance.py
 
-Last updated:  2019-08-14
+Last updated:  2019-09-28
 
-Run some tests on the modules in the wz_core package.
+Run some tests on the modules in the wz_attendance package.
 
 
 =+LICENCE=============================
@@ -26,42 +26,8 @@ Copyright 2019 Michael Towers
 =-LICENCE========================================
 """
 
-import os, builtins
-
 from wz_core.reporting import Report
-from wz_core.configuration import init
-
-
-def testinit ():
-    appdir = os.path.dirname (os.path.realpath (__file__))
-    userdir = os.path.join (os.path.dirname (appdir), 'DefaultData')
-    print ("§§§ userdir:", userdir)
-#    sys.path.append (appdir)
-
-    builtins.REPORT = Report () # console output
-    try:
-        init (userdir)
-    except RuntimeError as e:
-        REPORT.printMessages ()
-        quit (1)
-
-
-def runTests (module):
-    """Run the tests in the given module object.
-    These are functions beginning "test_".
-    """
-    REPORT.PRINT ("\n <<<<<<<<<<<<<<< TESTING Module '%s' >>>>>>>>>>>>>>>"
-            % module.__name__)
-    for a in dir (module):
-        if a.startswith ('test_'):
-            fun = getattr (module, a)
-            REPORT.PRINT ("\n----->", a)
-            try:
-                fun ()
-            except RuntimeError as e:
-                break
-            finally:
-                REPORT.printMessages ()
+from test_core import testinit, runTests
 
 
 if __name__ == '__main__':

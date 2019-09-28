@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-attendance.py - last updated 2019-09-09
+attendance.py - last updated 2019-09-28
 
 Create attendance table for a class.
 
@@ -31,14 +31,13 @@ from collections import OrderedDict
 from copy import copy
 
 from openpyxl import load_workbook
+from openpyxl.worksheet.properties import WorksheetProperties, PageSetupProperties
 from openpyxl.utils import get_column_letter, column_index_from_string
 from openpyxl.styles import Alignment, Border, Side, PatternFill, NamedStyle
 
 from wz_core.configuration import Paths, ConfigFile
-from wz_core.pupils2 import Pupils
+from wz_core.pupils import Pupils
 from wz_table.spreadsheet import Spreadsheet
-
-#Configuration.addConfig ("config_attendance.cfg")
 
 #### Spreadsheet Functions ####
 # Note that "," must be used as separator, not ";"!
@@ -175,7 +174,9 @@ class Table:
         ws.page_setup.orientation = (ws.ORIENTATION_LANDSCAPE if landscape
                 else ws.ORIENTATION_PORTRAIT)
         if fitHeight or fitWidth:
-            ws.page_setup.fitToPage = True
+            wsprops = ws.sheet_properties
+            wsprops.pageSetUpPr = PageSetupProperties (fitToPage=True)
+#            ws.page_setup.fitToPage = True
             if not fitHeight:
                 ws.page_setup.fitToHeight = False
             elif not fitWidth:
@@ -298,11 +299,11 @@ class AttendanceTable:
         self._pupilRows = {}
         pupilDataList = Pupils (self._year).classPupils (self._class)
         for pdata in pupilDataList:
-            pid = pdata.PID
+            pid = pdata ['PID']
             self._pupilRows [pid] = row
             self._table.setRowHeight (row, self._rwH)
             self._table.setRowHeight (row, self._rwH, self._wsMonth)
-            n1, n2 = pdata.FIRSTNAME, pdata.LASTNAME
+            n1, n2 = pdata ['FIRSTNAME'], pdata['LASTNAME']
 #NOTE: The column of these cells is not a configuration item
             self._table.setCell ("A%d" % row, pid, self._st_id)
             self._table.setCell ("B%d" % row, n1, self._st_name)
@@ -392,9 +393,6 @@ class AttendanceTable:
         # First get the old tables
         table = Spreadsheet (filepath)
 
-#TODO: This method doesn't exist any more...
-        if not table.isValid ():
-            return False
         # Copy pupil attendance data.
         # Need to know the last pupil row in the old file ...
         row = self._row0
@@ -443,9 +441,8 @@ class AttendanceTable:
                             if row2:
                                 self._table.setCell (colA + str (row2), val, sheet = month)
                             else:
-                                REPORT.Error ("Schüler(in) %s %s ist nicht mehr in der Tabelle"
-#TODO
-                                        % ClassData.getName2 (pid))
+                                REPORT.Error (("Schüler(in) %s ist nicht"
+                                        " mehr in der Tabelle") % pid)
             row += 1
 
         # Additional notes
@@ -551,26 +548,3 @@ def test_01 ():
 def test_02 ():
     year = 2016
     AttendanceTable.makeAttendanceTable (year, klass='10')
-
-
-#TODO
-######################### Test code #########################
-
-if __name__ == "__main__":
-    if not Configuration._TESTINIT_ ():
-        quit (1)
-    Settings.init (2016)
-
-    testHols = False
-    if testHols:
-        l = list (readHols ())
-        l.sort ()
-        for d in l:
-            print (d.isoformat ())
-
-    testTable = True
-    if testTable:
-        AttendanceTable.makeAttendanceTable ('10_G',
-                os.path.join (Configuration.getTestFolder (),
-                        'Klassenbuch-10_G-2016.ods'))
-#        makeAttendanceTable ("10_G")

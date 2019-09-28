@@ -7,7 +7,7 @@ Although the program is not really designed as a web service, the user interface
 
 Copyright 2017 - 2019 Michael Towers.
 
-This is free, open source software. Licensing information is in the file 'LICENSE.txt'.
+This is free, open source software. Licensing information is in the file 'LICENSE'.
 
 This software has been developed under Linux, it should also work under Windows. Other systems have not been tested.
 
