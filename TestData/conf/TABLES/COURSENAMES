@@ -1,0 +1,17 @@
+############## TABLES/COURSENAMES
+############## Version: 2019-03-12
+
+######## Haupttabelle der Fachnamen. Hier die Feldnamen dieser Tabelle
+
+### Diese Felder sind im Info-Teil der Tabelle:
+# (keine)
+
+### Spalten
+## Programminterne Bezeichnung für den Kurs (muss die erste Spalte sein):
+#sid = %id
+
+## Kursname, wie er in Zeugnissen erscheint:
+COURSE_NAME = Kurs
+
+## Falls zusätzliche Infos hier zur Verfügung gestellt werden ...
+#INFO = INFO

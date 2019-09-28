@@ -1,0 +1,76 @@
+############## GRADES/GRADES_P
+############## Version: 2019-07-11
+
+### 'Punktskala' für Noten der Abiturprüfung (12. Klasse)
+
+# Klasse-Gruppe, für die diese Notenskala relevant ist.
+GROUPS = 12-Gym
+
+# Formatierung einer Note, Anzahl der Ziffern.
+DIGITS = 2
+
+VALID =& 15
+       & 14
+       & 13
+       & 12
+       & 11
+       & 10
+       & 09
+       & 08
+       & 07
+       & 06
+       & 05
+       & 04
+       & 03
+       & 02
+       & 01
+       & 00
+
+       & nb
+       & nt
+       & t
+# Noch nicht erteilt (für Fächer, die später im Jahr unterrichtet werden)
+# oder nicht gewählt:
+       & *
+
+#       & ne
+
+#TODO: Do I still want this? Why not just ––––––?
+## Für zusammengesetzte Noten. Wenn eine Note leer ist, bleibt die zusammengesetzte
+## Note leer. Ansonsten wird der Mittelwert der Komponenten ermittelt. Wenn es
+## unter den Komponenten keine echten Noten gibt, wird in folgender Reihenfolge
+## eine Prioritätsliste von "Nicht-Noten" gegeben.
+NOGRADE_PRIORITY =& nb
+                  & t
+                  & nt
+                  & *
+
+## Zuordnung zu entsprechenden Textnoten.
+15   = 15
+14   = 14
+13   = 13
+12   = 12
+11   = 11
+10   = 10
+09    = 09
+08    = 08
+07    = 07
+06    = 06
+05    = 05
+04    = 04
+03    = 03
+02    = 02
+01    = 01
+00    = 00
+## Die aktuellen Dokumentvorlagen für diese Zeugnisse haben nur wenig
+## Platz für die einzelnen Noten. Deswegen sind die Texteinträge abgekürzt:
+
+#nb = kann nicht beurteilt werden
+nb = ––––––
+#nt = nicht teilgenommen
+nt = ––––––
+#t = teilgenommen
+#* = nicht gewählt / noch nicht erteilt
+* = ––––––
+
+#ne = nicht erteilt

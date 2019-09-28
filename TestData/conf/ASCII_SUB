@@ -1,0 +1,19 @@
+############## ASCII_SUB
+############## Version: 2019-01-08
+
+### Ersatz-Zeichen für Dateinamen, die vom Programm erstellt werden, damit nur
+### ASCII-Zeichen verwendet werden. Andere Nicht-ASCII-Zeichen werden durch
+### '^' ersetzt.
+ä = ae
+ö = oe
+ü = ue
+ß = ss
+Ä = AE
+Ö = OE
+Ü = UE
+ø = oe
+ô = o
+é = e
+è = e
+ë = e
+ñ = n

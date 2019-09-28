@@ -1,0 +1,28 @@
+############## GRADES/XCOLUMNS/V_13
+############## Version: 2018-10-28
+
+K_TEXT = Versetzung
+VALID = Q13
+      = RS
+      = HS
+
+### Die entsprechenden Texte
+
+# Versetzung
+Q13 = Durch Konferenzbeschluss vom {GDATE_D} in die 13. Klasse versetzt.
+
+# Sek-I-Abschlüsse
+# (Gleichstellungsvermerk bei vorzeitigem Verlassen der Qualifizierungsphase)
+
+# (Q13)
+Erw = Dieses Zeugnis ist dem Erweiterten Sekundarabschluss I gleichgestellt.
+    = Es vermittelt die gleiche Berechtigung wie das Zeugnis über den
+    = Erweiterten Sekundarabschluss I.
+
+RS  = Dieses Zeugnis ist dem Sekundarabschluss I – Realschulabschluss
+    = gleichgestellt. Es vermittelt die gleiche Berechtigung wie das Zeugnis
+    = über den Sekundarabschluss I – Realschulabschluss.
+
+HS  = Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss
+    = gleichgestellt. Es vermittelt die gleiche Berechtigung wie das Zeugnis
+    = über den Sekundarabschluss I – Hauptschulabschluss.

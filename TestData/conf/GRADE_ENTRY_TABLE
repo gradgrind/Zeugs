@@ -1,0 +1,37 @@
+############## GRADE_ENTRY_TABLE
+############## Version: 2019-07-11
+
+### Konfigurationsdatei für Noteneingabe-Tabellen (für Gruppen)
+
+FONT = Arial
+FONT_SIZE = 11
+FONT_SIZE_TITLE = 12
+FONT_SIZE_TAG = 8
+
+# Spaltenbreiten in mm (ungefähr)
+WIDTH_PID = 20
+WIDTH_NAME = 60
+WIDTH_SEP = 3
+WIDTH_GRADE = 10
+# Zeilenhöhen in mm (ungefähr)
+HEIGHT_TITLE = 10
+HEIGHT_INFO = 8
+#
+HEIGHT_SID = 16
+HEIGHT_SBJ = 60
+HEIGHT_ROW = 8
+HEIGHT_SEP = 3
+
+# Eigentliche Linienbreite für angegebene Umrandungsbreite (0 - 3)
+LINE_WIDTH =& 0
+            & 1,0
+            & 2,0
+            & 3,0
+
+BG_COLOURS =& INVALID:888888
+            & SPACER:777777
+#            & GRADES_P:FFFE4C
+#            & GRADES_A:FFFE4C
+#            & GRADES:
+#            & GRADES_P:
+#            & GRADES_A:

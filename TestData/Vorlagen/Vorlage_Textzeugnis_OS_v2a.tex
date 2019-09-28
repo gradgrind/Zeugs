@@ -1,0 +1,138 @@
+%%%%%%%% Template for text reports – 12.01.2018 %%%%%%%%
+
+%%%% This allows page breaks within a report entry.
+%%%% Compile TWICE with xelatex,.
+
+\documentclass[12pt]{article}
+\usepackage[a4paper,
+top=1cm, bottom=1.5cm, left=2cm, right=2cm,
+includeheadfoot, headsep=5mm] {geometry}
+%% headsep is the gap before the first text line
+
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}
+%\setsansfont{Arial}
+%\setmonofont{Arial}
+\usepackage{microtype}
+
+%% DEBUGGING
+%\errorcontextlines 10000
+%\usepackage{showframe}
+%%
+
+\usepackage{xunicode}
+\usepackage{polyglossia}
+\setdefaultlanguage{german}
+\usepackage{csquotes}
+\MakeOuterQuote{"}
+
+%%%% Header and Footer
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+
+\addtolength{\headheight}{1.2\baselineskip}
+\chead{Klasse: \textbf{$KLASSE}\\}
+\rhead{Schuljahr: \textbf{$SCHULJAHR}\\}
+\lhead{Zeugnis für\\ \hspace{10mm}\textbf{$SCHUELER}}
+%\lfoot{left footer content}
+%\rfoot{right footer content}
+%% The line under the header (width 0mm will remove the line):
+\renewcommand{\headrulewidth}{0.5mm}
+%% The line above the footer (the default is zero width – no line):
+\renewcommand{\footrulewidth}{0.2mm}
+
+\usepackage{lastpage}
+\cfoot{Seite \thepage\ von \pageref{LastPage}}
+%%% end Header and Footer
+
+%%%% Draft / Final - switch
+%% For draft version compile with xelatex [...] "\def\isdraft{1} \input{<filename>}"
+%% <filename> needs no ".tex" extension.
+%% The following is just an example for using \isdraft, it is not used.
+\ifdefined\isdraft
+  \newcommand{\InDraft}{DRAFT}
+\else
+  \newcommand{\InDraft}{}
+\fi
+
+%% Tolerate wider spaces to avoid over-long lines
+\tolerance=1000
+
+%% Stuff needed for dealing with layout
+\usepackage{ifthen}
+\usepackage{refcount}
+\newcounter{oldpage}	% used for page number of last block
+\newcounter{mycntl}		% for numbering the blocks
+
+\setlength{\parindent}{5mm}
+
+%% Stuff for tweaking page breaks
+\usepackage{needspace}
+\widowpenalties 3 10000 10000 150
+\clubpenalties 3 10000 10000 150
+
+%%%%MACRO: A report entry block
+\newcommand{\myblock}[3]{
+%\noindent%
+\needspace{2cm}
+\stepcounter{mycntl}
+
+%% If the previous entry is on the same page, add a separator line:
+\ifthenelse{\equal{\theoldpage}{\getpagerefnumber{marka\themycntl}}}
+{%%then
+% Add a separator line.
+% \raisebox allows the placement to be adjusted vertically without
+% using up extra vertical space.
+  {\centering
+  \raisebox{9mm}[0pt][0pt]{\rule{14cm}{.3mm}}\par
+  }
+}
+{%%else
+  %% This clause must use the same vertical space as the <if> clause
+  \hfill
+}
+%% Undo the vertical space used in the <ifthenelse> block above:
+\vspace*{-\baselineskip}\vspace*{-\parskip}
+
+%% Block title:
+\vspace{-3mm}\subsubsection*{#1}
+\label{marka\themycntl}
+
+%text body
+#2
+%% The teacher's name should appear below, but never on the next
+%% page, so a page break must be avoided here. This is an alternative:
+
+\nopagebreak
+\vspace{2mm}
+\label{markb\themycntl}
+\nopagebreak
+\hfill #3
+
+\setcounter{oldpage}{\getpagerefnumber{markb\themycntl}}
+
+\vspace{16mm}
+%\vskip 16mm	% \vspace seems unreliable in suppressing the space at page breaks
+}
+%%%% End report entry block
+
+%%%%MACRO: Command to show an intro block in italic
+\newcommand{\Intro}[1]{\fontshape{it}\selectfont{}#1\fontshape{\shapedefault}\selectfont{}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+>>>>ENTRY
+\myblock{$FACH}{%
+\Intro{%
+$INTRO
+}
+
+$TEXT
+}%
+{$LEHRER}
+
+<<<<
+
+\end{document}

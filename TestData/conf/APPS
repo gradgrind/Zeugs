@@ -1,0 +1,73 @@
+############## APPS
+############## Version: 2019-07-11
+
+### Hier sind die Befehle für benötigte externe Apps.
+### Unter Umständen sind volle Pfade notwendig.
+### Auch ausführbare Dateien im 'support'-Ordner können hier angegeben
+### werden, indem der Pfad mit '*' anfängt, z.B. '*SumatraPDF.exe'
+
+## LibreOffice
+EXEC_LO =& libreoffice
+
+### XeLaTeX
+#EXEC_LATEX =& xelatex
+#EXEC_TLMGR =& tlmgr
+
+
+#**********************************************************************#
+### App zum Drucken von PDF-Dateien
+############ Windows 
+#PDF_PRINTER    =& path/to/SumatraPDF.exe
+#                & -print-to
+#                & {printer}
+#                & {filepath}
+
+#PDF_PRINTER_2  =& path/to/SumatraPDF.exe
+#                & -print-to
+#                & {printer}
+#                & -print-settings
+#                & "duplexlong"
+#                & {filepath}
+
+#PDF_PRINTERD   =& path/to/SumatraPDF.exe
+#                & -print-to-default
+#                & {filepath}
+
+#PDF_PRINTER_2D =& path/to/SumatraPDF.exe
+#                & -print-to-default
+#                & -print-settings
+#                & "duplexlong"
+#                & {filepath}
+
+############ Linux, etc.
+### Drucker angeben (***NAME*** muss durch den Druckernamen ersetzt werden)
+#PDF_PRINTER    =& lp
+#                & -d
+#                & ***NAME***
+#                & {filepath}
+
+### Doppelseitig (***NAME*** muss durch den Druckernamen ersetzt werden)
+#PDF_PRINTER  =& lp
+#              & -d
+#              & ***NAME***
+#              & -o
+#              & sides=two-sided-long-edge
+#              & {filepath}
+
+### Drucken mit voreingestelltem Drucker
+PDF_PRINTER   =& lp
+               & {filepath}
+
+### Doppelseitig drucken mit voreingestelltem Drucker
+#PDF_PRINTER =& lp
+#             & -o
+#             & sides=two-sided-long-edge
+#             & {filepath}
+
+### A3 doppelseitig (***NAME*** muss durch den Druckernamen ersetzt werden)
+PDF_PRINTER_A3  =& lp
+                 & -d
+                 & ***NAME***
+                 & -o
+                 & sides=two-sided-short-edge
+                 & {filepath}

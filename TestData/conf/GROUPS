@@ -1,0 +1,15 @@
+############## GROUPS
+############## Version: 2019-07-12
+
+### Abschluss-Maßstäbe. Diese können auch Unterrichtsgruppen sein.
+Gym = Gymnasium
+RS = Realschule
+HS = Hauptschule
+
+STREAMS =& Gym
+         & RS
+         & HS
+
+# sich gegenseitig ausschließende Gruppen
+GROUPS =& Gym RS HS
+        & A B

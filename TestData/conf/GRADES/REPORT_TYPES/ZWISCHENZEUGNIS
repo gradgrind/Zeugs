@@ -1,0 +1,15 @@
+############## GRADES/REPORT_TYPES/ZWISCHENZEUGNIS
+############## Version: 2019-01-20
+
+REPORT_KEY = Zwischenzeugnis
+REPORT_INDEX = 2
+
+REPORT_TYPE_CAP = ZWISCHENZEUGNIS
+REPORT_TYPE     = Zwischenzeugnis
+
+## Type tag for filename
+tag = zz
+
+### Die Vorlage kann von Jahrgang und Gruppe abhängen
+# Voreinstellung:
+* = Vorlage-Zeugnis-SI.odt

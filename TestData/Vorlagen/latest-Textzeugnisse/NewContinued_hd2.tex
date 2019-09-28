@@ -1,0 +1,468 @@
+%%%%%%%% Testing layout for text reports – 16.11.2018 %%%%%%%%
+
+%%%% This allows page breaks within a report entry.
+%%%% It has ''Continued ...'', handled by the page header.
+%%%% It has drawn lines between individual entries.
+
+%%%% Compile TWICE with xelatex to get correct page total.
+
+\documentclass[12pt]{article}
+\usepackage[a4paper,
+top=0.5cm, bottom=1.8cm, left=2cm, right=2cm,
+includeheadfoot, headsep=22mm, footskip=10mm] {geometry}
+%% headsep is the gap before the first text line
+\addtolength{\headheight}{1.2\baselineskip}
+
+%% DEBUGGING
+%\errorcontextlines 10000
+%\usepackage{showframe}
+%%
+
+\usepackage{fontspec}
+\usepackage{xltxtra}
+\setmainfont[SmallCapsFont={* Caps}]{Latin Modern Roman}
+%\setmainfont{Linux Libertine O}
+%\setromanfont{Linux Libertine O}
+%\setsansfont{Arial}
+%\setmonofont{Arial}
+\usepackage{microtype}
+
+\usepackage{xunicode}
+\usepackage{polyglossia}
+\setdefaultlanguage{german}
+\usepackage{csquotes}
+\MakeOuterQuote{"}
+
+%%%% Header and Footer
+\usepackage{lastpage}
+\usepackage[explicit]{titlesec}
+\usepackage{titleps}
+
+\newpagestyle{main}[\small]{
+%    \setheadrule{.5mm}%
+    \sethead%
+        {%
+            \topbarfalse%
+%TODO: How to calculate the raising?
+            \hbox to 0cm{\raisebox{-21mm}{%
+                \heading{\headname}%
+            }}%
+            \begin{tabular}[t]{@{}l}
+                Zeugnis für\\
+                \hspace{10mm}\textbf{Christian Eric Carstensen}
+              \end{tabular}%                            left
+            \global\let \contname \lastname%
+            \global\let \headname \contname%
+				}%
+            {Klasse: \textbf{10}}%                      center
+            {Schuljahr: \textbf{2015-2016}%             right
+        }%
+%    \setfootrule{.2mm}%
+    \setfoot%
+        {}%
+        {Seite \thepage\ von \pageref{LastPage}}%
+        {}%
+}
+\pagestyle{main}
+\renewcommand{\makeheadrule}{%
+    	\rule[-1.5\baselineskip]{\linewidth}{.5mm}}
+\renewcommand{\makefootrule}{%
+    	\rule[1.1\baselineskip]{\linewidth}{.2mm}}
+%%% end Header and Footer
+
+%%%% Draft / Final - switch
+%% For draft version compile with xelatex [...] "\def\isdraft{1} \input{<filename>}"
+%% <filename> needs no ".tex" extension.
+%% The following is just an example for using \isdraft, it is not used.
+\ifdefined\isdraft
+  \newcommand{\InDraft}{DRAFT}
+\else
+  \newcommand{\InDraft}{}
+\fi
+
+%% Tolerate wider spaces to avoid over-long lines
+\tolerance=1000
+\emergencystretch 1em
+%\emergencystretch 3em
+
+%% Stuff for tweaking page breaks
+%\widowpenalties 4 10000 10000 10000 150
+%\widowpenalties 4 150 150 150 150
+\widowpenalties 2 10000 150
+%\widowpenalty=10000
+%\clubpenalties 3 10000 10000 150
+\clubpenalty=150
+
+\setlength{\parindent}{0mm}
+\setlength{\parskip}{2mm plus 1mm minus 1mm}
+
+%%%%MACRO: A report heading
+\newif\iftopbar
+
+\newcommand{\heading}[1]{%
+\noindent\begin{minipage}[b][1.6cm][b]{\textwidth}
+  \iftopbar
+    \noindent\hfil\rule{0.7\textwidth}{0.5pt}\hfil
+  \fi
+  \vfill
+%bold small caps is not available (in this font?)
+%  \hspace{7mm}\large \textsc{\textbf{#1}}
+  \hspace{7mm}\large {\scshape #1}
+  \vspace{2mm}
+  \end{minipage}
+}
+
+%%%%MACRO: A report ``signature''
+\newsavebox{\boxname}
+\newlength{\boxlength}
+
+\newcommand{\mysig}[1]{\unskip%
+  \savebox{\boxname}{#1}%
+  \settowidth{\boxlength}{\usebox{\boxname}}%
+  \addtolength{\boxlength}{2cm}
+  \hskip -1cm\rule[-7mm]{0pt}{5mm}\hfill\makebox[\boxlength][r]{\raisebox{-7mm}[0pt][0pt]{\usebox{\boxname}}}	%teacher
+\par
+}
+
+%%%%MACRO: A report entry block
+\newcommand{\myblock}[4]{%
+\pagespace
+\ifdim\pagetotal=0pt
+  % At top of page
+  \topbarfalse%
+\else
+  \ifdim\spaceleft<3cm
+    \newpage%
+    \topbarfalse%
+  \else
+    \topbartrue%
+  \fi
+\fi
+
+%% Block title:
+\def \lastname {#1 (fortges.)}%     Continuation header
+\iftopbar
+  % Not at top of page.
+  \heading{#1}%
+\else
+  % The heading will be added when the page is output.
+  \def \headname {#1}%
+\fi%
+
+%% Text body
+\noindent{\itshape #2}\par
+%\if\relax\detokenize{#2}\relax
+%  %  The intro is empty.
+%\else
+%  \vskip 2mm
+%\fi
+\noindent#3
+%% The teacher's name should appear below, but never on the next
+%% page, so a page break must be avoided here.
+\mysig{#4}
+\vspace{5mm}
+%%\vskip 16mm	% \vspace seems unreliable in suppressing the space at page breaks
+}
+%%%% End report entry block
+
+%%%%MACRO: Command to determine space left on page.
+% The result is in \spaceleft
+\newdimen\spaceleft
+
+\def\pagespace{%
+  \ifdim\pagetotal=0pt
+      \spaceleft=\vsize
+  \else
+     \spaceleft=\pagegoal
+     \advance\spaceleft by -\pagetotal
+  \fi
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+%\savebox{\boxedheader}{\heading{TESTING}}
+%
+\myblock{Mathematik}{%
+Im Unterricht zur Mathematik wurden Grundlagen zur Algebra und zur Stereometrie
+bearbeitet; das Jahr endete mit einer Epoche zur Trigonometrie. Es wurden
+Verfahren zur Lösung von quadratischen Gleichungen erarbeitet und auch Verfahren
+für die Lösung von linearen Gleichungssystemen. Hierbei wurde Wert darauf
+gelegt, dass die bestehenden Lücken geschlossen wurden.
+}%
+{%
+Im Unterricht zur Mathematik wurden Grundlagen zur Algebra und zur Stereometrie
+bearbeitet; das Jahr endete mit einer Epoche zur Trigonometrie. Christian kam am
+Anfang des Schuljahres in die Gruppe. Es zeigte sich, dass er die Verfahren
+sicher beherrscht und er verstand die behandelten Themen schnell. Er konnte die
+Rechentechniken erfolgreich einsetzen, anscheinend ohne besondere Anstrengung.
+Hier und da tauchten jedoch Unsicherheiten auf, z.\,B. im Umgang mit
+Bruchgleichungen. Seine Leistungen lagen insgesamt im guten Bereich.}%
+{Fritz Folter}
+
+\myblock{Biologie}{%
+In der diesjährigen Biologie-Epoche beschäftigten wir uns mit den Organsystemen
+des menschlichen Körpers. Besonders intensiv erarbeiteten wir uns das
+Immunsystem, das Herz-Kreislaufsystem und das Atmungssystem. Anstelle einer
+abschließenden Klassenarbeit informierten sich die Schüler selbstständig über
+ein sachbezogenes Thema und präsentierten ihre Ergebnisse in Form eines
+Referats.
+}%
+{%
+Christian beteiligte sich von sich aus nicht am Unterrichtsgespräch und
+verfolgte den Unterricht so eher passiv. Er hielt kein Referat, da er an diesem
+Tag nicht den Unterricht besuchte. Als Ersatzleistung schrieb Christian eine
+Klassenarbeit. Anhand des Ergebnisses wurde sehr deutlich, dass er sich nicht
+hinreichend mit den Themen der Epoche auseinandergesetzt hatte. In der Epoche
+erarbeitete Zusammenhänge zur Funktionsweise der Organe konnten von Christian
+nicht erklärt bzw. beschrieben werden. Auch bei der Führung seines Epochenheftes
+muss sich Christian noch deutlich steigern. Seinem aktuellen Heft mangelt es angeometry
+einer brauchbaren Form, außerdem sind die Texte oft unvollständig. Dies betrifft
+insbesondere die Eigenleistungen. Die anatomischen Zeichnungen wurden nicht mit
+der nötigen Sorgfalt angelegt und sind daher in den entscheidenden Details oft
+fehlerhaft. In Zukunft muss Christian sich mit mehr Aktivität und Energie am
+Unterricht beteiligen und größere Anstrengungen unternehmen, den Stoff
+gedanklich zu durchdringen.
+}%
+{Mark Essich}
+
+\myblock{Chemie}{%
+In der Chemie-Epoche des 10. Schuljahres haben wir uns mit Säuren, Laugen und
+Salzen beschäftigt. Dabei haben wir die Charakteristika verschiedener Säuren und
+Laugen herausgearbeitet, sowie die Beziehung zwischen den Salzen und den Säuren
+und Laugen ergründet.
+}%
+{%
+Christian beteiligte sich leider mündlich überhaupt nicht am Unterricht und
+versäumte es auch mehrfach seine Hausaufgaben zu erledigen. Dementsprechend war
+auch sein Epochenheft nur unvollständig geführt und enthielt inhaltliche Fehler.
+In den schriftlichen Zwischentests konnte Christian die grundlegenden
+Zusammenhänge des Epochenstoffs reproduzieren, in der abschließenden
+Klassenarbeit zeigte sich jedoch, dass bei Christian noch größere Wissenslücken
+bestanden. In Zukunft muss sich Christian gedanklich aktiver mit den
+Unterrichtsinhalten beschäftigen.
+}%
+{Mark Essich}
+
+\myblock{Physik}{%
+In der Epoche zur Physik stand die Mechanik auf dem Programm. Es wurden Pendel
+als Grundlage der Zeitmessung betrachtet und Federn zur Kraftmessung. Es wurden
+die Statik und die Dynamik behandelt. Ebenso wurde die Überlagerung von
+Bewegungen betrachtet.
+}%
+{%
+Christian beteiligte sich recht angemessen am Unterricht. Sein Epochenheft ist
+vollständig, aber nicht immer ganz ordentlich. An der schriftlichen Arbeit nahm
+er nicht teil. Daher ist eine abschließende Beurteilung nicht möglich.
+}%
+{Dr. Birgit Sprengstoff}
+
+\myblock{Deutsch}{%
+In der ersten Epoche des Jahres setzten wir uns mit dem Nibelungenlied und
+dessen Rezeption auseinander und unternahmen eine kleine Studienreise nach
+Weimar und zur Gedenkstätte Buchenwald. Der Roman „Sansibar oder Der letzte
+Grund“ von Alfred Andersch sowie journalistische und lyrische Texte zum Thema
+Flucht standen im Mittelpunkt der zweiten Epoche. Verschiedene Methoden der
+Texterschließung wurden geübt und angewendet.\par
+}%
+{%
+Christian entwickelte im Laufe des Schuljahres immer mehr Interesse für die
+Themen und arbeitete mündlich zunehmend aktiver mit. Seine schriftlichen
+Leistungen waren wechselhaft: Dass er einen Sinn für das Wesentliche hat, konnte
+er in seinen Texten zur Nibelungenliedepoche unter Beweis stellen. In der
+zweiten Epoche gab er ein unvollständiges, nur skizzenhaft angelegtes Heft ab.
+Es wäre wichtig, wenn Christian im kommenden Schuljahr das Verfassen von
+Aufsätzen ernster nähme, vor allem muss er üben, sich gründlicher mit den
+Aufgabenstellungen auseinanderzusetzen. Christians Rechtschreibung ist in
+Ordnung, grammatikalisch zeigen sich noch Unsicherheiten, stilistisch kann er
+noch einiges dazulernen.
+}%
+{Gudrun Unterbach}
+
+\myblock{Englisch}{%
+Zu Beginn des Schuljahres lasen wir die Lektüre zum gleichnamigen Film "Cry
+Freedom". Es sind die Erinnerungen des südafrikanischen Journalisten Donald
+Woods an seinen Freund Steven Biko. Biko setzte sich für die friedliche
+Überwindung des rassistischen Apartheid Regimes ein und wurde dafür zu Tode
+gefoltert. Wir beschäftigten uns auch mit der Geschichte Südafrikas, und
+versuchten die Wurzeln der Rassentrennung zu verfolgen. Während wir den ersten
+Teil der Lektüre gemeinsam lasen und bearbeiteten, wurde der zweite Teil
+eigenständig von den Schülern und Schülerinnen erarbeitet. Jeweils zu zweit
+wurde ein Kapitel vorgestellt. Die Mitschüler mussten anhand von Fragen, Rätseln
+und Grammatikübungen ihre Aufmerksamkeit unter Beweis stellen. Hier hat wirklich
+fast jede/r ihr/sein Bestes gegeben, und das selbstständige Arbeiten zeigte, was
+die Schüler und Schülerinnen in der Fremdsprache bereits alleine leisten können.
+Musikalisch untermalte dabei Peter Gabriels Song "Biko" unsere Arbeit, der fast
+den Status eines Klassenschlagers erreichte.Zum Abschluss dieses Themas
+beschäftigten wir uns noch mit Nelson Mandela, Ken Saro Wiwa und anderen
+"Helden", die wiederum durch Referate vorgestellt wurden.\par
+Im zweiten Halbjahr widmeten wir uns Großbritannien, wir lasen Texte über die
+Monarchie und die Zeit als Kolonialreich. So ergab sich der Bezug zum Thema
+"Multiculturalism in Britain", denn wir hatten gelernt, warum unter anderen
+viele Inder und Pakistani in Großbritannien leben. In unserer Lektüre "Bend it
+like Beckham" ging es dann um eine fußballverrückte und sehr talentierte junge
+Inderin, die es schafft, sich über kulturelle Konventionen hinwegzusetzen. Wir
+tauchten tief in die indische Kultur ein, lernten über "arranged marriages",
+Religion und Küche dieses Kontinents. Neben Wiederholungen wichtiger
+Grammatikaspekte konnten die Schüler in diesem Jahr neue wichtige Vokabeln und
+Formulierungen erlernen und viele haben sich beim Formulieren englischer Texte
+sehr verbessern können.
+}%
+{%
+Christian, Sie haben sich die meiste Zeit bemüht, sowenig wie möglich zu tun.
+Schade! Mit etwas mehr Einsatz hätten Sie sicherlich viel mehr erreichen können.
+Auf Anfrage zeigten Sie nämlich, dass Sie sich sehr wohl am Unterrichtsgespräch
+mit guten Gedanken beteiligen können. Auch die Erledigung der Hausarbeiten war
+sehr unregelmäßig. Für das kommende Jahr ist mehr Einsatz gewünscht!
+}%
+{James Bond}
+
+\myblock{Französisch}{%
+}%
+{%
+Christian hat sehr ruhig am Französischunterricht teilgenommen. Er meldete sich
+so gut wie nie und konnte mündlich kaum Fortschritte erzielen.  Es mangelte
+Christian an Fleiß und Kontinuität. In der Lektürearbeit fasste er zum Beispiel
+kaum ein Kapitel selbstständig zusammen.  Vokabeln und grammatikalische
+Neuinhalte übte er nicht ausreichend, sodass er nur knapp zufriedenstellende bis
+mangelhafte Arbeiten schrieb.  Er fing auch zu spät an, zu lernen. Im nächsten
+Schuljahr muss Christian sehr viel tun und eine andere Arbeitshaltung vorweisen.
+}%
+{Candice d‘Amour}
+
+\myblock{Geschichte}{%
+In den beiden Geschichtsepochen wurde die Menschheitsgeschichte von den Jägern
+und Sammlern über die frühen Hochkulturen bis zum antiken Griechenland
+exemplarisch behandelt.
+}%
+{%
+Christian hat sich am Unterrichtsgespräch kaum beteiligt. In der zweiten Arbeit
+hat er sich merklich gesteigert, indem er in allen Bereichen vielversprechende
+Ansätze gezeigt hat. Zum Schluss aber wurden die Ausführungen viel zu knapp. Die
+Hefte enthalten wesentliche Beiträge, sind aber beide ziemlich lückenhaft und
+hätten ordentlicher geführt werden müssen.
+}%
+{Dr. Birgit Sprengstoff}
+
+\myblock{Religion}{%
+}%
+{%
+Christian hat still und aufmerksam am Religionsunterricht der
+Christengemeinschaft teilgenommen.
+}%
+{Dr. Gisela Kerzengrad}
+
+\myblock{Sozialkunde}{%
+Die Sozialkunde beschäftigte sich im 10. Schuljahr mit dem Verfassungsaufbau
+unseres Staates, mit Parteien, Wahlen und der Demokratie in ihren
+Entwicklungsmöglichkeiten, wobei z. B. Systeme für Volksentscheide oder ein
+bedingungsloses Grundeinkommen diskutiert wurden.
+}%
+{%
+Christian beteiligte sich dabei immer wieder auch aktiv und mit sinnvollen
+Beiträgen am Unterrichtsgespräch. Die Parteienvorstellung zur FDP war gut
+strukturiert, aber nicht sehr umfänglich vorbereitet, die Darstellung zum
+Zukunftskonzept der Volksentscheide gelang dann recht gut. Insgesamt ist also
+ein noch bewussterer Arbeitszugriff zu wünschen, dann wird Christian sein
+merkbares Sachinteresse auch in gute Lernerfolge umsetzen können.
+}%
+{Arthur Benommen}
+
+\myblock{Geographie}{%
+In der Geographie-Epoche lernten die Schüler Phänomene des Wetters und des
+Klimas kennen. Sie verfolgten das tägliche Wettergeschehen in Zusammenhang mit
+der Verteilung von Hoch- und Tiefdruckgebieten und erstellten dazu eine eigene
+Graphik.
+}%
+{%
+Christian arbeitete im Unterricht  aufmerksam, interessiert und mündlich
+teilweise aktiv mit. Seine Beiträge waren ansprechend, den Wetterbericht hat er
+angemessen zusammengestellt. Das Epochenheft hat er aber nicht abgegeben. In der
+Abschlussarbeit erreichte er etwa die Hälfte der maximal möglichen Leistung und
+zeigte damit insgesamt ein befriedigendes Epochenergebnis.
+}%
+{Arthur Benommen}
+
+\myblock{Sport}{%
+}%
+{%
+Christian setzte sich mit der bewussten Beherrschung des Schwunges auseinander.
+Anhand der Diskus\mbox{-,} Hockey\mbox{-,} Turn- und Basketballepoche konnte er
+die Aspekte des Körperschwunges erleben. In der Diskuswurfepoche war er bemüht,
+sich die Schwungtechnik anzueignen. Durch ein ausdauernderes Üben, hätte die
+Technik an weiterführender Präzision gewinnen können, doch leider zeigte
+Christian in dieser Hinsicht kein Engagement. In der Hockey- und
+Basketballepoche beschäftigte sich Christian schon weitgehend aufmerksamer und
+intensiver mit den einzelnen Spieltechniken. Folglich setzte er diese dynamisch
+und  aktiv in den Spielen um. In der Turnepoche sollte Christian sich
+eigenständig eine Übungsabfolge auf dem großen Trampolin und an den Ringen
+erarbeiten. Hierfür trainierte er, teilweise arbeitsam, an den verschiedenen
+Turnelementen. Um allerdings die Fähigkeiten für diese Geräte zu steigern,
+müssen ausdauerndere und beständigere Trainingseinheiten erfolgen. Im nächsten
+Schuljahr sollte Christian daher ein intensiveres Training in allen Bereichen
+verfolgen, um somit an Präzision in seinen Körperbewegungen zu gewinnen und
+verstärkte Tatkraft im Unterricht zeigen zu können.
+}%
+{Mareike Kletterer}
+
+\myblock{Schnitzen}{%
+Die Schüler haben an einer Holzskulptur gearbeitet, die die Spiralform und ihre
+unterschiedlichen Flächenbewegungen zum Thema hatte.
+}%
+{%
+Christian Eric hat sich in seiner Arbeit besonders mit der Komposition von
+Lochbildung und Durchbrüchen auf den senkrechten Flächen beschäftigt. Im Laufe
+der Arbeit zeigten sich sanfte Flächenbewegungen, die in schöner Weise mit den
+scharfen Hell-Dunkelkontrasten der schwarzen Löcher korrespondierten. Eine
+interessante und räumlich von allen Seiten gut nachvollziehbare Arbeit.
+}%
+{Berndt Graziosi}
+
+\myblock{Weben}{%
+}%
+{%
+Christian gelang die Koordination zwischen Hand und Fuß am Spinnrad nach langer
+Übungszeit und Ausdauer. So stellte er dann zum Ende der Zeit noch einen fast
+gleichmäßig verdrehten Faden her. Christian arbeitete ruhig, ausdauernd und nahm
+Verbesserungsvorschläge an.\par
+Christian webte auf einem Flachwebstuhl einen langen Baumwollschal und einen
+kleinen Läufer sowie einen kleinen Wollteppich an einem Hochwebstuhl. Ihm fiel
+die Arbeit mit den vielen Fäden nicht leicht. Kontinuierlich führte er alle
+Anweisungen zu den Arbeitsschritten, die nötig sind um einen Webstuhl
+einzurichten, korrekt aus. Die Mechanik des Webstuhls hat er verstanden. Seinen
+Baumwollschal webte er mit einem gleichmäßigen Anschlag im Gewebe und sauberen
+Webkanten ab. Für das zweite Gewebe war der Webstuhl mit der Kette schon
+eingerichtet. Christian stellte auch dieses Gewebe fleißig und selbstständig
+her.
+}%
+{Adelheid Altmode}
+
+\myblock{Medienkunde}{%
+Grundlagen des Journalismus, der Filmanalyse und der Umgang mit den digitalen
+Medien wurden in der Medienkunde-Epoche vermittelt, in der die Schülerinnen und
+Schüler ein Thema selbst erschlossen und im Unterricht präsentierten und
+außerdem eine eigene Reportage verfassten.
+}%
+{%
+Christians Portfolio war gut gestaltet, sein Referat über Edward Snowden
+inhaltlich interessant. Christian hätte aber die dafür verwendeten Quellen
+nennen müssen -- der Text orientiert sich stark an Wikipedia-Einträgen.
+Wahrscheinlich hätte Christian noch mehr von dem Thema gehabt, wenn er das Buch
+über Snowden dazu ganz gelesen hätte.
+}%
+{Gudrun Unterbach}
+
+\myblock{Betriebspraktikum}{%
+}%
+{%
+Christian absolvierte sein Betriebspraktikum in der Firma Klassic Kars in
+Madendorf, die historische Fahrzeuge restauriert und wartet. Dieses
+dokumentierte er in einer sehr ansprechend gestalteten Mappe. Ebenso waren in
+dieser seine Tätigkeiten gut und aussagekräftig dokumentiert. Christian brachte
+sich gut in das Werkstatt-Team ein und arbeitete an einigen Fahrzeugen bzw.
+Teilen mit. Insgesamt kann das Praktikum als voller Erfolg gewertet werden.
+}%
+{Dr. Birgit Sprengstoff}
+
+
+\end{document}

@@ -1,0 +1,11 @@
+############## GRADES/FIELDS/TERMS
+############## Version: 2018-08-07
+
+
+K_KEY = TERM
+K_TEXT = Halbjahr
+K_VALUES = 1
+         = 2
+
+1 = 1. Halbjahr
+2 = 1. und 2. Halbjahr

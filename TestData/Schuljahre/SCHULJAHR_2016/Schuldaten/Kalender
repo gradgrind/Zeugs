@@ -1,0 +1,15 @@
+### Ferienzeiten, usw.
+### Version: 2018-06-02
+
+START = 2015-09-03
+END = 2016-06-22
+
+RANGES = | Sommer | Herbst | Weihnachten | Ostern | Sommer2
+
+Sommer =        | 2015-08-01 | 2015-09-02
+Herbst =        | 2015-10-19 | 2015-10-30
+Weihnachten =   | 2015-12-23 | 2016-01-08
+Ostern =        | 2016-03-14 | 2016-04-01
+Sommer2 =       | 2016-06-23 | 2016-07-31
+
+SINGLE_DAYS =   | 10-03 | 05-01 | 05-05 | 05-06 | 05-16 | 05-17	

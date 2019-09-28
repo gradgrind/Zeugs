@@ -1,0 +1,31 @@
+############## TABLES/DB_PUPILS
+############## Version: 2019-09-22
+
+### Feldnamen der Schüler-Datenbank.
+### Die Werte sind deutsche Bezeichnungen (nur für die externe Bearbeitung)
+
+# Schüler-ID
+PID = ID
+
+# Felder, die zum Sortieren benutzt werden.
+CLASS = Klasse
+PSORT = Sortiername
+
+FIRSTNAME =   Rufname
+LASTNAME =    Name
+STREAM =      Maßstab
+
+FIRSTNAMES =  Vornamen
+DOB_D =       Geburtsdatum
+POB =         Geburtsort
+SEX =         Geschlecht
+HOME =        Ort
+
+## Die nächsten sind nötig, um zu entscheiden, ob ein Schüler an
+## einem bestimmten Datum angemeldet ist.
+ENTRY_D =     Eintrittsdatum
+EXIT_D =      Austrittsdatum
+
+# Eintritt in die Qualifikationsphase (Abitur)
+QUALI_D =     EintrittQ
+

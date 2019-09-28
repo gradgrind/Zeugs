@@ -1,0 +1,16 @@
+############## TABLES/ABITUR_RESULTS
+############## Version: 2019-07-11
+
+######## Konfiguration der Abitur-Zeugnis-Behandlung
+
+# Sheet/Tabelle mit Eingabe/Ausgabe der Daten eines einzelnen Schülers
+GRADE_TABLE_SHEET = Daten
+
+# Zuordnung der Geschlechter zu Feldern der Vorlage
+P_FrHr =& w:Frau
+        & m:Herr
+
+# Anzahl der Kurse, die jeder Schüler belegen muss – eine Abweichung wird als
+# Fehler betrachtet. Wenn dieses Feld leer ist, wird die Anzahl nicht kontrolliert.
+NCOURSES = 8
+

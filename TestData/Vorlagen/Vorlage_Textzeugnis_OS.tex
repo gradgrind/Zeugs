@@ -1,0 +1,128 @@
+%%% Template for text reports. 30.03.2017
+%%% Compile TWICE with xelatex
+\documentclass[12pt]{article}
+\usepackage[a4paper,
+top=1cm, bottom=1.5cm, left=2cm, right=2cm,
+includeheadfoot, headsep=3mm] {geometry}
+
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}
+%\setsansfont{Arial}
+%\setmonofont{Arial}
+\usepackage{microtype}
+
+% DEBUGGING
+%\errorcontextlines 10000
+%\usepackage{showframe}
+%
+
+\usepackage{xunicode}
+\usepackage{polyglossia}
+\setdefaultlanguage{german}
+\usepackage{csquotes}
+\MakeOuterQuote{"}
+
+%%%% Header and Footer
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+
+\addtolength{\headheight}{1.2\baselineskip}
+\chead{Klasse: \textbf{$KLASSE}\\}
+\rhead{Schuljahr: \textbf{$SCHULJAHR}\\}
+\lhead{Zeugnis\\ \hspace{10mm}für \textbf{$SCHUELER}}
+%\lfoot{left footer content}
+%\rfoot{right footer content}
+\renewcommand{\headrulewidth}{0.5mm}   %Setting the width to zero (ie: 0mm, 0pt, 0in, etc) will remove the line.
+\renewcommand{\footrulewidth}{0.2mm}    %This width is set to zero by default.
+
+\usepackage{lastpage}
+\cfoot{Seite \thepage\ von \pageref{LastPage}}
+%%% end Header and Footer
+
+%%%% Draft / Final - switch
+% For draft version compile with xelatex [...] "\def\isdraft{1} \input{<filename>}"
+% <filename> needs no ".tex" extension.
+% The introductory text should be inside a macro call:
+%% \Intro{%
+%%    About the material covered ...
+%%     ... and all that.
+%% }
+%%
+%% About the pupil ...
+% The following is just an example for using \isdraft, it is not used.
+\ifdefined\isdraft
+  \newcommand{\InDraft}{DRAFT}
+\else
+  \newcommand{\InDraft}{}
+\fi
+
+\usepackage{ifthen}
+\usepackage{refcount}
+
+% callback at beginning of minipage, to set parskip
+\makeatletter
+\newcommand{\@minipagerestore}{\setlength{\parskip}{2mm}}
+%adjust parindent?
+\makeatother
+
+% Tolerate wider spaces to avoid over-long lines
+\tolerance=1000
+
+\newcounter{oldpage}	% used for page number of last block
+\newcounter{mycntl}		% for numbering the blocks
+%%%% A report entry block
+\newcommand{\myblock}[3]{
+\noindent%
+%\fbox{%
+\begin{minipage}[t]{1\columnwidth}
+  % Use the counter mycntl to automatically generate labels, which are then
+  % used to determine whether the page has changed since the last block.
+  \stepcounter{mycntl}
+  \refused{marker\themycntl}
+  \ifthenelse{\equal{\theoldpage}{\getpagerefnumber{marker\themycntl}}}
+  {%then
+  	% A separator line.
+  	% \raisebox allows the placement to be adjusted vertically without
+  	% using up extra vertical space.
+  	\hfill\raisebox{6mm}[0pt][0pt]{\rule{14cm}{.3mm}}\hfill
+  }
+  {%else
+  	\hfill	% this clause must use the same vertical space as the <if> clause
+  	\setcounter{oldpage}{\getpagerefnumber{marker\themycntl}}
+  }
+  %undo the vertical space used in the <iftheelse> block above:
+  \vspace*{-\baselineskip}\vspace*{-\parskip}
+  %block title:
+  \subsubsection*{#1}
+  \label{marker\themycntl}
+
+%text body
+#2
+
+  \vspace{2mm}
+  \hfill #3	%teacher
+\end{minipage}
+%}
+\vskip 14mm	% \vspace seems unreliable in suppressing the space at page breaks
+}
+%%% end report entry block
+
+% Command to show an intro block in italic
+\newcommand{\Intro}[1]{\fontshape{it}\selectfont{}#1\fontshape{\shapedefault}\selectfont{}}
+
+\begin{document}
+
+>>>>ENTRY
+\myblock{$FACH}{%
+\Intro{%
+$INTRO
+}
+
+$TEXT
+}%
+{$LEHRER}
+
+<<<<
+
+\end{document}

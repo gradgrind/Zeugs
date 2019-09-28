@@ -1,0 +1,32 @@
+############## FORMATTING
+############## Version: 2019-05-01
+
+### Hier sind verschiedene Formatierungseinstellungen.
+
+# Dezimaltrennzeichen
+DECIMALPOINT = ,
+
+# Formatangabe für das Schuljahr in Zeugnissen. Beispiele:
+#   leer (kein Wert) : nur das Endjahr, '' -> (z.B.) '2016'
+#   Trennzeichen:      '-' -> (z.B.) '2015-2016'; '/' -> '2015/2016'
+#   2+Trennzeichen:    '2-' -> (z.B.) '2015-16'; '2/' -> '2015/16'
+SCHOOLYEAR = -
+
+# Klassennamen ggf. mit vorangestellter Null (0 -> '9', 1 -> '09')
+CLASS_LEADING_ZERO = 0
+
+# Format der Datumsfelder in Zeugnissen. Angabe in der Form, die die
+# Python-Funktion <datetime.datetime.strftime> benötigt
+DATEFORMAT = %d.%m.%Y
+
+# Zeichenkette für wirklich leere Felder im Notenzeugnis
+EMPTY = 
+
+# Zeichenkette für leere Notenfelder und unbenuzte Felder im Notenzeugnis
+NOENTRY = ––––––
+
+# Zeichenkette für nicht gewählte Fächer im Notenzeugnis
+NOTCHOSEN = ––––––
+
+# Zeichenkette für fehlerhafte / fehlende Note im Notenzeugnis
+BADGRADE = ?

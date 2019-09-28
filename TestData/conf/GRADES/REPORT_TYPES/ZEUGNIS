@@ -1,0 +1,24 @@
+############## GRADES/REPORT_TYPES/ZEUGNIS
+############## Version: 2019-03-26
+
+REPORT_KEY = Zeugnis
+REPORT_INDEX = 1
+
+REPORT_TYPE_CAP = ZEUGNIS
+REPORT_TYPE     = Zeugnis
+
+## Type tag for filename
+tag = z
+
+### Die Vorlage kann von Jahrgang und Gruppe abhängen
+# Voreinstellung:
+* = Vorlage-Zeugnis-SI.odt
+# Sonderfälle:
+*12-Gym = Vorlage-Zeugnis-SII_12_2.odt
+#*11-Gym = Vorlage-Zeugnis-SI_X.odt
+
+### Zusätzliche Felder in der Notentabelle
+## Format: xtag-Wert-Schlüssel
+## Wenn '-Schlüssel' fehlt, wird 'Wert' als Schlüssel benutzt.
+_COMMENT_1 = __v_13-Q13
+           = __v_12-Q

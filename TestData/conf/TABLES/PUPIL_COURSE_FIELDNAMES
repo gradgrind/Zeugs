@@ -1,0 +1,19 @@
+############## TABLES/PUPIL_COURSE_FIELDNAMES
+############## Version: 2019-06-05
+
+### Feldnamen der Schüler-Kurs-Tabellen (Fächerwahl-Tabellen).
+### Nur einige besondere Felder haben "übersetzte" Namen.
+### Die Felder des Info-Teils werden auch in den Kurstabellen benutzt.
+
+## Diese Felder sind im Info-Teil der Tabelle:
+%CLASS = Klasse
+%SCHOOLYEAR = Schuljahr
+
+## Hauptteil der Tabelle
+# Erste Spalte
+PID = %id
+
+PUPIL = Schüler(in)
+GROUPS = Gruppen
+
+# Die anderen Spalten sind für Fachkürzel, usw. Diese werden nicht "übersetzt".

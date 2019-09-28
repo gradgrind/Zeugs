@@ -1,0 +1,70 @@
+############## GRADES/GRADES
+############## Version: 2019-07-11
+
+### Erweiterte Notenskala (mit +/-).
+### Für alle Klassen, die nicht in anderen Dateien angegeben sind.
+
+# Formatierung einer Note, Anzahl der Ziffern.
+DIGITS = 1
+
+VALID =& 1+
+       & 1
+       & 1-
+       & 2+
+       & 2
+       & 2-
+       & 3+
+       & 3
+       & 3-
+       & 4+
+       & 4
+       & 4-
+       & 5+
+       & 5
+       & 5-
+       & 6
+
+       & nb
+       & nt
+       & t
+# "Noch nicht erteilt" (für Fächer, die später im Jahr unterrichtet werden):
+       & *
+
+#       & -
+#       & ne
+
+#TODO: Do I still want this? Why not just ––––––?
+## Für zusammengesetzte Noten. Wenn eine Note leer ist, bleibt die zusammengesetzte
+## Note leer. Ansonsten wird den Mittelwert der Komponenten ermittelt. Wenn es
+## unter den Komponenten keine echten Noten gibt, wird in folgender Reihenfolge
+## eine Prioritätsliste von "Nicht-Noten" gegeben.
+NOGRADE_PRIORITY =& nb
+                  & t
+                  & nt
+                  & *
+
+## Zuordnung zu entsprechenden Textnoten
+1+ = sehr gut
+1 = sehr gut
+1- = sehr gut
+2+ = gut
+2 = gut
+2- = gut
+3+ = befriedigend
+3 = befriedigend
+3- = befriedigend
+4+ = ausreichend
+4 = ausreichend
+4- = ausreichend
+5+ = mangelhaft
+5 = mangelhaft
+5- = mangelhaft
+6 = ungenügend
+
+nb = kann nicht beurteilt werden
+nt = nicht teilgenommen
+t = teilgenommen
+#* = nicht gewählt / noch nicht erteilt
+* = ––––––
+
+#*ne = nicht erteilt

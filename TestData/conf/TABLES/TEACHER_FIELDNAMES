@@ -1,0 +1,16 @@
+############## TABLES/TEACHER_FIELDNAMES
+############## Version: 2019-05-29
+
+### Feldnamen der Lehrertabelle
+
+## Programminterne Bezeichnung für die Lehrkraft (erste Spalte!):
+#tid = %id
+
+## Name der Lehrkraft (für Zeugnisse):
+NAME = Lehrkraft
+
+# Für Dateinamen, usw.: z.B. Schmidt_P
+SHORTNAME = Kurzname
+
+# E-Mail-Adresse
+MAIL = Mail
