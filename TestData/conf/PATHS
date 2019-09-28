@@ -1,5 +1,5 @@
 ############## PATHS
-############## Version: 2019-08-17
+############## Version: 2019-09-28
 
 ### Hier wird das Layout des Datenordners definiert
 
@@ -16,36 +16,27 @@ FILE_SQLITE =& db_{year}.sqlite3
 # Unterordner von <DIR_SCHOOLYEAR>.
 DIR_SCHOOLDATA =& Schuldaten
 
-# Pfad für eine Sicherungskopie der Tabellen der Schülerdaten
-FILE_PUPILS_SAVE =& *DIR_SCHOOLDATA
-                  & Schuelerdaten-{year}_*
-
-# Pfad für Tabellen der Schülerdaten (klassenweise)
-FILE_DB_PUPILS =& *DIR_SCHOOLDATA
-                & Schuelerdaten
-                & Schueler_*
-
-# Pfad für neue Tabellen der Schülerdaten (klassenweise)
-FILE_TABLE_PUPILS =& *DIR_SCHOOLDATA
-                   & Schuelertabellen
-                   & Schueler_*
+# Pfad für eine Sicherungskopie der Schülerdaten
+#FILE_PUPILS_SAVE =& *DIR_SCHOOLDATA
+#                  & Schuelerdaten-{year}_*
 
 # Pfad für eine Gesamttabellen der Schülerdaten (zur Sicherung, Änderung, usw.)
-FILE_DB_ALLPUPILS =& *DIR_SCHOOLDATA
-                   & Schuelerdaten-{year}_alle
+#FILE_DB_ALLPUPILS =& *DIR_SCHOOLDATA
+#                   & Schuelerdaten-{year}_alle
 
 # Pfad für die Tabelle mit Rohdaten der Schüler (von der Schul-Datenbank)
 FILE_PUPILS_RAW =& *DIR_SCHOOLDATA
-                 & Schuelerdaten_roh_*
+                 & Schuelerdaten_roh
+                 & *
 
-########### ? ...
-# Ordner mit aktuellen Fachdaten
-DIR_CLASSDATA =& *DIR_SCHOOLDATA
-               & Fachdaten
+########### Fächer
+# Tabelle, die die Fächer einer Klasse angibt
+FILE_SUBJECTS =& *DIR_SCHOOLDATA
+               & Fachliste
 
 # Pfad und Maske für den Dateinamen einer Fachdatentabelle:
-FILE_CLASSDATA =& *DIR_CLASSDATA
-                & Kurse_*
+#FILE_CLASSDATA =& *DIR_CLASSDATA
+#                & Kurse_*
 
 ## Pfad und Maske für den Dateinamen einer Wahlkurstabelle.
 #FILE_COURSE_OPTIONS =& *DIR_CLASSDATA
@@ -56,11 +47,6 @@ FILE_CLASSDATA =& *DIR_CLASSDATA
 #                    & neu
 #                    & Klasse_*
 ###########
-
-# Pfad für die Fachnamentabelle
-FILE_COURSE_MASTER =& *DIR_SCHOOLDATA
-                    & Fachdaten
-                    & Fachnamen
 
 # Pfad für die Lehrerdatentabelle
 FILE_TEACHERDATA =& *DIR_SCHOOLDATA

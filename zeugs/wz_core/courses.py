@@ -4,9 +4,9 @@
 """
 wz_core/courses.py
 
-Last updated:  2019-07-13
+Last updated:  2019-09-28
 
-Handler for the tables detailing the courses.
+Handler for the basic course info.
 
 =+LICENCE=============================
 Copyright 2017-2019 Michael Towers
@@ -25,8 +25,11 @@ Copyright 2017-2019 Michael Towers
 
 =-LICENCE========================================
 
+##########
+#TODO: rewrite all this – it is very out of date!
+
 The course data for all classes is managed by <CourseTables>, which has two
-basic, low-level methods, very much like the pupil database in <DBase>:
+basic, low-level methods, very much like the pupil database:
     <classes ()>
         returns a list of class names for which subject data
         is available.
@@ -114,460 +117,183 @@ the form. Each such area has a series of entries for subjects with a
 particular letter.
 """
 
-DOTSEP = '.'            # Separator in cgroup fields
-INVALID_CELL = '/'      # "Invalid" cell value
-# Flags (can be extended)
-FLAG_NOREPORT = '-'
-FLAG_HAND = 'H'
+# Subject type tags
+_GTAG = 'n'
+_TTAG = 't'
 
 
 # Messages
-_MISSINGDBFIELD = "Feld fehlt in Fach-Tabelle {filepath}:\n  {field}"
-_MISSINGDBFIELD2 = "Feld fehlt in Fachnamen-Tabelle {filepath}:\n  {field}"
-_BADCLASS = "Falsche Klasse in Fach-Tabelle {filepath}"
-_UNKNOWNSID = ("Fachkürzel {sid} ({iname}) ist in der Fachnamentabelle"
-               " nicht vorhanden. Klassentabelle:\n  {path}")
-_REPEATSID = "Fach-Kürzel '{sid}' mehrfach definiert in {filepath}"
-_BADGRADEINFO = "Fach-Kürzel '{sid}': Notenzeugnis-Feld ({ginfo}) ungültig"
-_NAMEMISMATCH       = ("Kursname ({iname}) für Fachkürzel {sid} stimmt mit"
-                    " Fachnamentabelle ({name}) nicht überein:\n  {path}"
-                    "   '{name}' wird benutzt.")
-_BADHASHPGROUP = "Klasse {klass}: {pname} in ungültiger Gruppe ({group})"
-_BADHASHPGROUPTID = "Klasse {klass}, {pname}: ungültiger Lehrer in Gruppe ({group})"
-_UNKNOWNGROUP = "Fachgruppe {group} ist nicht in Konfigurationsdatei GROUPS"
-_NOREALTEXT = "Klasse {klass}: Keine Lehrkraft für Textzeugnis im Fach {sid}"
-_SIDREALANDNONREAL = "Klasse {klass}: Fach {sid} ist nicht eindeutig (Lehrkraft '#')"
+_FIELD_UNKNOWN = "Unerwartetes Feld in Fachliste: {field}"
+_NO_SID_FIELD = "Kein SID-Feld in Fachliste: {field}"
 
 
-import os
-from glob import glob
-from collections import UserDict, OrderedDict, namedtuple, UserList
+from collections import OrderedDict, namedtuple
 
 from .configuration import Paths
-from .dbase import DBase
-from .teachers import TeacherData
-# To read subject tables:
+from .pupils import Pupils
+# To read subject table:
 from wz_table.dbtable import readDBTable
-
-
-# Course data, the index is the subject tag:
-TextCourse = namedtuple('TextCourse',
-        ['sid', 'name', 'cgroup', 'teacher', 'flags'])
-GradeCourse = namedtuple('GradeCourse',
-        ['sid', 'name', 'cgroup', 'teacher', 'flags', 'ginfo'])
-# ginfo:
-#  · empty: a subject with a named slot in grade report templates.
-#  · otherwise a letter coding for a block of unnamed entries in grade
-#    report templates.
-
-
-def groupSets ():
-    return [gs.split () for gs in CONF.GROUPS.GROUPS]
 
 
 class CourseTables:
     def __init__ (self, schoolyear):
         self.schoolyear = schoolyear
-        self.teacherData = TeacherData (schoolyear)
-        self.pupilData = DBase (schoolyear)
-        self.courseMaster = CourseMaster (schoolyear)
+        fpath = Paths.getYearPath (schoolyear, 'FILE_SUBJECTS')
+        data = readDBTable (fpath)
+        fields = CONF.TABLES.COURSES_FIELDNAMES
+        rfields = {v: k for k, v in fields.items ()}
+        fmap = OrderedDict ()   # {field -> column}
+        classes = {}            # {class -> column}
+        flag = False
+        sidcol = None
+        for f, col in data.headers.items ():
+            if f == '#':
+                flag = True
+                continue
+            if flag:
+                classes [f] = col
+            else:
+                try:
+                    f1 = rfields [f]
+                except:
+                    REPORT.Fail (_FIELD_UNKNOWN, field=f)
+                if f1 == 'SID':
+                    sidcol = col
+                else:
+                    fmap [f1] = col
+        if sidcol == None:
+            try:
+                sidfield = fields ['SID']
+            except:
+                sidfield = '???'
+            REPORT.Fail (_NO_SID_FIELD, field=sidfield)
+
+        #### Subject data structure:
+        self.sdata = namedtuple ('Subject', fmap)
+
+        self.class2subjects = {}
+        self.subject2info = {}
+        for row in data:
+            sid = row [sidcol]
+            # Build course data structure (namedtuple)
+            sbj = self.sdata (*[row [col] for col in fmap.values ()])
+            self.subject2info [sid] = sbj
+
+            # Add to affected classes ({sid -> tags})
+            for klass, col in classes.items ():
+                val = row [col]
+                if val:
+                    try:
+                        self.class2subjects [klass] [sid] = val
+                    except:
+                        self.class2subjects [klass] = OrderedDict ([(sid, val)])
 
 
     def classes (self):
-        files = glob (Paths.getYearPath (self.schoolyear, 'FILE_CLASSDATA'))
-        return sorted ([f.rsplit ('_', 1) [1].split ('.') [0]
-                for f in files])
-
-
-    @staticmethod
-    def classFields ():
-        """Get ordered field list for the class tables.
-        The config file has: internal name -> table name.
-        """
-        return CONF.TABLES.DB_COURSE_FIELDNAMES.values ()
-
-    @staticmethod
-    def ClassData ():
-        return namedtuple ('ClassData', CONF.TABLES.DB_COURSE_FIELDNAMES)
+        return sorted (self.class2subjects)
 
 
     def classSubjects (self, klass):
-        """Read in a table containing subject data for the given class.
-        Return an ordered list of <ClassData> named tuples.
-        Only lines with non-empty teacher field are included. If the
-        teacher-field doesn't start with '#' it must be a teacher tag in
-        the teacher table.
+        """Return the subject list for the given class:
+            {sid -> tag}
+        The tag is a string containing <_GTAG> if a grade report is expected
+        and <_TTAG> if a text report is expected.
         """
-        filepath = Paths.getYearPath (self.schoolyear,
-                'FILE_CLASSDATA').replace ('*', klass)
+        return self.class2subjects [klass]
 
-        # An exception is raised if there is no file:
-        table = readDBTable (filepath)
 
-#TODO: There is no schoolyear in the info ... should I add it?
-#        try:
-#            if int (table.info [_SCHOOLYEAR]) != self.schoolyear:
-#                raise ValueError
-#        except:
-#            REPORT.Fail (_BADSCHOOLYEAR, filepath=filepath)
-        _KLASS = CONF.TABLES.PUPIL_COURSE_FIELDNAMES ['%CLASS']
-        try:
-            if table.info [_KLASS] != klass:
-                raise ValueError
-        except:
-            REPORT.Fail (_BADCLASS, filepath=filepath)
-
-        # Ordered field list for the table.
-        rfields = self.classFields ()
-        # Rebuild the list with <ClassData> instances.
-        rows = UserList ()
-        rows.info = table.info
-        colmap = []
-        for f in rfields:
-            try:
-                colmap.append (table.headers [f])
-            except:
-                # Field not present
-                REPORT.Warn (_MISSINGDBFIELD, filepath=filepath,
-                        field=f)
-                colmap.append (None)
-
-        ### Read the row data
-        classData = self.ClassData ()    # namedtuple
-        for row in table:
-            rowdata = []
-            for col in colmap:
-                rowdata.append (None if col == None else row [col])
-            cdata = classData (*rowdata)
-
-            # Check teacher tag
-            tid = cdata.TEACHER
-            if not tid:
-                # Any line with an empty teacher field will be ignored.
-                continue
-            if tid [0] != '#' and not self.teacherData.checkTeacher (tid):
-                # Invalid teacher tag
-                continue
-
-            # Check subject name against master name table, "normalise" the group:
-            sid, iname = cdata.SID, cdata.COURSE_NAME
-            try:
-                name = self.courseMaster [sid]
-            except:
-                REPORT.Fail (_UNKNOWNSID, sid=sid, iname=iname, path=filepath)
-                assert False
-
-            if name != iname:
-                REPORT.Warn (_NAMEMISMATCH, sid=sid, iname=iname, name=name,
-                        path=filepath)
-                cdata = cdata._replace (COURSE_NAME=name)
-
-            # Normalise <group>
-            cgroup = cdata.CGROUP
-            if cgroup and DOTSEP in cgroup:
-                cdata = cdata._replace (CGROUP=DOTSEP.join (
-                        sorted (cgroup.split (DOTSEP))))
-
-            rows.append (cdata)
-
-        return rows
+    def subjectInfo (self, sid):
+        """Return the information for the given subject, as a
+        namedtuple ('Subject').
+        """
+        return self.subject2info [sid]
 
 
     def filterTexts (self, klass):
-        """Preprocess the data for use in text report generation.
-        Return a list of <TextCourse> instances.
-        For compatibility with grade courses, an empty result attribute
-        <nonreal> is added.
-        Only courses for which a text report is expected are included in
-        the result list.
-        These may not have a '-' in the FLAGS field (and also expect a
-        "real" teacher in the TEACHER field).
+        """Return the subject list for the given class including only
+        those subjects for which a text report is expected:
+            {sid -> subject info}
         """
-        courses = UserList ()
-        courses.nonreal = []
-        for cdata in self.classSubjects (klass):
-            tid = cdata.TEACHER
-            flags = cdata.FLAGS or ''
-            if flags == FLAG_NOREPORT:
-                continue
-            if tid [0] == '#':
-                REPORT.Error (_NOREALTEXT, klass=klass, sid=cdata.SID)
-                continue
-            courses.append (TextCourse (
-                    cdata.SID,
-                    cdata.COURSE_NAME,
-                    cdata.CGROUP,
-                    tid,
-                    flags))
-        return courses
+        sids = OrderedDict ()
+        for sid, sdata in self.classSubjects (klass).items ():
+            sinfo = self.subjectInfo (sid)
+            if _TTAG in sdata:
+                sids [sid] = sinfo
+        return sids
 
 
     def filterGrades (self, klass, realonly=False):
-        """Preprocess the data for use in grade report generation.
-        Return a list of <GradeCourse> instances.
+        """Return the subject list for the given class including only
+        those subjects relevant for a grade list:
+            {sid -> subject info}
+        That can include "unreal" subjects, e.g. composite grades. These
+        are marked by '*' in the FLAGS field.
         If <realonly> is true, only "real" subjects will be included, i.e.
-        a real teacher must be given (not starting with '#').
-        A <sid> may not be both a "real" and a nonreal course.
-        Nonreal courses are listed in the result attribute <nonreal>.
-        The information in the GRADEINFO field is included. If this field
-        is '-', the line will not be included. The information in the
-        FLAGS field is included, but has no effect on the inclusion of
-        the line.
+        those actually taught in courses.
         """
-        courses = UserList ()
-        courses.nonreal = []
-        cset = set ()           # For checking ambiguous '#'-teachers
-        for cdata in self.classSubjects (klass):
-            tid = cdata.TEACHER
-            flags = cdata.FLAGS or ''
-            ginfo = cdata.GRADEINFO or ''
-            if ginfo == FLAG_NOREPORT:
-                continue
-            sid = cdata.SID
-            if tid [0] == '#':
-                if sid not in courses.nonreal:
-                    if sid in cset:
-                        REPORT.Fail (_SIDREALANDNONREAL, klass=klass, sid=sid)
-                    if realonly: continue
-                    courses.nonreal.append (sid)
-            else:
-                if sid in courses.nonreal:
-                    REPORT.Fail (_SIDREALANDNONREAL, klass=klass, sid=sid)
-            if ginfo and (len (ginfo) != 1 or not ginfo.isalpha ()):
-                REPORT.Error (_BADGRADEINFO, sid=cdata.SID, ginfo=ginfo)
-                continue
-            cset.add (sid)
-            courses.append (GradeCourse (
-                                cdata.SID,
-                                cdata.COURSE_NAME,
-                                cdata.CGROUP,
-                                tid,
-                                flags,
-                                ginfo))
-        return courses
-
-
-    def courseMatrix (self, klass, date=None, text=False, group=None):
-        """Build a matrix of possible teachers for each pupil and subject
-        combination.
-        If <text> is true, courses relevant for text reports are included
-        (which must be "real" courses, with a teacher), otherwise courses
-        for grade reports.
-        A subject without a subject group is (potentially) relevant for
-        all pupils. For subject groups including subgroups (e.g. 'A.Gym')
-        a pupil must be in all the member groups.
-        If a date is given, only pupils registered for that date will be
-        included.
-        If <group> is supplied, only pupils in that group (and subjects
-        for that group) will be included.
-        A pupil without any groups specified will be assumed to participate
-        only in courses for which no group is specified ("whole class").
-        A tuple is returned:
-            sid_name: ordered mapping: {sid -> Subject name}
-               ... this takes on the attribute <nonreal> from the course list.
-            pmatrix: [( <PupilData>,
-                        pupil's short name,
-                        ordered mapping: {sid -> {tid, ...}}),
-                ...]
-        """
-        # Data for all relevant course table entries:
-        # {ordered: sid -> {cgroup -> {tid, ...}}
-        courses = OrderedDict ()
-        clist = self.filterTexts (klass) if text else self.filterGrades (klass)
-        sid_name = OrderedDict ()           # Mapping: sid -> subject name
-        sid_name.nonreal = clist.nonreal    # With tid [0] == '#'
-        # Get mutually exclusive group set
-        nongroups = []
-        if group:
-            for gset in groupSets ():
-                if group in gset:
-                    nongroups = [g for g in gset if g != group]
-                    break
-            else:
-                REPORT.Warn (_UNKNOWNGROUP, group=group)
-
-        for course in clist:
-            sid = course.sid
-            cgroup = course.cgroup
-            if group and cgroup:
-                # Check that the subject group is compatible with <group>
-                notcompat = False
-                for cg in cgroup.split (DOTSEP):
-                    if cg in nongroups:
-                        notcompat = True
-                        break
-                if notcompat:
+        sids = OrderedDict ()
+        for sid, sdata in self.classSubjects (klass).items ():
+            sinfo = self.subjectInfo (sid)
+            if _GTAG in sdata:
+                if realonly and '*' in sinfo:
                     continue
-
-            # (Not every subject will necessary have pupils)
-            sid_name [sid] = course.name
-            try:
-                sid_group = courses [sid]
-            except:
-                courses [sid] = {cgroup: {course.teacher}}
-                continue
-            try:
-                sid_group [cgroup].add (course.teacher)
-            except:
-                sid_group [cgroup] = {course.teacher}
-
-        # Build list containing (for each pupil):
-        #    <PupilData>, short name, ordered mapping: {sid -> {tid, ...}}
-        plist = []
-        # For each pupil:
-        for pdata in self.pupilData.classPupils (klass, date=date, group=group):
-            psname = self.pupilData.shortName (pdata)
-            sid_tids = OrderedDict ()
-            plist.append ((pdata, psname, sid_tids))
-            pgsplit = []    # groups to which the pupil belongs
-            pchoice = {}    # choice mapping: {sid -> tid}
-            if pdata.GROUPS:
-                for pg in pdata.GROUPS.split ():
-                    if pg [0] == '#':
-                        try:
-                            sid, tid = pg [1:].rsplit (DOTSEP, 1)
-                            if sid not in sid_name:
-                                continue
-                        except:
-                            REPORT.Error (_BADHASHPGROUP, klass=klass,
-                                    pname=psname, group=pg)
-                            continue
-                        pchoice [sid] = tid
-                    else:
-                        pgsplit.append (pg)
-            for sid, cgroup_tids in courses.items ():
-                tids = set ()
-                for cg, gtids in cgroup_tids.items ():
-                    if cg:
-                        # A subject group is given.
-                        if pgsplit:
-                            if cg not in pgsplit:
-                                cg2 = cg.split ('.')
-                                if len (cg2) == 1:
-                                    continue
-                                use = True
-                                for cg in cg2:
-                                    if cg not in pgsplit:
-                                        use = False
-                                        break
-                                if not use:
-                                    continue
-                        else:
-                            # Pupil not in any groups.
-                            continue
-                    #else: no <cg>
-                    tids.update (gtids)
-                if tids:
-                    try:
-                        ctid = pchoice [sid]
-                    except:
-                        sid_tids [sid] = tids
-                    else:
-                        if ctid in tids:
-                            sid_tids [sid] = ctid
-                        else:
-                            REPORT.Error (_BADHASHPGROUPTID, klass=klass,
-                                    pname=psname, group=pg)
-                            sid_tids [sid] = tids
-
-        return sid_name, plist
+                sids [sid] = sinfo
+        return sids
 
 
-#TODO: Is this used?
-    @staticmethod
-    def pupilMissing (klass, pid, report):
-        report (_PUPILNOTINCHOICETABLE, klass=klass, pid=pid)
+#TODO
+    def _courseMatrix (self, klass):
+        """Build a matrix of teachers for each pupil and subject
+        combination.
+        The contents of an existing table should be taken into account.
+        """
+        pupils = Pupils (self.schoolyear).classPupils (klass)
+        sids = OrderedDict ()
+        for sid, sdata in self.classSubjects (klass).items ():
+            sinfo = self.subjectInfo (sid)
+            if _GTAG in sdata or _TTAG in sdata:
+                if '*' in sinfo:
+                    continue
+                sids [sid] = sinfo
+        fields = ['id', 'Name', 'Maßstab', '#'] + list (sids)
 
 
-#TODO: Is this used?
-    @staticmethod
-    def courseMissing (klass, pid, key, report):
-        report (_KEYNOTINCHOICETABLE, klass=klass, pid=pid, key=key)
+        return fields
 
-
-
-class CourseMaster (UserDict):
-    """Manage the master table of course information.
-    It is basically a mapping {sid -> name}, but has additional information:
-    <self.info> is a mapping containing any "info" data from the master
-    file:
-        {field: value, ...}
-    <self.fields> is a mapping containing any other fields contained
-    in the master table:
-        {sid -> {field: value, ...}
-    """
-    def __init__ (self, schoolyear):
-        super ().__init__ ()
-        filepath = Paths.getYearPath (schoolyear, 'FILE_COURSE_MASTER')
-        # An exception is raised if there is no file:
-        table = readDBTable (filepath)
-        self.info = table.info
-        self.fields = {}
-        colmap = {}
-        for f, ft in CONF.TABLES.COURSENAMES.items ():
-            try:
-                fi = table.headers [ft]
-                if f == 'COURSE_NAME':
-                    iname = fi
-                else:
-                    colmap [f] = fi
-            except:
-                # Field not present
-                REPORT.Fail (_MISSINGDBFIELD2, filepath=filepath,
-                        field=ft)
-
-        for row in table:
-            sid = row [0]
-            if sid in self:
-                REPORT.Fail (_REPEATSID, sid=sid, filepath=filepath)
-                assert False
-            self [sid] = row [iname]
-            if len (colmap) > 0:
-                fmap = {}
-                self.fields [sid] = fmap
-                for f, i in colmap.items ():
-                    fmap [f] = row [i]
 
 
 
 ##################### Test functions
+_testyear = 2016
 def test_01 ():
-    REPORT.PRINT ("Groups:", groupSets ())
+    REPORT.Test ("Reading basic subject data for %d" % _testyear)
+    ctables = CourseTables (_testyear)
+    REPORT.Test ("\nSUBJECTS:")
+    for sid, info in ctables.subject2info.items ():
+        REPORT.Test ("  -- %s: " % sid + repr (info))
+
+    clist = ctables.classes ()
+    REPORT.Test ("\nCLASSES: " + repr (clist))
+
+    REPORT.Test ("\nSubject lists:")
+    for klass in clist:
+        subjects = ctables.classSubjects (klass)
+        REPORT.Test ("  -- %s: " % klass + repr (subjects))
+
+    REPORT.Test ("\nCLASS 10:")
+    for sid, sdata in ctables.classSubjects ('10').items ():
+        REPORT.Test ("  ++ %s (%s): %s" % (sid, repr (sdata),
+                repr (ctables.subjectInfo (sid))))
+
+    REPORT.Test ("\nClass 10, real only for grades:")
+    for sid, sinfo in ctables.filterGrades ('10', realonly=True).items ():
+        REPORT.Test ("  ++ %s: %s" % (sid, repr (sinfo)))
+
+    REPORT.Test ("\nClass 10, for text reports:")
+    for sid, sinfo in ctables.filterTexts ('10').items ():
+        REPORT.Test ("  ++ %s: %s" % (sid, repr (sinfo)))
+
 
 def test_02 ():
-    # Test course table reading
-    schoolyear = 2016
-    ctables = CourseTables (schoolyear)
-
-    REPORT.PRINT ("Classes:", ctables.classes ())
-
-def test_03 ():
-    schoolyear = 2016
-    klass = '10'
-    date = '2016-06-15'
-    ctables = CourseTables (schoolyear)
-    REPORT.PRINT ("\n -=========== class %s ===========-" % klass)
-    sidname, pmatrix = ctables.courseMatrix (klass, date=date, text=True)
-    for pdata, pname, st in pmatrix:
-        REPORT.PRINT ("\n ::::", pdata.PID, st)
-    REPORT.PRINT ("\n +++++ Subjects:")
-    for sid, sname in sidname.items ():
-        REPORT.PRINT (" --", sid, sname)
-
-def test_04 ():
-    schoolyear = 2016
-    ctables = CourseTables (schoolyear)
-    for klass in ctables.classes ():
-        entries = ctables.classSubjects (klass)
-        REPORT.PRINT ("\n  ==========", klass)
-        for sdata in entries:
-            REPORT.PRINT ("§§§", sdata)
-
-def test_05 ():
-    schoolyear = 2016
-    klass = '12'
-    ctables = CourseTables (schoolyear)
-    REPORT.PRINT ("\n --===============================--\n")
-    courses = ctables.filterGrades (klass=klass)
-    for cdata in courses:
-        REPORT.PRINT ("==>>", cdata, "\n")
+    ctables = CourseTables (_testyear)
+    REPORT.Test ("Matrix columns (10): " + repr (ctables._courseMatrix ('10')))

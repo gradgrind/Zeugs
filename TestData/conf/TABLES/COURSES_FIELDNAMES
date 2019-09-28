@@ -1,0 +1,15 @@
+############## TABLES/COURSES_FIELDNAMES
+############## Version: 2019-09-28
+
+######## Feldnamen der Kurstabellen
+
+### Spalten
+## Programminterne Bezeichnung für den Kurs:
+SID = %id
+
+## Kursname:
+COURSE_NAME = Kurs
+## Besonderheiten des Faches
+FLAGS = INFO
+## Sammelgruppen (nur Notenzeugnisse):
+CGROUPS = Gruppen

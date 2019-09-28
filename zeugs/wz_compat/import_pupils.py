@@ -551,7 +551,4 @@ def test_06 ():
             (_testyear, fpath))
 
     REPORT.Test ("\n --2-----------------\n COMPARE UPDATES:")
-    fpath = os.path.join (Paths.getYearPath (_testyear, 'DIR_SCHOOLDATA'),
-            'Schuelerdaten_roh_2016-05-04')
-    rpd = readRawPupils (_testyear, fpath)
-    updateFromRaw (_testyear, rpd)
+    importLatestRaw (_testyear)
