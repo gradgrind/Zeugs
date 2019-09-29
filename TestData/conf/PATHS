@@ -1,5 +1,5 @@
 ############## PATHS
-############## Version: 2019-09-28
+############## Version: 2019-09-29
 
 ### Hier wird das Layout des Datenordners definiert
 
@@ -35,8 +35,9 @@ FILE_SUBJECTS =& *DIR_SCHOOLDATA
                & Fachliste
 
 # Pfad und Maske für den Dateinamen einer Fachdatentabelle:
-#FILE_CLASSDATA =& *DIR_CLASSDATA
-#                & Kurse_*
+FILE_CLASS_SUBJECTS =& *DIR_SCHOOLDATA
+                    & Fachbelegung
+                    & Kurse_*
 
 ## Pfad und Maske für den Dateinamen einer Wahlkurstabelle.
 #FILE_COURSE_OPTIONS =& *DIR_CLASSDATA

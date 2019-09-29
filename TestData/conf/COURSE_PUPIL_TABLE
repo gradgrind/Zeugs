@@ -1,6 +1,6 @@
 ############## COURSE_PUPIL_TABLE
-############## Version: 2019-09-28
-### Konfigurationsdatei für Fachwahltabellen
+############## Version: 2019-09-29
+### Konfigurationsdatei für Fach-Schüler-Matrizen
 
 FONT = Arial
 FONT_SIZE = 11
@@ -11,31 +11,24 @@ FONT_SIZE_TAG = 10
 WIDTH_PID = 20
 WIDTH_NAME = 60
 WIDTH_STREAM = 20
-WIDTH_NORMAL = 10
-WIDTH_COMPOSITE = 10
-WIDTH_AVERAGE = 15
-WIDTH_EXTRA = 15
+WIDTH_ENTRY = 15
 WIDTH_SEP = 3
+
 # Zeilenhöhen in mm (ungefähr)
 HEIGHT_TITLE = 10
 HEIGHT_INFO = 8
 HEIGHT_ROW = 8
-HEIGHT_CID = 16
+HEIGHT_ID = 16
 HEIGHT_SBJ = 45
 HEIGHT_SEP = 3
 
 # Eigentliche Linienbreite für angegebene Umrandungsbreite (0 - 3)
-LINE_WIDTH = 0
-           = 1,0
-           = 2,0
-           = 3,0
+LINE_WIDTH =& 0
+           & 1,0
+           & 2,0
+           & 3,0
 
-# Background colour for invalid cell in course-choice table
-INVALID_BG = 888888
+## Background colour for invalid cell in course-choice table
+#INVALID_BG = 888888
 # Colour for spacer rows/columns in course-choice table
 SPACER_COLOUR = 777777
-
-# Maximale Zeichenlänge für einen Eintrag in der Schüler-Kurs-Tabelle, wenn keine
-# andere "validation" für diesen Eintrag angegeben ist (aktuell nur für die
-# Kurswahltabellen).
-PUPIL_COURSE_MAXLEN = 3

@@ -3,7 +3,7 @@
 """
 wz_table/dbtable.py
 
-Last updated:  2019-09-22
+Last updated:  2019-09-29
 
 Read and write a database-like table using a spreadsheet file (xlsx).
 Each file has fields and rows, like a relational db, but there may also
@@ -36,6 +36,8 @@ from .spreadsheet_new import NewSpreadsheet
 def readDBTable (filepath):
     sheet = Spreadsheet (filepath, mustexist=False)
     rows = UserList ()
+    rows.filepath = sheet.filepath
+    rows.title = sheet.getValue (0, 1)
     rows.info = OrderedDict ()
 
     headers = None
@@ -74,6 +76,53 @@ def readDBTable (filepath):
         rows.append (rowdata)
 
     return rows
+
+
+
+def digestDBTable (table, translate=None):
+    """Process the data from a dbtable, returning an ordered mapping:
+        {[ordered] key -> {field: value}}.
+    The key is the first column. This value also appears in the value mapping.
+    The field names are "translated" when there is a matching entry in
+    <translate>: {internal name -> table ("translated") name}.
+    Also the info-lines are translated.
+    """
+    tmap = OrderedDict ()
+    # Reverse the translation mapping
+    try:
+        rfields = {v: k for k, v in translate.items ()}
+    except:
+        rfields = None
+
+    fields = OrderedDict ()
+    for f, col in table.headers.items ():
+        try:
+            f1 = rfields [f]
+        except:
+            # If there is no translation, use the header from the table
+            f1 = f
+        fields [f1] = col
+
+    # Handle info-lines
+    tmap.info = OrderedDict ()
+    for k, v in table.info.items ():
+        try:
+            k1 = rfields [k]
+        except:
+            k1 = k
+        tmap.info [k1] = v
+
+    # Handle main data
+    for row in table:
+        rowmap = {}     # unordered
+        for f, col in fields.items ():
+            rowmap [f] = row [col]
+        tmap [row [0]] = rowmap
+
+    tmap.fields = list (fields)
+    tmap.title = table.title
+    return tmap
+
 
 
 def makeDBTable (filepath, title, fields, values, kvpairs=None):

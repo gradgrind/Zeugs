@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2019-09-28
+Last updated:  2019-09-29
 
 Handler for the basic course info.
 
@@ -121,10 +121,14 @@ particular letter.
 _GTAG = 'n'
 _TTAG = 't'
 
+_MATRIXTITLE = 'Kursbelegung (Fach+Schüler -> Lehrer)'
 
 # Messages
 _FIELD_UNKNOWN = "Unerwartetes Feld in Fachliste: {field}"
 _NO_SID_FIELD = "Kein SID-Feld in Fachliste: {field}"
+_COURSEMATRIX = ("Kurs-Schüler-Belegungsmatrix erstellt für Klasse {klass}:\n"
+            "  {path}")
+_NOPUPILS = "Keine Schüler in Klasse {klass}"
 
 
 from collections import OrderedDict, namedtuple
@@ -133,6 +137,8 @@ from .configuration import Paths
 from .pupils import Pupils
 # To read subject table:
 from wz_table.dbtable import readDBTable
+# To (re)write class-course matrix
+from wz_table.optiontable import makeOptionsTable
 
 
 class CourseTables:
@@ -176,7 +182,8 @@ class CourseTables:
         for row in data:
             sid = row [sidcol]
             # Build course data structure (namedtuple)
-            sbj = self.sdata (*[row [col] for col in fmap.values ()])
+            # Empty cells have ''
+            sbj = self.sdata (*[row [col] or '' for col in fmap.values ()])
             self.subject2info [sid] = sbj
 
             # Add to affected classes ({sid -> tags})
@@ -241,25 +248,31 @@ class CourseTables:
         return sids
 
 
-#TODO
     def _courseMatrix (self, klass):
-        """Build a matrix of teachers for each pupil and subject
-        combination.
+        """Build a class-course matrix of teachers for each pupil and
+        subject combination.
         The contents of an existing table should be taken into account.
         """
         pupils = Pupils (self.schoolyear).classPupils (klass)
-        sids = OrderedDict ()
+        if len (pupils) == 0:
+            REPORT.Warn (_NOPUPILS, klass=klass)
+        subjects = []
         for sid, sdata in self.classSubjects (klass).items ():
             sinfo = self.subjectInfo (sid)
             if _GTAG in sdata or _TTAG in sdata:
-                if '*' in sinfo:
+                if '*' in sinfo.FLAGS:
                     continue
-                sids [sid] = sinfo
-        fields = ['id', 'Name', 'Maßstab', '#'] + list (sids)
+                subjects.append ((sid, sinfo.COURSE_NAME))
+        fpath = makeOptionsTable (_MATRIXTITLE, self.schoolyear, klass,
+                pupils, subjects, 'FILE_CLASS_SUBJECTS')
+        REPORT.Info (_COURSEMATRIX, klass=klass, path=fpath)
 
 
-        return fields
-
+    def courseMatrices (self):
+        """Build a class-course matrix of teachers for each class.
+        """
+        for klass in self.classes ():
+            self._courseMatrix (klass)
 
 
 
@@ -296,4 +309,5 @@ def test_01 ():
 
 def test_02 ():
     ctables = CourseTables (_testyear)
-    REPORT.Test ("Matrix columns (10): " + repr (ctables._courseMatrix ('10')))
+    REPORT.Test ("Kursbelegungsmatrizen")
+    ctables.courseMatrices ()
