@@ -3,7 +3,7 @@
 """
 wz_table/dbtable.py
 
-Last updated:  2019-09-29
+Last updated:  2019-09-30
 
 Read and write a database-like table using a spreadsheet file (xlsx).
 Each file has fields and rows, like a relational db, but there may also
@@ -30,7 +30,7 @@ Copyright 2019 Michael Towers
 from collections import UserList, OrderedDict
 
 from .spreadsheet import Spreadsheet
-from .spreadsheet_new import NewSpreadsheet
+from .spreadsheet_make import NewSpreadsheet
 
 
 def readDBTable (filepath):

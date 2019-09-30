@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-wz_table/spreadsheet_new.py
+wz_table/spreadsheet_make.py
 
-Last updated:  2019-07-15
+Last updated:  2019-09-30
 
 Create a new spreadsheet (.xlsx).
 
@@ -25,20 +25,25 @@ Copyright 2017-2019 Michael Towers
 =-LICENCE========================================
 """
 
+# This is intended to supersede spreadsheet_new.py ...
+# However, because of the way styles are handled (overriding elements),
+# that may be tricky ...
 
 import os, datetime
 
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.styles import PatternFill, Alignment, Protection, Font, Border, Side
+from openpyxl.styles import (NamedStyle, PatternFill, Alignment,
+        Protection, Font, Border, Side)
 from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.properties import WorksheetProperties, PageSetupProperties
+from openpyxl.worksheet.properties import (WorksheetProperties,
+        PageSetupProperties)
 
 
 class NewSpreadsheet:
     FORMAT_DATE = 'DD.MM.YYYY'
 
-    def __init__ (self, sheetName):
+    def __init__ (self, sheetName=None):
         # Create the workbook and worksheet we'll be working with
         self._wb = Workbook ()
         self._ws = self._wb.active
@@ -69,7 +74,7 @@ class NewSpreadsheet:
         return rcstring
 
 
-    def setCell (self, row, col, val, isDate=False, **style):
+    def setCell (self, row, col, val, style=None, isDate=False, **kargs):
         """Set the cell at the given coordinates to the given value.
         The coordinates start at 0.
         Style objects can be passed as additional arguments.
@@ -80,37 +85,14 @@ class NewSpreadsheet:
                 # Convert to <datetime.date> instance
                 cell.value = datetime.date (*[int (v) for v in val.split ('-')])
                 # Set cell number format
-                cell.number_format = self.FORMAT_DATE
+                kargs ['number_format'] = self.FORMAT_DATE
             else:
 # Workaround for probable bug in openpyxl:
                 if isinstance (val, str) and type (val) != str:
                     val = str (val)
                 cell.value = val
         if style:
-            if 'font' in style:
-                cell.font = style ['font']
-            if 'alignment' in style:
-                cell.alignment = style ['alignment']
-            if 'bg' in style:
-                bg = style ['bg']
-                if bg:
-                    cell.fill = bg
-            if 'border' in style:
-                cell.border = style ['border']
-            if 'locked' in style and not style ['locked']:
-                # The default is 'locked' so only if 'unlocked' is requested
-                # is an action necessary.
-                if not self._unlocked:
-                    self._unlocked = Protection (locked=False)
-                cell.protection = self._unlocked
-            if 'number_format' in style:
-                nf = style ['number_format']
-                if nf:
-                    cell.number_format = nf
-            if 'validation' in style:
-                v = style ['validation']
-                if v:
-                    v.add (cell)
+            style.setCell (cell, **kargs)
 
 
     def setWidth (self, col, width):
@@ -259,6 +241,10 @@ class NewSpreadsheet:
                 self._ws.page_setup.fitToHeight = False
 
 
+    def freeze (self, row, col):
+        self._ws.freeze_panes = self.cellName (row, col)
+
+
     def save (self, filepath):
         """Write the spreadsheet to a file.
         The ending '.xlsx' is added automatically if it is not present
@@ -270,3 +256,103 @@ class NewSpreadsheet:
         fp = os.path.join (fdir, fname)
         self._wb.save (fp)
         return fp
+
+
+    def getStyle (self, base=None,
+                font=None, size=None, align=None, background=None,
+                emph=None, border=None, number_format = None,
+                valid=None):
+        """
+        <font> is the name of the font (<None> => default, not recommended,
+            unless the cell is to contain no text).
+        <size> is the size of the font (<None> => default, not recommended,
+            unless the cell is to contain no text).
+        <align> is the horizontal (l, c or r) OR vertical (b, m, t) alignment.
+            Vertical alignment is for rotated text.
+        <background> is a colour in the form 'RRGGBB', default none.
+        <emph> is boolean.
+        <border>: Only three border types are supported here:
+            0: none
+            1: all sides
+            2: (thicker) underline
+        <number_format>: By default force all cells to text format.
+        <valid>: <True> just unlocks cell (removes protection).
+            Otherwise it can be a validation object (which will also
+            unlock the cell).
+        """
+        if base == None:
+            attributes = {}
+            # Set default values
+            if align == None: align = 'c'
+            if emph == None: emph = False
+            if border == None: border = 1
+            if number_format == None: number_format = '@'
+        else:
+            attributes = base.getAttributes ()
+
+        # Font
+        fstyle = {}
+        if font != None:
+            fstyle ['name'] = font
+        if size != None:
+            fstyle ['size'] = size
+        if emph:
+            fstyle ['bold'] = True
+        if fstyle:
+            attributes ['font'] = self.newFont (**fstyle)
+
+        # Alignment
+        if align in 'bmt':
+            # Vertical
+            h = 'c'
+            v = align
+            rotate = 90
+        else:
+            h = align
+            v = 'm'
+            rotate = None
+        attributes ['alignment'] = self.alignment (h=h, v=v,
+                rotate=rotate)
+
+        # Border
+        if border == 2:
+            attributes ['border'] = self.border (left=0, right=0,
+                    top=0, bottom=2)
+        elif border == 1:
+            attributes ['border'] = self.border ()
+
+        # Background
+        if background:
+            attributes ['fill'] = self.background (background)
+
+        # Validation is not really a style ...
+        validation = None
+        # Remove cell protection
+        if valid:
+            # The default is 'locked' so only if <valid> is "true"
+            # is an action necessary.
+            if not self._unlocked:
+                self._unlocked = Protection (locked=False)
+            attributes ['protection'] = self._unlocked
+
+            if valid.__class__.__name__ == 'DataValidation':
+                validation = valid
+
+        return _MyStyle (attributes, validation)
+
+
+
+class _MyStyle:
+    def __init__ (self, attributes, validation):
+        self.attributes = attributes
+        self.validation = validation
+
+    def getAttributes (self):
+        return self.attributes.copy ()
+
+    def setCell (self, cell):
+        for k, v in self.attributes.items ():
+            setattr (cell, k, v)
+
+        if self.validation:
+            self.validation.add (cell)

@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2019-09-29
+Last updated:  2019-09-30
 
 Handler for the basic course info.
 
@@ -25,96 +25,49 @@ Copyright 2017-2019 Michael Towers
 
 =-LICENCE========================================
 
-##########
-#TODO: rewrite all this – it is very out of date!
+The main table, with path FILE_SUBJECTS, defines the available subjects
+and provides a little information about them. Each class has a column
+in this table in which the relevance of each subject for this class can
+be defined by tags.
+Most of the additional information about the subjects – as well as
+entries for "unreal" subjects (ones that are not taught but relevant in
+some context) – is connected with grade reports. "Unreal" subjects are
+marked by a "*" in the FLAGS field. The CGROUPS field is used for
+computing combined grades and averages, etc. for grade reports.
 
-The course data for all classes is managed by <CourseTables>, which has two
-basic, low-level methods, very much like the pupil database:
+Together with the pupils database, a second table can be generated with
+entries for each pupil/subject pair (only the subjects which are actually
+taught – for which grades are given or texts are written). Here the
+responsible teacher (as teacher-tag) can be entered. It is also possible
+to enter a list of teachers (comma-separated) if it is not (yet) clear
+who is responsible for a particular pupil. This must be taken into
+account when collating texts/grades. There is a table for each class,
+with path FILE_CLASS_SUBJECTS.
+
+The course data for all classes is managed by <CourseTables>, which has
+the following methods:
     <classes ()>
-        returns a list of class names for which subject data
+        returns a sorted list of class names for which subject data
         is available.
     <classSubjects (klass)>
-        returns a list object containing <ClassData> named-tuples for the
-        lines in the table for the given class. This list object also has
-        an <info> attribute, which is an ordered mapping of the "info"
-        lines in the table.
-
-There are methods (<filterText> and <filterGrades>) for extracting the
-data needed by reports.
-
-The data is stored in spreadsheet files, one for each class, structured as
-a "DBTable". The name of the class is embedded in the filename, but is also
-specified in an "info" line. The two names should be identical.
-The table files are stored at a location specified in the configuration
-file "PATHS" by the entry FILE_CLASSDATA.
-
-The information for each "course" is available in a line of the table, the
-first column being a short identifier ("subject tag", in the code
-generally <sid>). The other columns contain the information needed for the
-various modules dealing with courses/subjects. As these lines are not used
-only for the specification of concrete, taught courses, but also for
-various other pieces of information – especially for grade reports
-("composite" subjects) and special timetable entries – the term "course"
-is not always really suitable. So sometimes "subject" is used instead,
-but this is also not always suitable ...
-A subject tag may have more than one line in a table. This allows separate
-definition of courses for different groups, or teachers, etc.
-
-Where there is a "groups" entry (CGROUP), the subject (line) is only
-relevant for pupils who have this group in their "groups" field.
-It is also possible to specify subgroups – only pupils who are in both
-specified groups will be included. This is done by joining the two
-groups with a dot, e.g. "A.Gym" – pupils in both group "A" and group "Gym".
-
-There is a field (TEACHER) for the teacher responsible for the course.
-Only a single teacher tag may be entered here. If more than one teacher is
-to write reports or give grades for the course, separate lines must be
-entered for each teacher.
-
-There is also a field (COURSE_NAME) for the course name, but this is
-primarily for clarity, it is not used in the reports. The printed name is
-fetched from the separate table listing all available course names. A
-warning is issued if the two names are not identical.
-
-???
-When the text reports for a subject are written by various teachers,
-it might be necessary to specify which of the teachers is responsible
-for a common header text. This will be the specified by the first line
-in the table defining the subject in question. If such a subject is
-specified for more than one group of pupils, there will be a separate
-header text for each group. The groups may not, however, overlap
-(i.e. a pupil for whom the subject is relevant may not be in two groups).
-
-For other attributes of a course there is the "flags" field (FLAGS).
-This allows other bits of information about the course to be registered,
-for example handwritten reports. If there is a '-' in this field, the line
-will not be considered for text reports, 'H' indicates handwritten text
-reports.
-
-For text reports, only the above-mentioned fields are relevant. For
-other uses of the table, such as grades, further information is
-necessary.
-
-Not only "normal", taught courses are defined in the table. There are also
-so-called "composite" subjects, which are needed for grades. These group
-other (real) subjects together into a single grade (normally the average
-of the "components") – they are not themselves taught courses. These lines
-are only of interest to the grade modules. They have a special entry in
-the "teacher" field: '#'.
-
-Some other "subjects" may be specified which are not taught as such, but
-do refer to real teaching situations. These can be slots in the timetable
-for block lessons, the contents of which change during the year, for
-example. They are of no interest for reports, but are relevant for
-timetabling.
-
-The GRADEINFO field of a subject table provides additional information
-for grade reports.
-'-' indicates that the line is not to be used for grade reports.
-A single letter indicates that the subject can be used in areas of the
-report form reserved for subjects whose name is not explicitly given in
-the form. Each such area has a series of entries for subjects with a
-particular letter.
+        returns an ordered mapping for the class:
+            {sid -> tags}
+        The tags specify the relevance of the subject (e.g. for text
+        reports and/or grade reports).
+    <subjectInfo (sid)>
+        returns the general information for the subject as a
+        <namedtuple> ('Subject').
+    <filterText (klass)>
+        returns an ordered mapping {sid -> subject info ('Subject')} for
+        the given class, only those subjects relevant for text reports.
+    <filterGrades (klass, realonly=False)>
+        returns an ordered mapping {sid -> subject info ('Subject')} for
+        the given class, only those subjects relevant for grade reports.
+        If <realonly> is true, only subjects which are actually taught
+        are included.
+    <courseMatrices>
+        generates (or regenerates) tables (spreadsheet files) for mapping
+        pupil and subject to the responsible teacher(s).
 """
 
 # Subject type tags
@@ -138,7 +91,7 @@ from .pupils import Pupils
 # To read subject table:
 from wz_table.dbtable import readDBTable
 # To (re)write class-course matrix
-from wz_table.optiontable import makeOptionsTable
+from wz_table.formattedmatrix import FormattedMatrix
 
 
 class CourseTables:
@@ -263,8 +216,10 @@ class CourseTables:
                 if '*' in sinfo.FLAGS:
                     continue
                 subjects.append ((sid, sinfo.COURSE_NAME))
-        fpath = makeOptionsTable (_MATRIXTITLE, self.schoolyear, klass,
-                pupils, subjects, 'FILE_CLASS_SUBJECTS')
+        build = FormattedMatrix (self.schoolyear, 'FILE_CLASS_SUBJECTS',
+                klass)
+        build.build (_MATRIXTITLE, pupils, subjects, infolines=None)
+        fpath = build.save ()
         REPORT.Info (_COURSEMATRIX, klass=klass, path=fpath)
 
 
@@ -273,6 +228,7 @@ class CourseTables:
         """
         for klass in self.classes ():
             self._courseMatrix (klass)
+
 
 
 
