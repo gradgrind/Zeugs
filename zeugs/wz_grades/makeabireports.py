@@ -3,7 +3,7 @@
 """
 wz_grades/makeabireports.py
 
-Last updated:  2019-07-11
+Last updated:  2019-10-03
 
 1) Generate empty grade tables for an abitur class.
 2) Use completed grade tables to produce final grade reports for the class.
@@ -59,9 +59,11 @@ from glob import glob
 
 from wz_core.configuration import Paths, Dates
 from wz_core.courses import CourseTables
-from wz_textdoc.simpleodt import OdtUserFields
+from wz_core.pupils import Pupils
+from wz_table.formattedmatrix import FormattedMatrix
 from wz_table.spreadsheet import Spreadsheet
 from wz_table.spreadsheet_template import XLS_template
+from wz_textdoc.simpleodt import OdtUserFields
 from wz_io.support import toPdf
 
 
@@ -113,40 +115,48 @@ def makeAbiTables (schoolyear, klass, date):
     ncourses = CONF.TABLES.ABITUR_RESULTS.NCOURSES.nat ()
 
     courseTables = CourseTables (schoolyear)
-    sidname, pmatrix = courseTables.courseMatrix (klass, date=date)
+    pupils = Pupils (schoolyear).classPupils (klass, date)
+    sid2info = courseTables.filterGrades (klass, realonly=True)
+    subjects = []
+    for sid, sinfo in sid2info.items ():
+        subjects.append ((sid, sinfo.COURSE_NAME))
 
-    i = 0       # pid index for the current class
+    teacherMatrix = FormattedMatrix.readMatrix (schoolyear,
+            'FILE_CLASS_SUBJECTS', klass)
+
+    i = 0       # pid index for ordering files
     files = []  # list of created files (full paths)
-    for pdata, pname, stmap in pmatrix:
+    for pdata in pupils:
+        pid = pdata ['PID']
+        pname = pdata.name ()
         i += 1
         filepath = outpath.replace ('*', '{pnum:02d}-{pid}-{name}'.format (
-                pnum=i, pid=pdata.PID,
+                pnum=i, pid=pid,
                 name=Paths.asciify (pname)))
 
         fields = {'YEAR': str (schoolyear),
-                'LASTNAME': pdata.LASTNAME,
-                'FIRSTNAMES': pdata.FIRSTNAMES,
-                'DOB_D': pdata.DOB_D,
-                'POB': pdata.POB,
-                'HOME': pdata.HOME}
+                'LASTNAME': pdata ['LASTNAME'],
+                'FIRSTNAMES': pdata ['FIRSTNAMES'],
+                'DOB_D': pdata ['DOB_D'],
+                'POB': pdata ['POB'],
+                'HOME': pdata ['HOME']}
         try:
-            fields ['FrHr'] = FrHr [pdata.SEX]
+            fields ['FrHr'] = FrHr [pdata ['SEX']]
         except:
-            REPORT.Error (_BADSEXFIELD, klass=klass, pname=pname, sex=pdata.SEX)
+            REPORT.Error (_BADSEXFIELD, klass=klass, pname=pname,
+                    sex=pdata ['SEX'])
             fields ['FrHr'] = ' '
 
-        # Handle the courses
-        nc = len (stmap)
-        if ncourses and nc != ncourses:
-            REPORT.Error (_NOTNCOURSES, klass=klass, pname=pname, n=nc,
-                    nc0=ncourses)
-            continue
         f = 0
-        for sid in stmap:
-            if sid [-1] == 'N':
+        for sid, sname in subjects:
+            if not teacherMatrix [pid][sid]:
                 continue
             f += 1
-            fields ['F' + str(f)] = sidname [sid].split ('[') [0].rstrip ()
+            fields ['F' + str (f)] = sname.split ('|') [0].rstrip ()
+        if ncourses and f != ncourses:
+            REPORT.Error (_NOTNCOURSES, klass=klass, pname=pname, n=f,
+                    nc0=ncourses)
+            continue
 
         unused = XLS_template (filepath, template, fields,
                 sheetname=sheetname)
@@ -238,22 +248,22 @@ def test_01 ():
     date = '2016-06-07'
     klass = '13'
 
-    REPORT.PRINT ("** Make Abi-tables:")
+    REPORT.Test ("** Make Abi-tables:")
     for f in makeAbiTables (schoolyear, klass, date):
-        REPORT.PRINT ("  -->", f)
+        REPORT.Test ("  --> %s" % f)
 
 def test_02 ():
     ifile = Paths.getUserPath ('FILE_ABITUR_GRADE_EXAMPLE')
-    outfile = 'tmp/AbiZeugnis.odt'
+    outfile = os.path.join (os.path.dirname (ifile), 'tmp', 'AbiZeugnis.odt')
     pdata = readTableData (ifile, table='Daten')
-    REPORT.PRINT ("??? Fields:", pdata)
-    REPORT.PRINT ("\n -->", makeAbiReport (outfile, pdata))
+    REPORT.Test ("??? Fields: %s" % repr(pdata))
+    REPORT.Test ("\n --> %s" % makeAbiReport (outfile, pdata))
 
 def test_03 ():
     schoolyear = 2016
     klass = '13'
-    REPORT.PRINT ("\n  ========== Abi-reports %d, class %s ==========\n"
+    REPORT.Test ("\n  ========== Abi-reports %d, class %s ==========\n"
             % (schoolyear, klass))
     odir, files = makeAbiReports (schoolyear, klass)
-    REPORT.PRINT ("\n  +++ Convert to pdf ...")
+    REPORT.Test ("\n  +++ Convert to pdf ...")
     odt2pdf (odir, files)
