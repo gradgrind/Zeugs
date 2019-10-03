@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2019-09-30
+Last updated:  2019-10-01
 
 Handler for the basic course info.
 
@@ -69,10 +69,6 @@ the following methods:
         generates (or regenerates) tables (spreadsheet files) for mapping
         pupil and subject to the responsible teacher(s).
 """
-
-# Subject type tags
-_GTAG = 'n'
-_TTAG = 't'
 
 _MATRIXTITLE = 'Kursbelegung (Fach+Schüler -> Lehrer)'
 
@@ -156,8 +152,8 @@ class CourseTables:
     def classSubjects (self, klass):
         """Return the subject list for the given class:
             {sid -> tag}
-        The tag is a string containing <_GTAG> if a grade report is expected
-        and <_TTAG> if a text report is expected.
+        The tag is a string containing CONF.COURSES.GTAG if a grade report
+        is expected and CONF.COURSES.TTAG if a text report is expected.
         """
         return self.class2subjects [klass]
 
@@ -177,7 +173,7 @@ class CourseTables:
         sids = OrderedDict ()
         for sid, sdata in self.classSubjects (klass).items ():
             sinfo = self.subjectInfo (sid)
-            if _TTAG in sdata:
+            if CONF.COURSES.TTAG in sdata:
                 sids [sid] = sinfo
         return sids
 
@@ -187,15 +183,15 @@ class CourseTables:
         those subjects relevant for a grade list:
             {sid -> subject info}
         That can include "unreal" subjects, e.g. composite grades. These
-        are marked by '*' in the FLAGS field.
+        are marked by CONF.COURSES.UNREAL in the FLAGS field.
         If <realonly> is true, only "real" subjects will be included, i.e.
         those actually taught in courses.
         """
         sids = OrderedDict ()
         for sid, sdata in self.classSubjects (klass).items ():
             sinfo = self.subjectInfo (sid)
-            if _GTAG in sdata:
-                if realonly and '*' in sinfo:
+            if CONF.COURSES.GTAG in sdata:
+                if realonly and CONF.COURSES.UNREAL in sinfo:
                     continue
                 sids [sid] = sinfo
         return sids
@@ -209,11 +205,12 @@ class CourseTables:
         pupils = Pupils (self.schoolyear).classPupils (klass)
         if len (pupils) == 0:
             REPORT.Warn (_NOPUPILS, klass=klass)
+            return
         subjects = []
         for sid, sdata in self.classSubjects (klass).items ():
             sinfo = self.subjectInfo (sid)
-            if _GTAG in sdata or _TTAG in sdata:
-                if '*' in sinfo.FLAGS:
+            if CONF.COURSES.GTAG in sdata or CONF.COURSES.TTAG in sdata:
+                if CONF.COURSES.UNREAL in sinfo.FLAGS:
                     continue
                 subjects.append ((sid, sinfo.COURSE_NAME))
         build = FormattedMatrix (self.schoolyear, 'FILE_CLASS_SUBJECTS',

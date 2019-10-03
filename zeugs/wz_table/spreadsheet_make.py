@@ -3,7 +3,7 @@
 """
 wz_table/spreadsheet_make.py
 
-Last updated:  2019-09-30
+Last updated:  2019-10-02
 
 Create a new spreadsheet (.xlsx).
 
@@ -169,17 +169,21 @@ class NewSpreadsheet:
         return dv
 
 
-    def newFont (self, name='Arial', size='12', bold=False, italic=False,
-            colour='FF000000'):
-        return Font (name=name, size=size, bold=bold, italic=italic,
-                color=colour)
+    @staticmethod
+    def newFont (name, size, bold, italic, colour):
+        size = 12 if size == None else int (size)
+        return Font (name = name or 'Arial', size = size,
+                bold=bool (bold), italic=bool (italic),
+                color=colour or 'FF000000')
 
 
-    def background (self, colour):
+    @staticmethod
+    def background (colour):
         return PatternFill (patternType='solid', fgColor=colour)
 
 
-    def alignment (self, h=None, v=None, rotate=None, indent=None, wrap=None):
+    @staticmethod
+    def alignment (h=None, v=None, rotate=None, indent=None, wrap=None):
         al = Alignment ()
         if h:
             hal = {'l': 'left', 'r': 'right', 'c': 'center'}.get (h)
@@ -203,7 +207,8 @@ class NewSpreadsheet:
         return al
 
 
-    def border (self, left=1, right=1, top=1, bottom=1):
+    @staticmethod
+    def border (left=1, right=1, top=1, bottom=1):
         """Simple borders. Only supports definition of the sides and thickness.
         The value must lie in the range 0 – 3.
         """
@@ -258,85 +263,99 @@ class NewSpreadsheet:
         return fp
 
 
-    def getStyle (self, base=None,
-                font=None, size=None, align=None, background=None,
-                emph=None, border=None, number_format = None,
-                valid=None):
+    def getStyle (self, base=None, **kargs):
         """
-        <font> is the name of the font (<None> => default, not recommended,
-            unless the cell is to contain no text).
-        <size> is the size of the font (<None> => default, not recommended,
-            unless the cell is to contain no text).
+        <base> is an existing style (<_MyStyle> instance).
+        The following kargs are processed:
+        <font> is a tuple describing the font:
+            (name, size, bold (bool), emph (bool), colour)
+            The default is not recommended, unless the cell is empty.
         <align> is the horizontal (l, c or r) OR vertical (b, m, t) alignment.
             Vertical alignment is for rotated text.
         <background> is a colour in the form 'RRGGBB', default none.
-        <emph> is boolean.
         <border>: Only three border types are supported here:
             0: none
             1: all sides
             2: (thicker) underline
         <number_format>: By default force all cells to text format.
         <valid>: <True> just unlocks cell (removes protection).
-            Otherwise it can be a validation object (which will also
+            Otherwise it can be a list of valid strings (which will also
             unlock the cell).
+#TODO: other types of validation?
         """
         if base == None:
             attributes = {}
             # Set default values
-            if align == None: align = 'c'
-            if emph == None: emph = False
-            if border == None: border = 1
-            if number_format == None: number_format = '@'
+            if 'border' not in kargs: kargs ['border'] = 1
+            if 'number_format' not in kargs: kargs ['number_format'] = '@'
+            if 'align' not in kargs: kargs ['align'] = 'c'
+            if 'font' not in kargs:
+                kargs ['font'] = (None, None, None, None, None)
+            validation = None
         else:
-            attributes = base.getAttributes ()
+            attributes, validation = base.getAttributes ()
 
-        # Font
-        fstyle = {}
-        if font != None:
-            fstyle ['name'] = font
-        if size != None:
-            fstyle ['size'] = size
-        if emph:
-            fstyle ['bold'] = True
-        if fstyle:
-            attributes ['font'] = self.newFont (**fstyle)
+        # Font: (name, size, bold, italic, colour)
+        # If any field is <None>, the default for that field will be used.
+        try:
+            attributes ['font'] = self.newFont (*kargs ['font'])
+        except KeyError:
+            pass
+
+        # "Number format"
+        try:
+            attributes ['number_format'] = kargs ['number_format']
+        except KeyError:
+            pass
 
         # Alignment
-        if align in 'bmt':
-            # Vertical
-            h = 'c'
-            v = align
-            rotate = 90
-        else:
-            h = align
-            v = 'm'
-            rotate = None
-        attributes ['alignment'] = self.alignment (h=h, v=v,
-                rotate=rotate)
+        try:
+            align = kargs ['align']
+            if align in 'bmt':
+                # Vertical
+                h = 'c'
+                v = align
+                rotate = 90
+            else:
+                h = align
+                v = 'm'
+                rotate = None
+            attributes ['alignment'] = self.alignment (h=h, v=v,
+                    rotate=rotate)
+        except:
+            pass
 
         # Border
-        if border == 2:
-            attributes ['border'] = self.border (left=0, right=0,
-                    top=0, bottom=2)
-        elif border == 1:
-            attributes ['border'] = self.border ()
+        try:
+            border = kargs ['border']
+            if border == 2:
+                attributes ['border'] = self.border (left=0, right=0,
+                        top=0, bottom=2)
+            elif border == 1:
+                attributes ['border'] = self.border ()
+        except:
+            pass
 
         # Background
-        if background:
-            attributes ['fill'] = self.background (background)
+        try:
+            attributes ['fill'] = self.background (kargs ['background'])
+        except:
+            pass
 
         # Validation is not really a style ...
-        validation = None
-        # Remove cell protection
-        if valid:
-            # The default is 'locked' so only if <valid> is "true"
+        try:
+            valid = kargs ['valid']
+            # The default is 'locked' so only if <valid> is present
             # is an action necessary.
             if not self._unlocked:
                 self._unlocked = Protection (locked=False)
+            # Remove cell protection
             attributes ['protection'] = self._unlocked
 
-            if valid.__class__.__name__ == 'DataValidation':
-                validation = valid
+            if type (valid) == list:
+                validation = self.dataValidation (valid)
+        except:
+            pass
 
         return _MyStyle (attributes, validation)
 
@@ -348,7 +367,7 @@ class _MyStyle:
         self.validation = validation
 
     def getAttributes (self):
-        return self.attributes.copy ()
+        return self.attributes.copy (), self.validation
 
     def setCell (self, cell):
         for k, v in self.attributes.items ():

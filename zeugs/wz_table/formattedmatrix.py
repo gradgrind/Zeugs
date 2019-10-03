@@ -3,7 +3,7 @@
 """
 wz_table/formattedmatrix.py
 
-Last updated:  2019-09-30
+Last updated:  2019-10-02
 
 Handles creation of spreadsheet tables having "subjects" as columns and
 pupils as rows.
@@ -38,40 +38,74 @@ from .dbtable import readDBTable, digestDBTable
 
 
 class FormattedMatrix:
-    def __init__ (self, schoolyear, filetag, klass=None):
+    def __init__ (self, schoolyear, filetag, klass=None, **kargs):
         """<filetag> is an entry in the PATHS config file, which may
         contain '*' (which will be replaced by the class).
-        If the file exists already, the old values will be available
-        at <self.oldtable> (otherwise <None>) and the old file will be
-        backed up (by getting an extra '.bak' on the extension).
+        If the file exists already, the values will be available
+        at <self.matrix> (otherwise <None>).
         """
         self.schoolyear = schoolyear
         self.klass = klass
+        self._stylenum = 0      # internal tag for additional entry styles
+        self.entrystyles = []   # list of additional entry styles
         # Configuration info for the options table
         self.fieldnames = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
 
         self.filepath = Paths.getYearPath (schoolyear, filetag,
-                make=-1).replace ('*', klass)
+                make=-1, **kargs).replace ('*', klass)
         try:
-            _oldtable = readDBTable (self.filepath)
-            self.oldtable = digestDBTable (_oldtable, self.fieldnames)
-            # Backup old table
-            shutil.copyfile(_oldtable.filepath, _oldtable.filepath + '.bak')
+            self._oldtable = readDBTable (self.filepath)
+            self.matrix = digestDBTable (self._oldtable, self.fieldnames)
         except:
-            self.oldtable = None
+            self._oldtable = None
+            self.matrix = None
 
 
-    def build (self, title, pupils, subjects, infolines=None, withStream=True):
+    def getValues (self):
+        return self.matrix
+
+
+    @classmethod
+    def readMatrix (cls, schoolyear, filetag, klass, **kargs):
+        """A convenience method for reading a table for a particular class.
+        """
+        fm = cls (schoolyear, filetag, klass, **kargs)
+        return fm.matrix
+
+
+    def newEntryStyle (self, stylemap):
+        """Declare extra parameter values for an entry style.
+        <stylemap> is a mapping with the new paramter values.
+        The mapping is given a name tag to identify it.
+        """
+        self._stylenum += 1
+        stylemap ["__tag__"] = "EntryStyle%02d" % self._stylenum
+        self.entrystyles.append (stylemap)
+        return stylemap
+
+
+    def build (self, title, pupils, subjects,
+            values=None, cellstyles=None, infolines=None, withStream=True):
         """<title> is a string appearing in the first line.
         <pupils> is a list of <PupilData> instances.
         <subjects> is a list of (sid, subject name) pairs.
+        <values> ...
+        <cellstyles> ...
         <infolines> can be used to supply a mapping ({key->value}) of
         info-lines. The school year is included automatically. If a class
         is supplied, that will also be included automatically.
         If <withStream> is true, the pupils will have a stream field.
         In order to fit the subject names in narrow columns, these are
         written vertically.
+        If there is an existing table, the old file will be
+        backed up (by getting an extra '.bak' on the extension)
         """
+        if self._oldtable:
+            # Backup old table
+            shutil.copyfile (self._oldtable.filepath,
+                    self._oldtable.filepath + '.bak')
+        if values == None:
+            values = self.matrix
         # Cell size configuration values
         configs = CONF.COURSE_PUPIL_TABLE
         WIDTH_PID = configs.WIDTH_PID.nat ()
@@ -92,27 +126,30 @@ class FormattedMatrix:
 
         # Styles:
         font = configs.FONT
-        titleStyle = self.sheet.getStyle (font=font,
-                size=configs.FONT_SIZE_TITLE.nat (),
-                align='c', #emph=True,
+        titleStyle = self.sheet.getStyle (font=(font,
+                configs.FONT_SIZE_TITLE.nat (), None, None, None),
+                align='c',
                 border=2)
-        tagStyle = self.sheet.getStyle (font=font,
-                size=configs.FONT_SIZE_TAG.nat ())
-        infoStyle = self.sheet.getStyle (font=font,
-                size=configs.FONT_SIZE.nat (), align='l', border=0)
-        vStyle = self.sheet.getStyle (font=font,
-                size=configs.FONT_SIZE.nat (), align='b')
-        h1Style = self.sheet.getStyle (font=font,
-                size=configs.FONT_SIZE.nat (), align='l')
+        tagStyle = self.sheet.getStyle (font=(font,
+                configs.FONT_SIZE_TAG.nat (), None, None, None))
+        font0 = (font, configs.FONT_SIZE.nat (), None, None, None)
+        infoStyle = self.sheet.getStyle (font=font0, align='l', border=0)
+        vStyle = self.sheet.getStyle (font=font0, align='b')
+        h1Style = self.sheet.getStyle (font=font0, align='l')
+        # For entries with no choice:
+        invalidStyle = self.sheet.getStyle (font=font0,
+                align='c', background=CONF.COLOURS.INVALID)
+        padStyle = self.sheet.getStyle (border=0,
+                background=CONF.COLOURS.SPACER)
         # This one is for entry fields, allowing editing:
-        entryStyle = self.sheet.getStyle (font=font,
-                size=configs.FONT_SIZE.nat (), align='c', valid=True)
-## For entries with no choice:
-# invalidStyle = self.sheet.getStyle (font=font,
-#        size=configs.FONT_SIZE.nat (),
-#        align='c', background=configs.INVALID_BG)
-        padStyle = self.sheet.getStyle (font=None, size=None,
-                border=0, background=configs.SPACER_COLOUR)
+        entryStyle = self.sheet.getStyle (font=font0,
+                align='c', valid=True)
+
+        # Further entry styles
+        entryStyles = {}
+        for stylemap in self.entrystyles:
+            entryStyles [stylemap ['__tag__']] = self.sheet.getStyle (
+                    base=entryStyle, **stylemap)
 
         # First column sizes
         self.sheet.setWidth (0, WIDTH_PID)
@@ -174,17 +211,26 @@ class FormattedMatrix:
                 self.sheet.setCell (r, 2, pdata ['STREAM'], h1Style)   # stream
 
             try:
-                oldvals = self.oldtable [pid]
+                vals = values [pid]
             except:
-                oldvals = None
+                vals = None
+            try:
+                pstyles = cellstyles [pid]
+            except:
+                pstyles = None
 
             c = COL0
             for sid, sname in subjects:
                 try:
-                    val = oldvals [sid]
+                    val = vals [sid]
                 except:
                     val = None
-                self.sheet.setCell (r, c, val, entryStyle)
+                try:
+                    s = pstyles [sid]
+                    style = entryStyles [s ['__tag__']] if s else invalidStyle
+                except:
+                    style = entryStyle
+                self.sheet.setCell (r, c, val, style)
                 c += 1
             r += 1
 

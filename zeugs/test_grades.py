@@ -3,7 +3,7 @@
 """
 test_grades.py
 
-Last updated:  2019-07-11
+Last updated:  2019-10-01
 
 Run some tests on the modules in the wz_grades package.
 
@@ -36,6 +36,6 @@ if __name__ == '__main__':
 #    from wz_grades import makeabireports
 #    runTests (makeabireports)
 
-    from wz_grades import grouptables
-    runTests (grouptables)
+    from wz_grades import gradetables
+    runTests (gradetables)
 

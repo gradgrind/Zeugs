@@ -1,5 +1,5 @@
 ############## PATHS
-############## Version: 2019-09-29
+############## Version: 2019-10-03
 
 ### Hier wird das Layout des Datenordners definiert
 
@@ -119,6 +119,16 @@ FILE_GRADES =& *DIR_GRADES_TEACHERS
              & Lehrer
              & Noten_*
 
+####### Notentabellen für Klassen
+FILE_CLASS_GRADES =& *DIR_GRADES_DATE_BASE
+                   & Noten
+                   & Notentabelle_*
+             
+# Leere Notentabellen für Klassen
+FILE_CLASS_GRADES0 =& *DIR_GRADES_DATE_BASE
+                   & Noten0
+                   & Notentabelle_*
+             
 ####### Notentabellen für Gruppen ("class-stream")
 DIR_GRADES_GROUPS =& *DIR_GRADES_DATE_BASE
                    & Noten-Gruppen

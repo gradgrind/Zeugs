@@ -1,5 +1,5 @@
 ############## COURSE_PUPIL_TABLE
-############## Version: 2019-09-29
+############## Version: 2019-10-01
 ### Konfigurationsdatei für Fach-Schüler-Matrizen
 
 FONT = Arial
@@ -27,8 +27,3 @@ LINE_WIDTH =& 0
            & 1,0
            & 2,0
            & 3,0
-
-## Background colour for invalid cell in course-choice table
-#INVALID_BG = 888888
-# Colour for spacer rows/columns in course-choice table
-SPACER_COLOUR = 777777

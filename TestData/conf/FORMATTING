@@ -1,5 +1,5 @@
 ############## FORMATTING
-############## Version: 2019-05-01
+############## Version: 2019-10-01
 
 ### Hier sind verschiedene Formatierungseinstellungen.
 
@@ -18,6 +18,9 @@ CLASS_LEADING_ZERO = 0
 # Format der Datumsfelder in Zeugnissen. Angabe in der Form, die die
 # Python-Funktion <datetime.datetime.strftime> benötigt
 DATEFORMAT = %d.%m.%Y
+
+# Zeichen für ungültige Tabellenzellen ('|' wird nicht übernommen)
+INVALID = |/
 
 # Zeichenkette für wirklich leere Felder im Notenzeugnis
 EMPTY = 
