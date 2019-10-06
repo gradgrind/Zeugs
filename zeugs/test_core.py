@@ -3,7 +3,7 @@
 """
 test_core.py
 
-Last updated:  2019-09-25
+Last updated:  2019-10-05
 
 Run some tests on the modules in the wz_core package.
 
@@ -75,6 +75,3 @@ if __name__ == '__main__':
 
     from wz_core import teachers
     runTests (teachers)
-
-#    from wz_core import courses
-#    runTests (courses)

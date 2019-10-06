@@ -1,10 +1,10 @@
 ############## GRADES/GRADES_P
-############## Version: 2019-07-11
+############## Version: 2019-10-06
 
 ### 'Punktskala' für Noten der Abiturprüfung (12. Klasse)
 
 # Klasse-Gruppe, für die diese Notenskala relevant ist.
-GROUPS = 12-Gym
+GROUPS =& 12-Gym
 
 # Formatierung einer Note, Anzahl der Ziffern.
 DIGITS = 2

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_grades/grouptables.py
+wz_grades/gradetables.py
 
 Last updated:  2019-10-03
 
@@ -125,8 +125,8 @@ class GradeTables:
                 try:
                     style ['valid'] = _vlists [stream]
                 except KeyError:
-                    _v = validGrades (
-                            getGradeScale (klassStream (klass, stream)))
+                    _gs = getGradeScale (klassStream (klass, stream))
+                    _v = validGrades (_gs)
                     _vlists [stream] = _v
                     style ['valid'] = _v
 

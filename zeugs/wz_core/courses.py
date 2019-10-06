@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2019-10-01
+Last updated:  2019-10-05
 
 Handler for the basic course info.
 
@@ -168,7 +168,7 @@ class CourseTables:
     def filterTexts (self, klass):
         """Return the subject list for the given class including only
         those subjects for which a text report is expected:
-            {sid -> subject info}
+            {[ordered] sid -> subject info}
         """
         sids = OrderedDict ()
         for sid, sdata in self.classSubjects (klass).items ():
@@ -181,7 +181,7 @@ class CourseTables:
     def filterGrades (self, klass, realonly=False):
         """Return the subject list for the given class including only
         those subjects relevant for a grade list:
-            {sid -> subject info}
+            {[ordered] sid -> subject info}
         That can include "unreal" subjects, e.g. composite grades. These
         are marked by CONF.COURSES.UNREAL in the FLAGS field.
         If <realonly> is true, only "real" subjects will be included, i.e.
@@ -191,7 +191,7 @@ class CourseTables:
         for sid, sdata in self.classSubjects (klass).items ():
             sinfo = self.subjectInfo (sid)
             if CONF.COURSES.GTAG in sdata:
-                if realonly and CONF.COURSES.UNREAL in sinfo:
+                if realonly and CONF.COURSES.UNREAL in sinfo.FLAGS:
                     continue
                 sids [sid] = sinfo
         return sids
@@ -253,6 +253,10 @@ def test_01 ():
 
     REPORT.Test ("\nClass 10, real only for grades:")
     for sid, sinfo in ctables.filterGrades ('10', realonly=True).items ():
+        REPORT.Test ("  ++ %s: %s" % (sid, repr (sinfo)))
+
+    REPORT.Test ("\nClass 10, all grade 'subjects':")
+    for sid, sinfo in ctables.filterGrades ('10', realonly=False).items ():
         REPORT.Test ("  ++ %s: %s" % (sid, repr (sinfo)))
 
     REPORT.Test ("\nClass 10, for text reports:")
