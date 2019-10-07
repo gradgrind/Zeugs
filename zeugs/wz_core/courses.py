@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2019-10-05
+Last updated:  2019-10-07
 
 Handler for the basic course info.
 
@@ -32,8 +32,9 @@ be defined by tags.
 Most of the additional information about the subjects – as well as
 entries for "unreal" subjects (ones that are not taught but relevant in
 some context) – is connected with grade reports. "Unreal" subjects are
-marked by a "*" in the FLAGS field. The CGROUPS field is used for
-computing combined grades and averages, etc. for grade reports.
+marked by a tag starting with "*" in the INFO_L field.
+The CGROUPS field is used for computing combined grades and averages,
+etc., for grade reports.
 
 Together with the pupils database, a second table can be generated with
 entries for each pupil/subject pair (only the subjects which are actually
@@ -73,7 +74,7 @@ the following methods:
 _MATRIXTITLE = 'Kursbelegung (Fach+Schüler -> Lehrer)'
 
 # Messages
-_FIELD_UNKNOWN = "Unerwartetes Feld in Fachliste: {field}"
+_FIELD_MISSING = "Feld '{field}' fehlt in Fachliste"
 _NO_SID_FIELD = "Kein SID-Feld in Fachliste: {field}"
 _COURSEMATRIX = ("Kurs-Schüler-Belegungsmatrix erstellt für Klasse {klass}:\n"
             "  {path}")
@@ -96,32 +97,31 @@ class CourseTables:
         fpath = Paths.getYearPath (schoolyear, 'FILE_SUBJECTS')
         data = readDBTable (fpath)
         fields = CONF.TABLES.COURSES_FIELDNAMES
-        rfields = {v: k for k, v in fields.items ()}
-        fmap = OrderedDict ()   # {field -> column}
-        classes = {}            # {class -> column}
-        flag = False
-        sidcol = None
-        for f, col in data.headers.items ():
-            if f == '#':
-                flag = True
-                continue
-            if flag:
-                classes [f] = col
-            else:
-                try:
-                    f1 = rfields [f]
-                except:
-                    REPORT.Fail (_FIELD_UNKNOWN, field=f)
-                if f1 == 'SID':
-                    sidcol = col
+        fmap = OrderedDict ()   # {[ordered] field -> table column}
+        sidcol = None           # column containing sid (presumably 0)
+        for f, ft in fields.items ():
+            try:
+                if f == 'SID':
+                    sidcol = data.headers [ft]
                 else:
-                    fmap [f1] = col
+                    fmap [f] = data.headers [ft]
+            except:
+                REPORT.Fail (_FIELD_MISSING, field=ft)
         if sidcol == None:
             try:
                 sidfield = fields ['SID']
             except:
                 sidfield = '???'
             REPORT.Fail (_NO_SID_FIELD, field=sidfield)
+        # The class entries are in the columns after that with '#' as header.
+        classes = {}            # {class -> table column}
+        flag = False
+        for f, col in data.headers.items ():
+            if f == '#':
+                flag = True
+                continue
+            if flag:
+                classes [f] = col
 
         #### Subject data structure:
         self.sdata = namedtuple ('Subject', fmap)
@@ -131,11 +131,17 @@ class CourseTables:
         for row in data:
             sid = row [sidcol]
             # Build course data structure (namedtuple)
-            # Empty cells have ''
-            sbj = self.sdata (*[row [col] or '' for col in fmap.values ()])
-            self.subject2info [sid] = sbj
+            # Empty cells have '' or []
 
-            # Add to affected classes ({sid -> tags})
+            vec = []
+            for f, col in fmap.items ():
+                v = row [col]
+                if f.endswith ('_L'):
+                    v = v.split () if v else []
+                vec.append (v)
+            self.subject2info [sid] = self.sdata (*vec)
+
+            # Add to affected classes ({[ordered] sid -> tags})
             for klass, col in classes.items ():
                 val = row [col]
                 if val:
@@ -183,7 +189,8 @@ class CourseTables:
         those subjects relevant for a grade list:
             {[ordered] sid -> subject info}
         That can include "unreal" subjects, e.g. composite grades. These
-        are marked by CONF.COURSES.UNREAL in the FLAGS field.
+        are marked by a function tag (starts with CONF.COURSES.UNREAL)
+        in the INFO_L field.
         If <realonly> is true, only "real" subjects will be included, i.e.
         those actually taught in courses.
         """
@@ -191,7 +198,7 @@ class CourseTables:
         for sid, sdata in self.classSubjects (klass).items ():
             sinfo = self.subjectInfo (sid)
             if CONF.COURSES.GTAG in sdata:
-                if realonly and CONF.COURSES.UNREAL in sinfo.FLAGS:
+                if realonly and functionTag (sinfo):
                     continue
                 sids [sid] = sinfo
         return sids
@@ -210,7 +217,7 @@ class CourseTables:
         for sid, sdata in self.classSubjects (klass).items ():
             sinfo = self.subjectInfo (sid)
             if CONF.COURSES.GTAG in sdata or CONF.COURSES.TTAG in sdata:
-                if CONF.COURSES.UNREAL in sinfo.FLAGS:
+                if functionTag (sinfo):
                     continue
                 subjects.append ((sid, sinfo.COURSE_NAME))
         build = FormattedMatrix (self.schoolyear, 'FILE_CLASS_SUBJECTS',
@@ -225,6 +232,14 @@ class CourseTables:
         """
         for klass in self.classes ():
             self._courseMatrix (klass)
+
+
+
+def functionTag (sinfo):
+    for f in sinfo.INFO_L:
+        if f [0] == CONF.COURSES.UNREAL:
+            return f
+    return None
 
 
 
