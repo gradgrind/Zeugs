@@ -3,7 +3,7 @@
 """
 wz_table/formattedmatrix.py
 
-Last updated:  2019-10-02
+Last updated:  2019-10-14
 
 Handles creation of spreadsheet tables having "subjects" as columns and
 pupils as rows.
@@ -32,7 +32,7 @@ from glob import glob
 from collections import OrderedDict
 
 from wz_core.configuration import Paths
-from .spreadsheet_make import NewSpreadsheet
+from .spreadsheet_make import NewSpreadsheet, TableStyle
 from .dbtable import readDBTable, digestDBTable
 
 
@@ -41,28 +41,24 @@ class FormattedMatrix:
     def __init__ (self, schoolyear, filetag, klass=None, **kargs):
         """<filetag> is an entry in the PATHS config file, which may
         contain '*' (which will be replaced by the class).
-        If the file exists already, the values will be available
-        at <self.matrix> (otherwise <None>).
+        If there is already a file with this path, this will be read in
+        using <readDBTable> (which adds a file extension if necessary).
         """
         self.schoolyear = schoolyear
         self.klass = klass
-        self._stylenum = 0      # internal tag for additional entry styles
-        self.entrystyles = []   # list of additional entry styles
         # Configuration info for the options table
         self.fieldnames = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
 
         self.filepath = Paths.getYearPath (schoolyear, filetag,
                 make=-1, **kargs).replace ('*', klass)
-        try:
-            self._oldtable = readDBTable (self.filepath)
-            self.matrix = digestDBTable (self._oldtable, self.fieldnames)
-        except:
-            self._oldtable = None
-            self.matrix = None
 
 
     def getValues (self):
-        return self.matrix
+        try:
+            oldtable = readDBTable (self.filepath)
+        except FileNotFoundError:
+            return None
+        return digestDBTable (oldtable, self.fieldnames)
 
 
     @classmethod
@@ -70,27 +66,35 @@ class FormattedMatrix:
         """A convenience method for reading a table for a particular class.
         """
         fm = cls (schoolyear, filetag, klass, **kargs)
-        return fm.matrix
+        return fm.getValues ()
 
 
-    def newEntryStyle (self, stylemap):
+    def newEntryStyle (self, **kargs):
         """Declare extra parameter values for an entry style.
-        <stylemap> is a mapping with the new paramter values.
-        The mapping is given a name tag to identify it.
         """
-        self._stylenum += 1
-        stylemap ["__tag__"] = "EntryStyle%02d" % self._stylenum
-        self.entrystyles.append (stylemap)
-        return stylemap
+        try:
+            style0 = self.entryStyle
+        except:
+            font = CONF.COURSE_PUPIL_TABLE.FONT
+            fsize = CONF.COURSE_PUPIL_TABLE.FONT_SIZE.nat ()
+            style0 = TableStyle (font = font, size = fsize,
+                    align = 'c', valid = True)
+            self.entryStyle = style0
+        if len (kargs) == 0:
+            return style0
+        return TableStyle (base = style0, **kargs)
 
 
-    def build (self, title, pupils, subjects,
-            values=None, cellstyles=None, infolines=None, withStream=True):
+    def build (self, title, pupils, subjects, values,
+            cellstyles=None, infolines=None, withStream=True):
         """<title> is a string appearing in the first line.
         <pupils> is a list of <PupilData> instances.
         <subjects> is a list of (sid, subject name) pairs.
-        <values> ...
-        <cellstyles> ...
+        <values> is a data structure like that returned by <digestDBTable>.
+        It can also be <None>, if an empty table is to be produced.
+        <cellstyles> is a mapping {pid -> {sid -> <TableStyle> instance}}.
+        If there is no entry, the default entry style is used. If the
+        value is <None>, the style for an "invalid" cell is used.
         <infolines> can be used to supply a mapping ({key->value}) of
         info-lines. The school year is included automatically. If a class
         is supplied, that will also be included automatically.
@@ -100,12 +104,13 @@ class FormattedMatrix:
         If there is an existing table, the old file will be
         backed up (by getting an extra '.bak' on the extension)
         """
-        if self._oldtable:
+        try:
             # Backup old table
-            shutil.copyfile (self._oldtable.filepath,
-                    self._oldtable.filepath + '.bak')
-        if values == None:
-            values = self.matrix
+            shutil.copyfile (values.filepath,
+                    values.filepath + '.bak')
+        except:
+            pass
+
         # Cell size configuration values
         configs = CONF.COURSE_PUPIL_TABLE
         WIDTH_PID = configs.WIDTH_PID.nat ()
@@ -126,30 +131,22 @@ class FormattedMatrix:
 
         # Styles:
         font = configs.FONT
-        titleStyle = self.sheet.getStyle (font=(font,
-                configs.FONT_SIZE_TITLE.nat (), None, None, None),
-                align='c',
-                border=2)
-        tagStyle = self.sheet.getStyle (font=(font,
-                configs.FONT_SIZE_TAG.nat (), None, None, None))
-        font0 = (font, configs.FONT_SIZE.nat (), None, None, None)
-        infoStyle = self.sheet.getStyle (font=font0, align='l', border=0)
-        vStyle = self.sheet.getStyle (font=font0, align='b')
-        h1Style = self.sheet.getStyle (font=font0, align='l')
+        titleStyle = TableStyle (size = configs.FONT_SIZE_TITLE.nat (),
+                align = 'c', border = 2)
+        tagStyle = TableStyle (size = configs.FONT_SIZE_TAG.nat ())
+        fsize = configs.FONT_SIZE.nat ()
+        infoStyle = TableStyle (font = font, size = fsize,
+                align = 'l', border = 0)
+        vStyle = TableStyle (font = font, size = fsize, align = 'b')
+        h1Style = TableStyle (font = font, size = fsize, align = 'l')
         # For entries with no choice:
-        invalidStyle = self.sheet.getStyle (font=font0,
-                align='c', background=CONF.COLOURS.INVALID)
-        padStyle = self.sheet.getStyle (border=0,
-                background=CONF.COLOURS.SPACER)
-        # This one is for entry fields, allowing editing:
-        entryStyle = self.sheet.getStyle (font=font0,
-                align='c', valid=True)
-
-        # Further entry styles
-        entryStyles = {}
-        for stylemap in self.entrystyles:
-            entryStyles [stylemap ['__tag__']] = self.sheet.getStyle (
-                    base=entryStyle, **stylemap)
+        invalidStyle = TableStyle (font = font, size = fsize,
+                align = 'c', background = CONF.COLOURS.INVALID)
+        padStyle = TableStyle (border = 0,
+                background = CONF.COLOURS.SPACER)
+        # This one is for entry fields, allowing editing. It can also be
+        # used as a base for alternative entry styles (see <newEntryStyle>).
+        entryStyle = self.newEntryStyle ()
 
         # First column sizes
         self.sheet.setWidth (0, WIDTH_PID)
@@ -188,8 +185,11 @@ class FormattedMatrix:
         self.sheet.setHeight (row+2, HEIGHT_SEP)
         # headers for the pupils
         self.sheet.setCell (row, 0, self.fieldnames ['PID'], tagStyle)
+        self.sheet.setCell (row+1, 0, None, tagStyle)
         self.sheet.setCell (row, 1, self.fieldnames ['PUPIL'], tagStyle)
+        self.sheet.setCell (row+1, 1, None, tagStyle)
         self.sheet.setCell (row, 2, self.fieldnames ['STREAM'], tagStyle)
+        self.sheet.setCell (row+1, 2, None, tagStyle)
         # headers for the subjects
         COL0 = col
         ROWH, ROW0 = row, row + 3
@@ -226,8 +226,7 @@ class FormattedMatrix:
                 except:
                     val = None
                 try:
-                    s = pstyles [sid]
-                    style = entryStyles [s ['__tag__']] if s else invalidStyle
+                    style = pstyles [sid] or invalidStyle
                 except:
                     style = entryStyle
                 self.sheet.setCell (r, c, val, style)

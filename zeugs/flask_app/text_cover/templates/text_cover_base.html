@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Mantelbogen{% endblock %}
+
+{% block sidepanel %}
+  <div class="pure-menu-heading sidemenu-heading"">Klasse:</div>
+  <div class="pure-menu sidemenu">
+    <ul class="pure-menu-list">
+      {% for k in klasses %}
+      <li class="pure-menu-item"><a href="{{url_for('bp_text_cover.klassview', klass=k)}}" class="pure-menu-link">{{k}}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}
+
+{% block content %}
+    {% if error %}
+    <p><strong> Ungültige Eingabe(n): </strong></p> {{error}}
+    {% endif %}
+
+    <form id="dataform" class="pure-form" method="POST">
+        {{ form.csrf_token }}
+        <div class="form2">
+            <!--<label for="DATE_D">Ausgabedatum</label>
+            <input id="DATE_D" type="date" required>-->
+            {{ form.dateofissue.label }}{{ form.dateofissue }}
+                {% for error in form.dateofissue.errors %}
+                <span>[{{ error }}]</span>
+                {% endfor %}
+            {{ form.itemB.label }}{{ form.itemB }}
+                {% for error in form.itemB.errors %}
+                <span>[{{ error }}]</span>
+                {% endfor %}
+        </div>
+        <hr />
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Übernehmen</button>
+        </div>
+    </form>
+{% endblock %}

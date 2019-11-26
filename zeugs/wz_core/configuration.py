@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2019-09-25
+Last updated:  2019-11-26
 
 Configuration items and the handler for the configuration files.
 
@@ -56,11 +56,16 @@ from collections import OrderedDict
 import datetime
 import builtins
 
+from .reporting import Report
 
 def init (userFolder):
-    if userFolder and os.path.isdir (userFolder):
-        Paths._init (userFolder)
-#        builtins.CONFIG = ConfigDir (Paths.getUserFolder (_CONFIGDIR))
+    if not userFolder:
+        appdir = os.path.dirname (
+                os.path.dirname (os.path.realpath (__file__)))
+#TODO: This should probably be switched to 'TestData' at some stage ...
+        userFolder = os.path.join (os.path.dirname (appdir), 'zeugs_data')
+    builtins.REPORT = Report () # no argument => console output
+    Paths._init (userFolder)
 
 
 def readFloat (string):
@@ -217,7 +222,7 @@ class ConfigFile (OrderedDict):
         self._path = fpath
         self._name = os.path.basename (fpath)
         try:
-            with open (fpath) as fh:
+            with open (fpath, encoding='utf-8') as fh:
                 text = fh.read ()
         except:
             # Couldn't read file
@@ -447,8 +452,8 @@ def test_4 ():
             path, date='2016-01-31')))
 
 def test_5 ():
-    REPORT.Test (".TTDATA: " + CONF.TABLES.DB_COURSE_FIELDNAMES.TEACHER)
-    REPORT.Test ("[TTDATA]: " + CONF.TABLES.DB_COURSE_FIELDNAMES ['TEACHER'])
+    REPORT.Test (".TTDATA: " + CONF.TABLES.PUPILS_FIELDNAMES.FIRSTNAME)
+    REPORT.Test ("[TTDATA]: " + CONF.TABLES.PUPILS_FIELDNAMES ['FIRSTNAME'])
 
 def test_6 ():
     REPORT.Test ("CONF.PATHS:")

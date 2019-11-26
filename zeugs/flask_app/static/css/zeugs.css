@@ -1,0 +1,266 @@
+
+.fixed-header, .fixed-footer{
+    width: 100%;
+    position: fixed;        
+    background: #f8a;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    z-index: 2;
+}
+
+.fixed-header{
+    top: 0;
+    color: #00e
+}
+
+.fixed-footer{
+    bottom: 0;
+    color: #e00;
+}    
+
+/* Leave space on the left for an open button for the side-panel. */
+.fixed-header > nav {
+    padding-left: 4rem;
+}
+
+nav {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+    font-size: 150%;
+}
+
+nav img {
+    height: 80%;
+    width: auto;
+    padding: 0 0.5rem;
+    align-self: center;
+}
+    
+nav a {
+    text-decoration: none;
+    padding: 0 0.5rem;
+    align-self: center;
+}
+
+nav label {
+    padding: 0 0.5rem;
+    align-self: center;
+}
+
+/* "navitem" is to permit full-height nav-bar entries
+ * with vertically centred text. */
+.navitem {
+    display:flex;
+    height: 100%;
+}
+
+.navlink {
+    display: block;
+    padding: 0.5rem 1rem;
+}
+
+.navlink:hover {
+    background-color: #faa;
+}
+
+.navtitle {
+     flex-grow: 1;
+     justify-content: center;
+     color:#005;
+     font-weight: bold;
+}
+
+
+.dropdown {
+    //position: relative;
+    //display: flex;
+}
+
+.dropdown-content {
+    display: none;
+    position: fixed;
+    right: 0;
+    background-color: #f8a;
+    min-width: 160px;
+    box-shadow: -0.5rem 0.5rem 1rem rgba(240,0,100,0.6);
+    //padding: 12px 16px;
+    z-index: 3;
+    top: 3rem; /* header height */
+}
+    
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+    
+/* Style the button that is used to open the sidepanel */
+.openbtn {
+    font-size: 2rem;
+    cursor: pointer;
+    background-color: rgba(255,255,255,0);
+    border-radius: 0.5rem;
+    border: 1px solid #f00;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    position: absolute;
+}
+
+.openbtn:hover {
+    background-color: #fbb;
+} 
+
+.form2 {
+    display: grid;
+    grid-template-columns: 10rem 1fr;
+    grid-gap: 0.5rem;
+    align-items: center;
+}
+
+form.form2 label {
+    text-align: right;
+    grid-column: 1 / 2;
+}
+ 
+form.form2 input, form.form2 button {
+    grid-column: 2 / 3;
+}
+
+form.form2 button {
+    justify-self: end; 
+}
+
+.formsubmit {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    padding: 0 0.5rem;
+}
+
+.formsubmit button {
+    margin: 0 0.5rem;
+}
+
+form span {
+    color: red;
+    grid-column: 1 / 3;
+}
+
+/* The sidepanel menu */
+.sidepanel {
+    display: none; 
+    width: 15rem;
+    position: fixed; /* Stay in place */
+    z-index: 2; /* Stay on top */
+    top: 3rem;
+    left: 0;
+    bottom: 3rem;
+    background-color: #ffc0e0;
+    overflow-x: hidden; /* Disable horizontal scroll */
+    overflow-y: none;
+}
+
+.sidemenu {
+    position: fixed;
+    width: 14rem;
+    padding-left: 1rem;
+    top: 5rem;
+    bottom: 3rem;
+    overflow-x: hidden; /* Disable horizontal scroll */
+}
+
+.sidemenu-heading {
+    position: fixed;
+    color: #00e;
+    width: 13rem;
+}
+
+/* When you mouse over the navigation links, change their color */
+.sidepanel .pure-menu-link:hover {
+    background-color: #faa;
+    cursor: pointer;
+}
+
+main {
+    margin: 7rem 1rem 4rem 0rem;
+    position: relative;
+    //left: 1rem;
+    //right: 0;
+    //padding-right: 1rem;
+    //top: 4rem;
+    //bottom: 4rem;
+    //overflow: auto;
+    padding-left: 1rem;
+}
+
+#pagetitle {
+    height: 3rem;
+    display: flex;
+    font-size: 120%;
+    font-weight: bold;
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 3rem;
+    align-items: center;
+    justify-content: center;
+    color: #00b;
+    background-color: #fbe6e6;
+    z-index: 1;
+}
+
+.custom-select {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0.5rem;
+    font-size: 1.5rem;
+    color: #666;
+}
+
+.custom-select label {
+    padding-right: 0.5rem;
+}
+    
+.custom-select select {
+    width: 100%;
+    background: transparent;
+}
+
+.custom-select option {
+    background: #fdf;
+}
+
+@media (min-width: 768px){
+    #sidepanel0 {
+        display: block !important;
+    }
+    main, #pagetitle {
+        //margin-left: calc(15rem + 1rem);
+        margin-left: 15rem;
+    }
+    .openbtn {
+        display: none;
+    }
+}
+
+
+#cover {
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: rgba(255,255,255,0.6);
+    z-index: 5;
+    width: 100%;
+    height: 100%;
+    display: none;
+    align-items: center;
+}
+
+.imgcentre {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}

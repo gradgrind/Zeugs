@@ -2,8 +2,11 @@
 # to run this project. Later you can install all these apps in a row
 # using pip. Example::
 #
-#     _python/bin/pip install -r requirements.pip
+#     venv/bin/pip install -r requirements.pip
 
 openpyxl
 pdfrw
 #wheel
+
+flask
+Flask-WTF

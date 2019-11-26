@@ -2,5 +2,8 @@
 __pycache__
 tmp
 todo
+venv
 
-DefaultData
+flask_instance
+
+zeugs_data

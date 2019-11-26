@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2019-09-27
+wz_core/pupils.py - last updated 2019-11-17
 
 Database access for reading pupil data.
 
@@ -27,6 +27,19 @@ from collections import OrderedDict
 from .db import DB
 
 
+def fromKlassStream (ks):
+    try:
+        k, s = ks.split ('-')
+        return (k, s)
+    except:
+        return (ks, None)
+
+
+def toKlassStream (k, s):
+    return klass + '-' + stream if stream else klass
+
+
+
 class PupilData (list):
     """A list which allows keyed access to its fields.
     As the fields are a class attribute, this class can only be used for
@@ -36,12 +49,16 @@ class PupilData (list):
     """
     _fields = None
 
+    @staticmethod
+    def fieldNames ():
+        return CONF.TABLES.PUPILS_FIELDNAMES
+
     @classmethod
     def fields (cls):
         if cls._fields == None:
             cls._fields = OrderedDict ()
             i = 0
-            for f in CONF.TABLES.PUPILS_FIELDNAMES:
+            for f in cls.fieldNames ():
                 cls._fields [f] = i
                 i += 1
         return cls._fields
@@ -71,6 +88,8 @@ class PupilData (list):
         """
         return self ['FIRSTNAME'] + ' ' + self ['LASTNAME']
 
+    def klassStream (self):
+        return toKlassStream (self ['CLASS'], self ['STREAM'])
 
 
 
@@ -106,7 +125,6 @@ class Pupils:
             if (not stream) or (stream == pdata ['STREAM']):
                 rows.append (pdata)
         return rows
-
 
 
 

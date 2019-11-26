@@ -3,7 +3,7 @@
 """
 wz_table/spreadsheet_make.py
 
-Last updated:  2019-10-02
+Last updated:  2019-10-14
 
 Create a new spreadsheet (.xlsx).
 
@@ -25,11 +25,8 @@ Copyright 2017-2019 Michael Towers
 =-LICENCE========================================
 """
 
-# This is intended to supersede spreadsheet_new.py ...
-# However, because of the way styles are handled (overriding elements),
-# that may be tricky ...
-
 import os, datetime
+from collections import namedtuple
 
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -74,25 +71,132 @@ class NewSpreadsheet:
         return rcstring
 
 
-    def setCell (self, row, col, val, style=None, isDate=False, **kargs):
+    def makeStyle (self, style):
+        """Return the attributes of this style in the form needed for
+        applying it to a cell. The result is cached in the style object.
+        """
+        cellstyle = style.cellStyle
+        if cellstyle == None:
+            cellstyle = {}
+            cstyle = style.attributes
+            # Font
+            try:
+                fontname = cstyle ['font']
+                f = True
+            except KeyError:
+                fontname = 'Arial'
+                f = False
+            try:
+                fontsize = int (cstyle ['size'])
+                f = True
+            except KeyError:
+                fontsize = 12
+            try:
+                fontbold = bool (cstyle ['bold'])
+                f = True
+            except KeyError:
+                fontbold = False
+            try:
+                fontital = bool (cstyle ['emph'])
+                f = True
+            except KeyError:
+                fontital = False
+            try:
+                fontcol = cstyle ['fg']
+                f = True
+            except KeyError:
+                fontcol = '000000'
+                pass
+            if f:
+                cellstyle ['font'] = Font (name = fontname,
+                        size = fontsize, bold = fontbold,
+                        italic = fontital, color=fontcol)
+
+            # "Number format"
+            try:
+                cellstyle ['number_format'] = cstyle ['number_format']
+            except KeyError:
+                pass
+
+            # Alignment
+            try:
+                align = cstyle ['align']
+                if align in 'bmt':
+                    # Vertical
+                    h = 'c'
+                    v = align
+                    rotate = 90
+                else:
+                    h = align
+                    v = 'm'
+                    rotate = None
+                cellstyle ['alignment'] = self.alignment (h=h, v=v,
+                        rotate=rotate)
+            except KeyError:
+                pass
+
+            # Border
+            try:
+                border = cstyle ['border']
+                if border == 2:
+                    cellstyle ['border'] = self.border (left=0, right=0,
+                            top=0, bottom=2)
+                elif border == 1:
+                    cellstyle ['border'] = self.border ()
+            except KeyError:
+                pass
+
+            # Background
+            try:
+                cellstyle ['fill'] = self.background (cstyle ['background'])
+            except KeyError:
+                pass
+
+            # Validation is not really a style ...
+            try:
+                valid = cstyle ['valid']
+                if valid:
+                    # The default is 'locked' so only if <valid> is present
+                    # is an action necessary.
+                    if not self._unlocked:
+                        self._unlocked = Protection (locked=False)
+                    # Remove cell protection
+                    cellstyle ['protection'] = self._unlocked
+
+                    if type (valid) == list:
+                        style.validation = self.dataValidation (valid)
+            except KeyError:
+                pass
+
+            style.cellStyle = cellstyle
+        return cellstyle
+
+
+    def setCell (self, row, col, val, style=None, isDate=False):
         """Set the cell at the given coordinates to the given value.
         The coordinates start at 0.
         Style objects can be passed as additional arguments.
         """
         cell = self._ws.cell (row=row+1, column=col+1)
+        if style:
+            cellstyle = self.makeStyle (style)
+            for k, v in cellstyle.items ():
+                setattr (cell, k, v)
+
+            if style.validation:
+                style.validation.add (cell)
+
         if val != None:
             if isDate:
+                # Set cell number format
+                cell.number_format = self.FORMAT_DATE
                 # Convert to <datetime.date> instance
                 cell.value = datetime.date (*[int (v) for v in val.split ('-')])
-                # Set cell number format
-                kargs ['number_format'] = self.FORMAT_DATE
             else:
 # Workaround for probable bug in openpyxl:
                 if isinstance (val, str) and type (val) != str:
                     val = str (val)
                 cell.value = val
-        if style:
-            style.setCell (cell, **kargs)
 
 
     def setWidth (self, col, width):
@@ -167,14 +271,6 @@ class NewSpreadsheet:
         # Add the data-validation object to the worksheet
         self._ws.add_data_validation (dv)
         return dv
-
-
-    @staticmethod
-    def newFont (name, size, bold, italic, colour):
-        size = 12 if size == None else int (size)
-        return Font (name = name or 'Arial', size = size,
-                bold=bool (bold), italic=bool (italic),
-                color=colour or 'FF000000')
 
 
     @staticmethod
@@ -263,13 +359,16 @@ class NewSpreadsheet:
         return fp
 
 
-    def getStyle (self, base=None, **kargs):
+
+class TableStyle:
+    def __init__ (self, base=None, **kargs):
         """
-        <base> is an existing style (<_MyStyle> instance).
+        <base> is an existing style (<TableStyle> instance).
         The following kargs are processed:
-        <font> is a tuple describing the font:
-            (name, size, bold (bool), emph (bool), colour)
-            The default is not recommended, unless the cell is empty.
+        <font> is the font name.
+        <size> is the font size.
+        <bold> (bool) and <emph> (bool) are font styles.
+        <fg> is the font colour (RRGGBB).
         <align> is the horizontal (l, c or r) OR vertical (b, m, t) alignment.
             Vertical alignment is for rotated text.
         <background> is a colour in the form 'RRGGBB', default none.
@@ -284,94 +383,16 @@ class NewSpreadsheet:
 #TODO: other types of validation?
         """
         if base == None:
-            attributes = {}
+            self.attributes = {}
             # Set default values
             if 'border' not in kargs: kargs ['border'] = 1
             if 'number_format' not in kargs: kargs ['number_format'] = '@'
             if 'align' not in kargs: kargs ['align'] = 'c'
-            if 'font' not in kargs:
-                kargs ['font'] = (None, None, None, None, None)
-            validation = None
         else:
-            attributes, validation = base.getAttributes ()
+            self.attributes = base.attributes.copy ()
+        self.attributes.update (kargs)
 
-        # Font: (name, size, bold, italic, colour)
-        # If any field is <None>, the default for that field will be used.
-        try:
-            attributes ['font'] = self.newFont (*kargs ['font'])
-        except KeyError:
-            pass
-
-        # "Number format"
-        try:
-            attributes ['number_format'] = kargs ['number_format']
-        except KeyError:
-            pass
-
-        # Alignment
-        try:
-            align = kargs ['align']
-            if align in 'bmt':
-                # Vertical
-                h = 'c'
-                v = align
-                rotate = 90
-            else:
-                h = align
-                v = 'm'
-                rotate = None
-            attributes ['alignment'] = self.alignment (h=h, v=v,
-                    rotate=rotate)
-        except:
-            pass
-
-        # Border
-        try:
-            border = kargs ['border']
-            if border == 2:
-                attributes ['border'] = self.border (left=0, right=0,
-                        top=0, bottom=2)
-            elif border == 1:
-                attributes ['border'] = self.border ()
-        except:
-            pass
-
-        # Background
-        try:
-            attributes ['fill'] = self.background (kargs ['background'])
-        except:
-            pass
-
-        # Validation is not really a style ...
-        try:
-            valid = kargs ['valid']
-            # The default is 'locked' so only if <valid> is present
-            # is an action necessary.
-            if not self._unlocked:
-                self._unlocked = Protection (locked=False)
-            # Remove cell protection
-            attributes ['protection'] = self._unlocked
-
-            if type (valid) == list:
-                validation = self.dataValidation (valid)
-        except:
-            pass
-
-        return _MyStyle (attributes, validation)
-
-
-
-class _MyStyle:
-    def __init__ (self, attributes, validation):
-        self.attributes = attributes
-        self.validation = validation
-
-    def getAttributes (self):
-        return self.attributes.copy (), self.validation
-
-    def setCell (self, cell):
-        for k, v in self.attributes.items ():
-            setattr (cell, k, v)
-
-        if self.validation:
-            self.validation.add (cell)
+        # These are for the sheet style info (cache),
+        # see <NewSpreadsheet.makeStyle>.
+        self.cellStyle = None
+        self.validation = None

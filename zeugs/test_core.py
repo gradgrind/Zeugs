@@ -3,7 +3,7 @@
 """
 test_core.py
 
-Last updated:  2019-10-05
+Last updated:  2019-11-16
 
 Run some tests on the modules in the wz_core package.
 
@@ -28,19 +28,12 @@ Copyright 2019 Michael Towers
 
 import os, builtins
 
-from wz_core.reporting import Report
 from wz_core.configuration import init
 
 
 def testinit ():
-    appdir = os.path.dirname (os.path.realpath (__file__))
-    userdir = os.path.join (os.path.dirname (appdir), 'DefaultData')
-    print ("§§§ userdir:", userdir)
-#    sys.path.append (appdir)
-
-    builtins.REPORT = Report () # console output
     try:
-        init (userdir)
+        init (None)
     except RuntimeError as e:
         REPORT.printMessages ()
         quit (1)

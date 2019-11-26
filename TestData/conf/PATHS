@@ -1,5 +1,5 @@
 ############## PATHS
-############## Version: 2019-10-03
+############## Version: 2019-10-23
 
 ### Hier wird das Layout des Datenordners definiert
 
@@ -247,3 +247,27 @@ TEMPLATE_ATTENDANCE_TABLE =& *DIR_TEMPLATES
 # Path to an attendance table
 FILE_ATTENDANCE_TABLE =& Anwesenheit
                       & Klassenbuch_{klass}_{year}
+
+
+
+######################################
+##### Importiere Fachdaten von der Stundenplanung
+
+DIR_SP =& *DIR_SCHOOLDATA
+        & Fachdaten_roh
+
+FILE_SP_TEACHERS =& *DIR_SP
+                  & teachers
+FILE_SP_CLASSES =& *DIR_SP
+                 & classes
+FILE_SP_LESSONS =& *DIR_SP
+                 & lessons
+FILE_SP_SUBJECTS =& *DIR_SP
+                  & subjects
+
+
+######################################
+##### Ausdruck der Lehrer-Klasse-Fach-Zuordnungen
+
+FILE_TEACHER_REPORT_LISTS =& *DIR_SCHOOLDATA
+                           & Zeugnis-Checkliste.pdf

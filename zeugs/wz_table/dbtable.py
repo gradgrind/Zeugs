@@ -3,7 +3,7 @@
 """
 wz_table/dbtable.py
 
-Last updated:  2019-09-30
+Last updated:  2019-10-14
 
 Read and write a database-like table using a spreadsheet file (xlsx).
 Each file has fields and rows, like a relational db, but there may also
@@ -121,6 +121,7 @@ def digestDBTable (table, translate=None):
 
     tmap.fields = list (fields)
     tmap.title = table.title
+    tmap.filepath = table.filepath
     return tmap
 
 
