@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Test 1{% endblock %}
+
+{% block content %}
+    <form id="dataform" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div>
+            <ul>
+                <li><input name="Pupil" type="checkbox" value="P1" checked><a href="/test/ID1">Pupil 1</a></li>
+                <li><input name="Pupil" type="checkbox" value="P2"><a href="/test/ID2">Pupil 2</a></li>
+            </ul>
+        </div>
+        <div class="form-group"><input name="Pupil" type="checkbox" value="P3" checked><a href="/test/ID3">Pupil 3</a></div>
+        <div class="form-group"><input name="Pupil" type="checkbox" value="P4" checked><a href="/test/ID4">Pupil 4</a></div>
+        <hr />
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Submit</button>
+        </div>
+    </form>
+{% endblock %}

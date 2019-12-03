@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2019-09-28
+wz_compat/import_pupils.py - last updated 2019-12-03
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -46,6 +46,7 @@ _DB_FIELD_MISSING = "PUPILS-Tabelle ohne Feld {field}"
 _DB_FIELD_LOST = "PUPILS-Tabelle: Feld {field} wird nicht exportiert"
 _IMPORT_FROM = "Importiere Schüler von Datei:\n  {path}"
 _BADCLASSNAME = "Ungülitige Klassenname: {name}"
+_BAD_DATE = "Ungültiges Datum: Feld {tag}, Wert {val} in:\n  {path}"
 
 # Info tag in spreadsheet table
 _SCHOOLYEAR = "Schuljahr"
@@ -53,7 +54,7 @@ _SCHOOLYEAR = "Schuljahr"
 _PUPIL_TABLE_TITLE = "** Schüler **"
 
 
-import os
+import os, datetime
 from collections import OrderedDict, UserDict
 from glob import glob
 
@@ -168,6 +169,9 @@ class _IndexedDict (list):
 def readRawPupils (schoolyear, filepath):
     """Read in a table containing raw pupil data for the whole school
     from the given file (ods or xlsx, the file ending can be omitted).
+    The names of date fields are expected to end with '_D'. Values are
+    accepted in isoformat (YYYY-MM-DD, or %Y-%m-%d for <datetime>) or
+    in the format specified for output, config value FORMATTING.DATEFORMAT.
     If a pupil left the school before the beginning of the school year
     (s)he will be excluded from the list built here.
     Build a mapping:
@@ -192,10 +196,13 @@ def readRawPupils (schoolyear, filepath):
     # Read the (capitalised) column headers from this line
     h_colix = {h.upper (): colix
             for h, colix in table.headers.items ()}
+    datefields = []
     for f, fx in fieldMap.items ():
         try:
             colmap.append (h_colix [fx])
             fields [f] = fx
+            if f.endswith ('_D'):
+                datefields.append (f)
         except:
             # Field not present in raw data
             if f == 'PSORT':
@@ -211,11 +218,24 @@ def readRawPupils (schoolyear, filepath):
     ### Read the row data
     ntuples = {}
     _IndexedDict.setup (fields)
+    dateformat = CONF.FORMATTING.DATEFORMAT
     for row in table:
         rowdata = []
         for col in colmap:
             rowdata.append (None if col == None else row [col])
         pdata = _IndexedDict (rowdata)
+        # Check date fields
+        for f in datefields:
+            val = pdata [f]
+            if val:
+                try:
+                    datetime.date.fromisoformat (val)
+                except:
+                    try:
+                        pdata [f] = datetime.datetime.strptime (val,
+                                dateformat).date ().isoformat ()
+                    except:
+                        REPORT.Fail (_BAD_DATE, tag=f, val=val, path=filepath)
 
         ## Exclude pupils who left before the start of the schoolyear
         if pdata ['EXIT_D'] and pdata ['EXIT_D'] < startdate:
@@ -479,16 +499,18 @@ def exportPupils (schoolyear, filepath):
 
 
 def importLatestRaw (schoolyear):
-    fpath = glob (Paths.getYearPath (schoolyear, 'FILE_PUPILS_RAW')) [-1]
+    allfiles = glob (Paths.getYearPath (schoolyear, 'FILE_PUPILS_RAW'))
+    fpath = sorted (allfiles) [-1]
     REPORT.Info (_IMPORT_FROM, path=fpath)
     rpd = readRawPupils (schoolyear, fpath)
     updateFromRaw (schoolyear, rpd)
+    return rpd
 
 
 
 
 ##################### Test functions
-_testyear = 2016
+_testyear = 2020
 
 def test_01 ():
     REPORT.Test ("DB FIELDS: %s" % repr(_getFieldmap ()))
@@ -508,7 +530,6 @@ def test_02 ():
         REPORT.Test ("\n +++ Class %s" % klass)
         for row in rpd [klass]:
             REPORT.Test ("   --- %s" % repr (row))
-
     updateFromRaw (_testyear, rpd)
     db.renameTable ('PUPILS', 'PUPILS0')
     db.deleteIndexes ('PUPILS0')

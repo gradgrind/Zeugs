@@ -14,6 +14,9 @@ ZEUGS_DATA = os.path.join (ZEUGS_BASE, 'zeugs_data')
 from wz_core.configuration import init
 init(ZEUGS_DATA)
 
+from flask_wtf.csrf import CSRFProtect
+csrf = CSRFProtect()
+
 def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__, ZEUGS_DATA, instance_relative_config=True)
@@ -35,6 +38,9 @@ def create_app(test_config=None):
         os.makedirs(app.instance_path)
     except OSError:
         pass
+
+    # Register csrf protection
+    csrf.init_app(app)
 
     """
     @app.route('/textcover/data1', methods=('POST',))
@@ -60,6 +66,26 @@ def create_app(test_config=None):
         sleep (3)
         return jsonify(jsonpeople)
     """
+
+    @app.route('/', methods=['GET','POST'])
+    def test1():
+        if request.method == 'POST':
+#TODO: validation ...
+            return 'Pupils: {}'.format(
+                    repr(request.form.getlist('Pupil')),
+#                    repr (request.form))
+            )
+        return render_template('test1.html')
+
+
+    """
+    #???
+    class ToggleButtonWidget(object):
+        def __call__(self, field):
+            html = '<input type="checkbox" id={} name={} value={}><a href="/test/V2">Link 2</a>'.format(field.id, field.name, field.label.__dict__['text'])
+            return HTMLString(html)
+    """
+
 
     from .text_cover import text_cover
     app.register_blueprint(text_cover.bp, url_prefix='/text_cover')
