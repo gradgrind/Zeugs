@@ -39,6 +39,7 @@ from types import SimpleNamespace
 
 from wz_core.configuration import Dates
 from wz_core.pupils import Pupils
+from wz_compat.config import sortingName
 from wz_text.coversheet import makeSheets, pupilFields, makeOneSheet
 
 
@@ -70,24 +71,6 @@ def textCover():
                            dateofissue=Dates.dateConv(_date),
                            klasses=klasses) #['01', '01K', '02', '02K', '03', '03K']
 
-"""
-    class Form(FlaskForm):
-        dateofissue = DateField('Ausgabedatum', #default=datetime.date.today,
-                                validators=[InputRequired()])
-        itemB = StringField('Anderes Feld', validators=[Length(4, 10,
-                "Das Feld muss zwischen 4 und 10 Zeichen enthalten.")])
-
-    from wz_core.pupils import Pupils
-    p = Pupils(_schoolyear)
-    klasses = [k for k in p.classes() if k >= '01' and k < '13']
-#TODO: Maybe a validity test for text report classes?
-    form = Form()
-    if form.validate_on_submit():
-        return 'Das AusgabeDatum ist {}.'.format(form.dateofissue.data)
-    return render_template('text_cover_base.html', form=form,
-                           schoolyear=str(_schoolyear),
-                           klasses=klasses) #['01', '01K', '02', '02K', '03', '03K']
-"""
 
 #TODO: backlink to klasses list (entry page)?
 @bp.route('/class/<klass>', methods=['GET','POST'])
@@ -95,6 +78,7 @@ def textCover():
 def klassview(klass):
     form = DateForm()
     if form.validate_on_submit():
+        # POST
         _d = form.dateofissue.data.isoformat()
         pdfBytes = makeSheets (_schoolyear, _d, klass,
 #TODO check list not empty ...
@@ -105,6 +89,7 @@ def klassview(klass):
             mimetype='application/pdf',
             as_attachment=True
         )
+    # GET
     p = Pupils(_schoolyear)
     pdlist = p.classPupils(klass)
     klasses = [k for k in p.classes() if k >= '01' and k < '13']
@@ -119,34 +104,35 @@ def klassview(klass):
 # It might be helpful to a a little javascript to implement a pupil-
 # selection toggle (all/none).
 
+
 @bp.route('/pupil/<klass>/<pid>', methods=['GET','POST'])
 #@admin_required
 def pupilview(klass, pid):
-    return "TODO: Pupil %s" % pid
-
-
-#TODO:
     fields = pupilFields(klass)
-
     form = DateForm()
     if form.validate_on_submit():
+        # POST
         _d = form.dateofissue.data.isoformat()
-        pupil = SimpleNamespace ()
-        for f, _ in fields:
-            pupil.f = request.form[f]
-        pdfBytes = makeOneSheet (_schoolyear, _d, klass, pupil)
+        pupil = SimpleNamespace (**{f: request.form[f] for f, _ in fields})
+        pdfBytes = makeOneSheet(_schoolyear, _d, klass, pupil)
         return send_file(
             io.BytesIO(pdfBytes),
             attachment_filename='Mantel_%s.pdf' % sortingName(
-                    pupil.FIRSTNAME, pupil.LASTNAME)
+                    pupil.FIRSTNAMES, pupil.LASTNAME),
             mimetype='application/pdf',
             as_attachment=True
         )
+    # GET
     p = Pupils(_schoolyear)
     pdlist = p.classPupils(klass)
-    klasses = [k for k in p.classes() if k >= '01' and k < '13']
-    return render_template('text_cover_klass.html', form=form,
+    pupils = []
+    for pdata in pdlist:
+        _pid = pdata['PID']
+        pupils.append((_pid, pdata.name()))
+        if _pid == pid:
+            pupil = {f: (fname, pdata[f]) for f, fname in fields}
+    return render_template('text_cover_pupil.html', form=form,
                            schoolyear=str(_schoolyear),
                            klass=klass,
-                           klasses=klasses,
-                           pupils=[(pd['PID'], pd.name()) for pd in pdlist])
+                           pupil=pupil,
+                           pupils=pupils)

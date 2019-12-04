@@ -31,6 +31,7 @@ _PUPILSNOTINCLASS   = "Schüler {pids} nicht in Klasse {klass}"
 _NOPUPILS           = "Mantelbogen: keine Schüler"
 _NOTEMPLATE         = "Vorlagedatei (Mantelbogen) fehlt für Klasse {klass}:\n  {path} "
 _MADEKCOVERS        = "Mantelbögen für Klasse {klass} wurden erstellt"
+_MADEPCOVER         = "Mantelbogen für {pupil} wurde erstellt"
 _BADPID             = "Schüler {pid} nicht in Klasse {klass}"
 
 import os, re
@@ -113,7 +114,6 @@ def pupilFields(klass):
 
 
 
-#TODO
 def makeOneSheet(schoolyear, date, klass, pupil):
     """
     <schoolyear>: year in which school-year ends (int)
@@ -121,10 +121,6 @@ def makeOneSheet(schoolyear, date, klass, pupil):
     <klass>: name of the school-class
     <pupil>: A <SimpleNamespace> with the pupil data (pupil.field = val)
     """
-
-
-
-
     font_config = FontConfiguration()
     tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
     templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
@@ -136,17 +132,13 @@ def makeOneSheet(schoolyear, date, klass, pupil):
             todate = Dates.dateConv,
             logopath = Paths.getUserPath('FILE_TEXT_REPORT_LOGO'),
             fontdir = Paths.getUserPath('DIR_FONTS'),
-            pupils = plist,
+            pupils = [pupil],
             klass = klassData(klass)
         )
-
-    if plist:
-        html = HTML (string=source)
-        pdfBytes = html.write_pdf(font_config=font_config)
-        REPORT.Info(_MADEKCOVERS, klass=klass)
-        return pdfBytes
-    else:
-        REPORT.Fail(_NOPUPILS)
+    html = HTML (string=source)
+    pdfBytes = html.write_pdf(font_config=font_config)
+    REPORT.Info(_MADEPCOVER, pupil=pupil.FIRSTNAMES + ' ' + pupil.LASTNAME)
+    return pdfBytes
 
 
 
