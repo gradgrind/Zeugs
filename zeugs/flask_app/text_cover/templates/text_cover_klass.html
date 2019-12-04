@@ -49,7 +49,7 @@
         {% for pid, pname in pupils %}
         <div class="form-group">
             <input name="Pupil" type="checkbox" value="{{pid}}" checked>
-            <a href="{{url_for('bp_text_cover.pupilview', pid=pid)}}"
+            <a href="{{url_for('bp_text_cover.pupilview', klass=klass, pid=pid)}}"
                 class="pure-menu-link">{{pname}}</a>
         </div>
         {% endfor %}

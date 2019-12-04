@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2019-11-26
+Last updated:  2019-12-03
 
 Configuration items and the handler for the configuration files.
 
@@ -355,6 +355,7 @@ class Paths:
         return path
 
 
+#This is also in wz_compat.config! Here superfluous?
     @classmethod
     def asciify (cls, string):
         """This converts a utf-8 string to ASCII, to ensure portable filenames
@@ -406,26 +407,6 @@ class Dates:
                 return "00.00.0000"
             else:
                 return None
-
-
-    @staticmethod
-    def printSchoolYear (year1):
-        """Return a print version of the given school year.
-        """
-        if year1:
-            year0 = year1 - 1
-            yformat = CONF.FORMATTING.SCHOOLYEAR
-            if yformat:
-                # Show both years
-                y1 = str (year1)
-                if yformat [0] == '2':
-                    y1 = y1 [2:]
-                    yformat = yformat [1:]
-                return str (year0) + yformat + y1
-            else:
-                # Show just the end year
-                return str (year1)
-        return "****"
 
 
     @staticmethod

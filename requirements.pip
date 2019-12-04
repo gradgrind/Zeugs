@@ -1,12 +1,16 @@
-# This file collects all required third-party applications that are needed
+# This file collects all required third-party packages that are needed
 # to run this project. Later you can install all these apps in a row
 # using pip. Example::
 #
 #     venv/bin/pip install -r requirements.pip
 
 openpyxl
-pdfrw
+#pdfrw
 #wheel
+Jinja2
+weasyprint
+# weasyprint has external library requirements ...
+# See https://weasyprint.readthedocs.io/en/latest/install.html
 
 flask
 Flask-WTF

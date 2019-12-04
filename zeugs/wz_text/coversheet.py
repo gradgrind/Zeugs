@@ -4,7 +4,7 @@
 """
 wz_text/coversheet.py
 
-Last updated:  2019-11-30
+Last updated:  2019-12-04
 
 Build the outer sheets (cover sheets) for the text reports.
 User fields in template files are replaced by the report information.
@@ -27,168 +27,135 @@ Copyright 2017-2019 Michael Towers
 =-LICENCE========================================
 """
 
-_PUPILNOTINCLASS  = "Schüler {pid} nicht in Klasse {klass}"
-_NOTEMPLATE       = "Klasse {klass}: Vorlagedatei (Deckblatt) fehlt"
-_MADENCOVERS      = "{n} Deckblätter wurden erstellt, in:\n  {folder}"
-_MADEKCOVERS      = "Alle Deckblätter für diese Klasse:\n  {path}"
-_TEXTREPORTDONE   = "Textzeugnis-Deckblatt fertig: {path}"
+_PUPILSNOTINCLASS   = "Schüler {pids} nicht in Klasse {klass}"
+_NOPUPILS           = "Mantelbogen: keine Schüler"
+_NOTEMPLATE         = "Vorlagedatei (Mantelbogen) fehlt für Klasse {klass}:\n  {path} "
+_MADEKCOVERS        = "Mantelbögen für Klasse {klass} wurden erstellt"
+_BADPID             = "Schüler {pid} nicht in Klasse {klass}"
 
+import os, re
 
-import os
-from collections import OrderedDict
-from zipfile import ZipFile, ZIP_DEFLATED
-from glob import glob
+import jinja2
+
+from weasyprint import HTML, CSS
+from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Pupils
-from wz_textdoc.simpleodt import OdtUserFields
-from wz_io.support import toA3, toPdf, concat
+from wz_compat.config import printSchoolYear, klassData, textCoverTemplate
 
 
-class TextReportCovers:
-    def __init__ (self, schoolyear, date):
-        """Handle generation of text report covers.
-        Set up a class instance for this year and date.
-        """
-        self.schoolyear = schoolyear
-        self.date = date
-#        self.db = DBase (schoolyear)
+def makeSheets (schoolyear, date, klass, pids=None):
+    """
+    <schoolyear>: year in which school-year ends (int)
+    <data>: date of issue ('YYYY-MM-DD')
+    <klass>: name of the school-class
+    <pids>: a list of pids (must all be in the given klass), only
+        generate reports for pupils in this list.
+        If not supplied, generate reports for the whole klass.
+    """
+    pupils = Pupils(schoolyear)
+    plist = pupils.classPupils(klass)
+    if pids:
+        pall = plist
+        pset = set (pids)
+        plist = []
+        for pdata in pall:
+            try:
+                pset.remove(pdata['PID'])
+            except KeyError:
+                continue
+            plist.append(pdata)
+        if pset:
+            REPORT.Bug(_PUPILSNOTINCLASS, pids=', '.join(pset), klass=klass)
+    font_config = FontConfiguration()
+    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
+    templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
+    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
+    tpfile = '???'
+    try:
+        tpfile = textCoverTemplate(klass)
+        template = templateEnv.get_template(tpfile)
+    except:
+        REPORT.Fail(_NOTEMPLATE, klass=klass, path=os.path.join(tpdir, tpfile))
+    source = template.render(
+            SCHOOLYEAR = printSchoolYear(schoolyear),
+            DATE_D = date,
+            todate = Dates.dateConv,
+            logopath = Paths.getUserPath('FILE_TEXT_REPORT_LOGO'),
+            fontdir = Paths.getUserPath('DIR_FONTS'),
+            pupils = plist,
+            klass = klassData(klass)
+        )
+
+    if plist:
+        html = HTML (string=source)
+        pdfBytes = html.write_pdf(font_config=font_config)
+        REPORT.Info(_MADEKCOVERS, klass=klass)
+        return pdfBytes
+    else:
+        REPORT.Fail(_NOPUPILS)
 
 
-# Return a single pdf with all covers?
-# The klass should be specified, in case different classes have
-# different templates?
-    def makeCovers (self, klass, pids=None):
-        """Build text report covers for the given school-class.
-        If <pids> is specified, it must be a list. Reports will be
-        generated only for pupils in this list (who must be in the
-        specified class).
-        Return a list of the successfully generated files (just the names).
-        """
-        # Alphabetical list of <PupilData> instances:
-        pupils = Pupils (self.schoolyear)
-        pupilData = pupils.classPupils (klass)
+
+def pupilFields(klass):
+    """Return a list of the pupil data fields needed for a cover sheet.
+    The items are returned as pairs: (internal tag, display name).
+    """
+    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
+    tpfile = textCoverTemplate(klass)
+    path=os.path.join(tpdir, tpfile)
+    with open(path, 'r', encoding='utf-8') as fh:
+        text = fh.read()
+    tags = re.findall(r'pupil\.(\w+)', text)
+    name = CONF.TABLES.PUPILS_FIELDNAMES
+    return [(tag, name[tag]) for tag in tags]
+
+
 
 #TODO
-        ## Gather info which is particular to the class and year
-        self._typeInfo = {}
-        self._typeInfo ['SCHOOLYEAR'] = Dates.printSchoolYear (self.schoolyear)
-        self._typeInfo ['DATE_D'] = self.date   # Date of issue
-        calendar = Dates.getCalendar (self.schoolyear)
-        self._typeInfo ['START_D'] = calendar.START [0]
-        self._typeInfo ['END_D'] = calendar.END [0]
-
-        ## Get template path
-        tpdir = Paths.getUserPath ('DIR_TEXT_REPORT_TEMPLATES')
-        reportInfo = CONF.TEXT.COVER_SHEETS
-        for k in reportInfo:
-            if k == klass:
-                tpfile = reportInfo [k].string ()
-                break
-        else:
-            ktag = '*' + klass.lstrip ('0123456789')
-            if ktag in reportInfo:
-                tpfile = reportInfo [ktag].string ()
-            elif '*' in reportInfo:
-                tpfile = reportInfo ['*'].string ()
-            else:
-                REPORT.Fail (_NOTEMPLATE, klass=klass)
-                assert False
-
-        self._tppath = os.path.join (tpdir, tpfile)
-#        print ("\nTEMPLATE:", tppath)
-        self._fieldnames = OdtUserFields.listUserFields (self._tppath)
-
-        self._outdir = Paths.getYearPath (self.schoolyear,
-                'DIR_TEXT_COVERS_ODT',
-                date=self.date, klass=klass, make=1)
-
-#TODO: Make one file for all rather than one for each pupil ...
-# That might be easier with weasyprint?
-        files = []
-        for pd in pupilData:
-            if pids and pd ['PID'] in pids:
-                f = self._makeReport (klass, pd)
-                if f != None:
-                    files.append (f)
-
-        if files:
-            toPdf (self._outdir, *files)
-            pdf_files = [f.rsplit ('.', 1) [0] + '.pdf' for f in files]
-            pdfdir = os.path.join (self._outdir, 'pdf')
-            ofiles = toA3 (pdfdir, *pdf_files)
-            REPORT.Info (_MADENCOVERS, n=len (files), folder=self._outdir)
-
-            # Put all covers in one pdf-file
-            kfile = Paths.getYearPath (self.schoolyear,
-                    'FILE_TEXT_COVERS_KLASS',
-                    date=self.date, klass=klass)
-            concat (ofiles, kfile)
-            REPORT.Info (_MADEKCOVERS, path=kfile)
-
-        return files
+def makeOneSheet(schoolyear, date, klass, pupil):
+    """
+    <schoolyear>: year in which school-year ends (int)
+    <data>: date of issue ('YYYY-MM-DD')
+    <klass>: name of the school-class
+    <pupil>: A <SimpleNamespace> with the pupil data (pupil.field = val)
+    """
 
 
-    def _makeReport (self, klass, pupilData, pupilNumber):
-        """Build a text report cover for the given pupil, <pid>.
-        <pupilNumber> is the pupil's index within the class.
-        """
-        ## Start a <dict> with the pupil data
-        FIELDS = pupilData._asdict ()
-
-        FIELDS ['CLASS'] = (klass.lstrip ('0')
-                if CONFIG.FORMATTING.CLASS_LEADING_ZERO [0] == '0'
-                else klass)
-
-        # Unused fields
-        NOENTRY = CONFIG.FORMATTING.NOENTRY.string ()
-        for f in self._fieldnames:
-            if not f in FIELDS:
-                FIELDS [f] = NOENTRY
-
-        ## Add info from report type config file
-        FIELDS.update (self._typeInfo)
-
-        ## When all fields have been defined/entered, convert the dates.
-        for f in FIELDS:
-            if f.endswith ('_D'):
-                d = FIELDS [f]
-#                print ("???", f, d)
-                if d:
-                    FIELDS [f] = Dates.dateConv (d)
-#        print ("#####################\n", FIELDS)
-
-        outfile = CONFIG.PATHS.REPORT_FILE_TEMPLATE.string ().format (
-                number=pupilNumber, pid=str (pupilData.PID), tag='Deckblatt',
-                name=Paths.asciify (self.db.shortName (pupilData)))
-        path = os.path.join (self._outdir, outfile)
-#        print ("%%%%%%%", FIELDS)
-#        quit (0)
-        ofile, used, missing = OdtUserFields.fillUserFields (
-                self._tppath, path, FIELDS)
-        REPORT.Info (_TEXTREPORTDONE, path=ofile)
-        return os.path.basename (ofile)
 
 
-    def packPdf (self, folder=None):
-        """Pack all available pdf cover-sheets into a zip file, in class
-        directories.
-        If <folder> is supplied it will override the normal location to
-        which the file is saved.
-        Return the path of the zip-file.
-        """
-        indir = Paths.getYearPath (self.schoolyear,
-                'DIR_TEXT_COVERS_ODT', date=self.date, klass='*')
-        outfile = Paths.getYearPath (self.schoolyear,
-                'FILE_TEXT_COVERS_ALL', date=self.date)
-        if folder != None:
-            if not os.path.isdir (folder):
-                os.makedirs (folder)
-            outfile = os.path.join (folder, os.path.basename (outfile))
+    font_config = FontConfiguration()
+    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
+    templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
+    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
+    template = templateEnv.get_template(textCoverTemplate(klass))
+    source = template.render(
+            SCHOOLYEAR = printSchoolYear(schoolyear),
+            DATE_D = date,
+            todate = Dates.dateConv,
+            logopath = Paths.getUserPath('FILE_TEXT_REPORT_LOGO'),
+            fontdir = Paths.getUserPath('DIR_FONTS'),
+            pupils = plist,
+            klass = klassData(klass)
+        )
 
-        with ZipFile (outfile, mode='w', compression=ZIP_DEFLATED) as fzip:
-            for d in sorted (glob (indir)):
-                dname = os.path.basename (d)
-                for f in sorted (glob (os.path.join (d, 'pdf', '*.pdf'))):
-                    fzip.write (f, arcname=os.path.join (dname,
-                            os.path.basename (f)))
+    if plist:
+        html = HTML (string=source)
+        pdfBytes = html.write_pdf(font_config=font_config)
+        REPORT.Info(_MADEKCOVERS, klass=klass)
+        return pdfBytes
+    else:
+        REPORT.Fail(_NOPUPILS)
+
+
+
+
+_year = 2020
+_date = '2020-07-15'
+def test_01 ():
+    pdfBytes = makeSheets (_year, _date, '11K')
+    folder = Paths.getUserPath ('DIR_TEXT_REPORT_TEMPLATES')
+    fpath = os.path.join (folder, 'test.pdf')
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)

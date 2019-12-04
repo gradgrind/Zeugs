@@ -1,4 +1,32 @@
-from flask import Blueprint, render_template, request
+### python >= 3.6
+# -*- coding: utf-8 -*-
+
+"""
+flask_app/text_cover/text_cover.py
+
+Last updated:  2019-12-04
+
+Flask Blueprint for text report cover sheets
+
+=+LICENCE=============================
+Copyright 2019 Michael Towers
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+=-LICENCE========================================
+"""
+
+from flask import Blueprint, render_template, request, send_file
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
@@ -6,15 +34,23 @@ from wtforms import StringField
 from wtforms.fields.html5 import DateField
 from wtforms.validators import InputRequired, Length
 
-import datetime
+import datetime, io
+from types import SimpleNamespace
 
+from wz_core.configuration import Dates
 from wz_core.pupils import Pupils
-from wz_text.coversheet import TextReportCovers
+from wz_text.coversheet import makeSheets, pupilFields, makeOneSheet
 
 
 #TODO: school year should be the latest one by default (?), but can be
 # stored in the session data to allow access to other years.
 _schoolyear = 2020
+#TODO: the date should be saved with the year ...
+_date = '2020-07-15'
+class DateForm(FlaskForm):
+    dateofissue = DateField('Ausgabedatum',
+                            default=datetime.date.fromisoformat(_date),
+                            validators=[InputRequired()])
 
 # Set up Blueprint
 bp = Blueprint('bp_text_cover',     # internal name of the Blueprint
@@ -31,7 +67,7 @@ def textCover():
 #TODO: dateofissue
     return render_template('text_cover_entry.html',
                            schoolyear=str(_schoolyear),
-                           dateofissue='15.07.2020',
+                           dateofissue=Dates.dateConv(_date),
                            klasses=klasses) #['01', '01K', '02', '02K', '03', '03K']
 
 """
@@ -57,20 +93,18 @@ def textCover():
 @bp.route('/class/<klass>', methods=['GET','POST'])
 #@admin_required
 def klassview(klass):
-#TODO: dateofissue
-    class Form(FlaskForm):
-        dateofissue = DateField('Ausgabedatum',
-                                default=datetime.date.fromisoformat('2020-07-15'),
-                                validators=[InputRequired()])
-    form = Form()
+    form = DateForm()
     if form.validate_on_submit():
-# Use a special template to show the results. From there one can select
-# another class, etc.
-        return ('<p>Klasse {0}: Das AusgabeDatum ist {1}.</p>'
-                '<p>Schüler: {2}</p>').format(
-                        klass,
-                        form.dateofissue.data,
-                        repr(request.form.getlist('Pupil')))
+        _d = form.dateofissue.data.isoformat()
+        pdfBytes = makeSheets (_schoolyear, _d, klass,
+#TODO check list not empty ...
+                pids=request.form.getlist('Pupil'))
+        return send_file(
+            io.BytesIO(pdfBytes),
+            attachment_filename='Mantel_%s.pdf' % klass,
+            mimetype='application/pdf',
+            as_attachment=True
+        )
     p = Pupils(_schoolyear)
     pdlist = p.classPupils(klass)
     klasses = [k for k in p.classes() if k >= '01' and k < '13']
@@ -79,19 +113,40 @@ def klassview(klass):
                            klass=klass,
                            klasses=klasses,
                            pupils=[(pd['PID'], pd.name()) for pd in pdlist])
-#TODO: The form has the date (or should that be in iso format, the
-# "translation" being done by the generator?) and the school-year.
-# Each pupil is listed with a checkbox (include or not).
+#TODO: The form has the school-year.
 # There might be a checkbox/switch for print/pdf, but print might not
 # be available on all hosts.
-# The submit button could be labelled "Ausführen".
 # It might be helpful to a a little javascript to implement a pupil-
 # selection toggle (all/none).
-# Would it make sense to make the pupil entries in the form links to
-# the page for the individual pupil? Then the side panel would be
-# superfluous – for pupils. It could be used for klasses.
 
-@bp.route('/pupil/<pid>', methods=['GET','POST'])
+@bp.route('/pupil/<klass>/<pid>', methods=['GET','POST'])
 #@admin_required
-def pupilview(pid):
+def pupilview(klass, pid):
     return "TODO: Pupil %s" % pid
+
+
+#TODO:
+    fields = pupilFields(klass)
+
+    form = DateForm()
+    if form.validate_on_submit():
+        _d = form.dateofissue.data.isoformat()
+        pupil = SimpleNamespace ()
+        for f, _ in fields:
+            pupil.f = request.form[f]
+        pdfBytes = makeOneSheet (_schoolyear, _d, klass, pupil)
+        return send_file(
+            io.BytesIO(pdfBytes),
+            attachment_filename='Mantel_%s.pdf' % sortingName(
+                    pupil.FIRSTNAME, pupil.LASTNAME)
+            mimetype='application/pdf',
+            as_attachment=True
+        )
+    p = Pupils(_schoolyear)
+    pdlist = p.classPupils(klass)
+    klasses = [k for k in p.classes() if k >= '01' and k < '13']
+    return render_template('text_cover_klass.html', form=form,
+                           schoolyear=str(_schoolyear),
+                           klass=klass,
+                           klasses=klasses,
+                           pupils=[(pd['PID'], pd.name()) for pd in pdlist])
