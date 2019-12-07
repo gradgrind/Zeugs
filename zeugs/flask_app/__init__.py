@@ -27,11 +27,18 @@ def create_app(test_config=None):
 
     app.config.from_object('flask_config') # Load module config.py (this directory).
     if test_config is None:
-        # load the config from the instance directory, if it exists, when not testing
-        app.config.from_pyfile('config.py', silent=True)
+        # Load the config from the instance directory, if it exists, when not testing
+        # Might be better to get secret key from environment?
+        # Are there any other differences to development mode?
+#        app.config.from_pyfile('config.py', silent=True)
+        app.config.from_pyfile('config.py',
+                silent=(app.config['ENV']=='development'))
     else:
         # load the test config if passed in
         app.config.from_mapping(test_config)
+
+#    for k,v in app.config.items():
+#        print ("§§§ %s:" % k, v)
 
     # ensure the instance folder exists
     try:
@@ -42,33 +49,41 @@ def create_app(test_config=None):
     # Register csrf protection
     csrf.init_app(app)
 
-    """
-    @app.route('/textcover/data1', methods=('POST',))
-    def data1():
-        klass = request.json['klass']
-        app.logger.info('REQUEST klass: %s' % klass)
-        jsonpeople = {
-            "fields": ["itemA", "itemB", "itemC",],
-            "pupilList": [
-                ["001", "Bernd Förster"],
-                ["002", "Juli Läßner"],
-                ["003", "Franz Neumann"],
-                ["004", "Emily Friederike von Riesighausen"],
-            ],
-            "pupilData": {
-                "001": {"itemA": "val 1A", "itemB": "val 1B", "itemC": "val 1C"},
-                "002": {"itemA": "val 2A", "itemB": "val 2B", "itemC": "val 2C"},
-                "003": {"itemA": "val 3A", "itemB": "val 3B", "itemC": "val 3C"},
-                "004": {"itemB": "val 4B"},
-            },
-        }
-        from time import sleep
-        sleep (3)
-        return jsonify(jsonpeople)
-    """
 
     @app.route('/', methods=['GET','POST'])
-    def test1():
+    def index(): ### Just test code at the moment ...
+        from flask import render_template_string
+        from wtforms import SelectMultipleField, SubmitField
+        from wtforms.widgets import ListWidget, CheckboxInput
+        class MultiCheckboxField(SelectMultipleField):
+            widget = ListWidget(prefix_label=False)
+            option_widget = CheckboxInput()
+            def iter_choices(self):
+                """Overridden method to force all boxes to 'checked'.
+                """
+                for value, label in self.choices:
+                    yield (value, label, True)
+
+        class ExampleForm(FlaskForm):
+            example = MultiCheckboxField(
+                'Pick Things!',
+                choices=[('value_a','<a href="/Page_A">Value A</a>'),
+                         ('value_b','Value B'),
+                         ('value_c','Value C')],
+#                default=['value_a','value_c']
+            )
+            submit = SubmitField('Post')
+        form = ExampleForm()
+        #if request.method == 'POST':
+        if form.validate_on_submit():
+            return repr(form.example.data)
+        return render_template_string('<form method="POST">'
+                                      '{{ form.csrf_token }}'
+                                      '{{ form.example }}'
+                                      '{{ form.submit }}</form>'
+                ,form=form)
+
+
         if request.method == 'POST':
 #TODO: validation ...
             return 'Pupils: {}'.format(
@@ -78,23 +93,14 @@ def create_app(test_config=None):
         return render_template('test1.html')
 
 
-    """
-    #???
-    class ToggleButtonWidget(object):
-        def __call__(self, field):
-            html = '<input type="checkbox" id={} name={} value={}><a href="/test/V2">Link 2</a>'.format(field.id, field.name, field.label.__dict__['text'])
-            return HTMLString(html)
-    """
-
-
     from .text_cover import text_cover
     app.register_blueprint(text_cover.bp, url_prefix='/text_cover')
 
 #    from . import db
 #    db.init_app(app)
 
-#    from . import auth
-#    app.register_blueprint(auth.bp)
+    from .auth import auth
+    app.register_blueprint(auth.bp, url_prefix='/auth')
 
 #    from . import blog
 #    app.register_blueprint(blog.bp)

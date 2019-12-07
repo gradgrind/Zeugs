@@ -23,8 +23,8 @@
         <div class="form2">
             <!--<label for="DATE_D">Ausgabedatum</label>
             <input id="DATE_D" type="date" required>-->
-            {{ form.dateofissue.label }}{{ form.dateofissue }}
-                {% for error in form.dateofissue.errors %}
+            {{ form.DATE_D.label }}{{ form.DATE_D }}
+                {% for error in form.DATE_D.errors %}
                 <span>[{{ error }}]</span>
                 {% endfor %}
             {{ form.itemB.label }}{{ form.itemB }}

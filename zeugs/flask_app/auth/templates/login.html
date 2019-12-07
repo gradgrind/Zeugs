@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Einloggen{% endblock %}
+{% block imports %}
+<style>
+    .upbtn { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+    <p>Um Zeugnisdaten zu lesen oder einzugeben bzw. zu aktualisieren,
+    müssen Sie engeloggt sein.
+    </p>
+    <p>
+    Falls Sie Hilfe oder neue Zugangsdaten brauchen, kontaktieren
+    Sie den Administrator:
+    </p>
+    <p id="adminmail">Anton Admin: <a href="mailto:aa@schule.de">aamin@schule.de</a>
+    </p>
+    <form id="dataform" class="pure-form" method="POST">
+        {{ form.csrf_token }}
+        <div class="form2">
+            {{ form.USER.label }}{{ form.USER }}
+                {% for error in form.USER.errors %}
+                <span>[{{ error }}]</span>
+                {% endfor %}
+            {{ form.PASSWORD.label }}{{ form.PASSWORD }}
+                {% for error in form.PASSWORD.errors %}
+                <span>[{{ error }}]</span>
+                {% endfor %}
+<!--            {{ form.submit }}-->
+        </div>
+        <hr />
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Einloggen</button>
+        </div>
+    </form>
+{% endblock %}

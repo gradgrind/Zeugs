@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2019-11-17
+wz_core/pupils.py - last updated 2019-12-05
 
 Database access for reading pupil data.
 
@@ -22,7 +22,7 @@ Copyright 2019 Michael Towers
    limitations under the License.
 """
 
-from collections import OrderedDict
+from collections import OrderedDict, UserList
 
 from .db import DB
 
@@ -111,9 +111,12 @@ class Pupils:
         date will not be included.
         If a <stream> is supplied, only pupils in this stream will be
         included.
+        To enable indexing on pupil-id, the result has an extra
+        attribute, <pidmap>: {pid-> <PupilData> instance}
         """
         fetched = self.db.select ('PUPILS', CLASS=klass)
-        rows = []
+        rows = UserList()
+        rows.pidmap = {}
         for row in fetched:
             pdata = PupilData (row)
             # Check exit date
@@ -124,6 +127,7 @@ class Pupils:
             # Check stream
             if (not stream) or (stream == pdata ['STREAM']):
                 rows.append (pdata)
+                rows.pidmap [pdata ['PID']] = pdata
         return rows
 
 

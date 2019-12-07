@@ -4,7 +4,7 @@
 """
 wz_compat/config.py
 
-Last updated:  2019-12-04
+Last updated:  2019-12-05
 
 Functions for handling configuration for a particular location.
 
@@ -54,6 +54,10 @@ def textCoverTemplate(klass):
 
 ####### Name Sorting #######
 def sortingName(firstname, lastname):
+    """Given first and last names, produce an ascii string which can be
+    used for sorting the people alphabetically. It uses <tvSplit> (below)
+    for handling last-name prefixes.
+    """
     tv, lastname = tvSplit (lastname)
     if tv:
         sortname = lastname + ' ' + tv + ' ' + firstname

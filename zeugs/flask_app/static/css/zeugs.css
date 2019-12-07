@@ -1,7 +1,7 @@
 
 .fixed-header, .fixed-footer{
     width: 100%;
-    position: fixed;        
+    position: fixed;
     background: #f8a;
     height: 3rem;
     display: flex;
@@ -17,7 +17,7 @@
 .fixed-footer{
     bottom: 0;
     color: #e00;
-}    
+}
 
 /* Leave space on the left for an open button for the side-panel. */
 .fixed-header > nav {
@@ -39,7 +39,7 @@ nav img {
     padding: 0 0.5rem;
     align-self: center;
 }
-    
+
 nav a {
     text-decoration: none;
     padding: 0 0.5rem;
@@ -84,29 +84,63 @@ nav label {
     box-shadow: -0.5rem 0.5rem 1rem rgba(240,0,100,0.6);
     z-index: 3;
     top: 3rem; /* header height */
+    border-radius: 0.5rem;
 }
-    
+
 .dropdown:hover .dropdown-content {
     display: block;
 }
-    
-/* Style the button that is used to open the sidepanel */
-.openbtn {
+
+/* Style buttons: (a) reveal sidepanel, (b) navigation up/back link */
+.openbtn, .upbtn {
     font-size: 2rem;
     cursor: pointer;
     background-color: rgba(255,255,255,0);
     border-radius: 0.5rem;
-    border: 1px solid #f00;
+    border: 1pt solid #f00;
     margin-left: 0.5rem;
-    vertical-align: middle;
     position: absolute;
+    left: 0;
 }
 
-.openbtn:hover {
-    background-color: #fbb;
-} 
+.upbtn {
+    padding: 0 0.5rem;
+}
 
-.form2 {
+.openbtn:hover, .upbtn:hover {
+    background-color: #fbb;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    background-color: #ffb; /* #fbb; */
+    color: #d5f;
+}
+.tooltiptext {
+    position: inherit;
+    font-size: 1.2rem;
+    font-weight: normal;
+    width: max-content;
+    padding: 0.3rem;
+    margin-left: 0.7rem;
+    border-radius: 0.3rem;
+    /* border: 1pt solid #fbb; /* #f00; */
+}
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+
+#adminmail {
+    padding-left: 3rem;
+    padding-bottom: 2rem;
+    color: #00e;
+}
+
+#dataform {
+    padding-top: 1rem;
+}
+
+.form2 { /* layout forms with label + input field using grid */
     display: grid;
     grid-template-columns: 10rem 1fr;
     grid-gap: 0.5rem;
@@ -117,13 +151,13 @@ form.form2 label {
     text-align: right;
     grid-column: 1 / 2;
 }
- 
+
 form.form2 input, form.form2 button {
     grid-column: 2 / 3;
 }
 
 form.form2 button {
-    justify-self: end; 
+    justify-self: end;
 }
 
 .formsubmit {
@@ -159,7 +193,7 @@ form span {
 
 /* The sidepanel menu */
 .sidepanel {
-    display: none; 
+    display: none;
     width: 15rem;
     position: fixed; /* Stay in place */
     z-index: 2; /* Stay on top */
@@ -168,7 +202,7 @@ form span {
     bottom: 3rem;
     background-color: #ffc0e0;
     overflow-x: hidden; /* Disable horizontal scroll */
-    overflow-y: none;
+    overflow-y: auto;
 }
 
 .sidemenu {
@@ -178,6 +212,12 @@ form span {
     top: 5rem;
     bottom: 3rem;
     overflow-x: hidden; /* Disable horizontal scroll */
+}
+
+.sidelogo {
+    width: 90%;
+    margin-left: 0.5rem;
+    margin-top: 1rem;
 }
 
 .sidemenu-heading {
@@ -226,7 +266,7 @@ main {
 .custom-select label {
     padding-right: 0.5rem;
 }
-    
+
 .custom-select select {
     width: 100%;
     background: transparent;

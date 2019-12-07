@@ -1,10 +1,10 @@
-### python >= 3.6
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 flask_app/text_cover/text_cover.py
 
-Last updated:  2019-12-04
+Last updated:  2019-12-07
 
 Flask Blueprint for text report cover sheets
 
@@ -26,7 +26,7 @@ Copyright 2019 Michael Towers
 =-LICENCE========================================
 """
 
-from flask import Blueprint, render_template, request, send_file
+from flask import Blueprint, render_template, request, send_file, url_for
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
@@ -42,6 +42,7 @@ from wz_core.pupils import Pupils
 from wz_compat.config import sortingName
 from wz_text.coversheet import makeSheets, pupilFields, makeOneSheet
 
+_HEADING = "Textzeugnis"
 
 #TODO: school year should be the latest one by default (?), but can be
 # stored in the session data to allow access to other years.
@@ -49,7 +50,7 @@ _schoolyear = 2020
 #TODO: the date should be saved with the year ...
 _date = '2020-07-15'
 class DateForm(FlaskForm):
-    dateofissue = DateField('Ausgabedatum',
+    DATE_D = DateField('Ausgabedatum',
                             default=datetime.date.fromisoformat(_date),
                             validators=[InputRequired()])
 
@@ -65,21 +66,23 @@ def textCover():
     p = Pupils(_schoolyear)
     klasses = [k for k in p.classes() if k >= '01' and k < '13']
 #TODO: Maybe a validity test for text report classes?
-#TODO: dateofissue
+#TODO: DATE_D
     return render_template('text_cover_entry.html',
-                           schoolyear=str(_schoolyear),
-                           dateofissue=Dates.dateConv(_date),
-                           klasses=klasses) #['01', '01K', '02', '02K', '03', '03K']
+                            heading=_HEADING,
+                            schoolyear=str(_schoolyear),
+                            DATE_D=Dates.dateConv(_date),
+                            uplink='/text_report',
+                            uplink_help="Textzeugnis: Startseite",
+                            klasses=klasses) #['01', '01K', '02', '02K', '03', '03K']
 
 
-#TODO: backlink to klasses list (entry page)?
-@bp.route('/class/<klass>', methods=['GET','POST'])
+@bp.route('/klass/<klass>', methods=['GET','POST'])
 #@admin_required
 def klassview(klass):
     form = DateForm()
     if form.validate_on_submit():
         # POST
-        _d = form.dateofissue.data.isoformat()
+        _d = form.DATE_D.data.isoformat()
         pdfBytes = makeSheets (_schoolyear, _d, klass,
 #TODO check list not empty ...
                 pids=request.form.getlist('Pupil'))
@@ -94,15 +97,22 @@ def klassview(klass):
     pdlist = p.classPupils(klass)
     klasses = [k for k in p.classes() if k >= '01' and k < '13']
     return render_template('text_cover_klass.html', form=form,
-                           schoolyear=str(_schoolyear),
-                           klass=klass,
-                           klasses=klasses,
-                           pupils=[(pd['PID'], pd.name()) for pd in pdlist])
+                            heading=_HEADING,
+                            schoolyear=str(_schoolyear),
+                            klass=klass,
+                            uplink=url_for('bp_text_cover.textCover'),
+                            uplink_help="Mantelbogen: Startseite",
+                            klasses=klasses,
+                            pupils=[(pd['PID'], pd.name()) for pd in pdlist])
 #TODO: The form has the school-year.
 # There might be a checkbox/switch for print/pdf, but print might not
 # be available on all hosts.
 # It might be helpful to a a little javascript to implement a pupil-
 # selection toggle (all/none).
+
+
+def _allklasses(schoolyear, klasses):
+    pass
 
 
 @bp.route('/pupil/<klass>/<pid>', methods=['GET','POST'])
@@ -112,7 +122,7 @@ def pupilview(klass, pid):
     form = DateForm()
     if form.validate_on_submit():
         # POST
-        _d = form.dateofissue.data.isoformat()
+        _d = form.DATE_D.data.isoformat()
         pupil = SimpleNamespace (**{f: request.form[f] for f, _ in fields})
         pdfBytes = makeOneSheet(_schoolyear, _d, klass, pupil)
         return send_file(
@@ -132,7 +142,10 @@ def pupilview(klass, pid):
         if _pid == pid:
             pupil = {f: (fname, pdata[f]) for f, fname in fields}
     return render_template('text_cover_pupil.html', form=form,
+                            heading=_HEADING,
                            schoolyear=str(_schoolyear),
                            klass=klass,
+                           uplink=url_for('bp_text_cover.klassview', klass=klass),
+                           uplink_help="Klasse " + klass,
                            pupil=pupil,
                            pupils=pupils)

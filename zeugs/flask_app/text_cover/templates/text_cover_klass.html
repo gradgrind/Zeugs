@@ -3,7 +3,7 @@
 {% block title %}Mantelbogen{% endblock %}
 
 {% block sidepanel %}
-  <div class="pure-menu-heading sidemenu-heading"">Klasse:</div>
+  <div class="pure-menu-heading sidemenu-heading">Klasse:</div>
   <div class="pure-menu sidemenu">
     <ul class="pure-menu-list">
       {% for k in klasses %}
@@ -15,9 +15,6 @@
 
 {% block content %}
     <h3>Klasse {{klass}}</h3>
-    <p><strong>Warnung:</strong> Änderungen, die hier vorgenommen werden,
-    werden nicht permanent übernommen. Sie gelten nur für den aktuellen
-    Vorgang.</p>
     <p>Mantelbögen werden für alle markierten Schüler erstellt. Klicken Sie
     auf das entsprechende Kontrollkästchen, um die Markierung für einen Schüler
     zu entfernen – oder wiederherzustellen.
@@ -27,16 +24,18 @@
     </p>
     <p>Wenn Sie auf einen Schülernamen klicken, gelangen Sie zu einer Seite
     mit den Details dieses Schülers. Dort können Sie einen Einzelbogen –
-    gegebenfalls mit Änderungen – erstellen. Auch die dort vorgenommen Änderungen
-    gehen verloren, wenn Sie die Seite verlassen.
+    gegebenfalls mit Änderungen – erstellen.
     </p>
+    <p><strong>Warnung:</strong> Änderungen, die hier vorgenommen werden,
+    werden nicht permanent übernommen. Sie gelten nur für den aktuellen
+    Vorgang.</p>
 
     <form id="dataform" class="pure-form" method="POST">
         {{ form.csrf_token }}
 
         <div class="pure-control-group form-group">
-            {{ form.dateofissue.label }}{{ form.dateofissue }}
-                {% for error in form.dateofissue.errors %}
+            {{ form.DATE_D.label }}{{ form.DATE_D }}
+                {% for error in form.DATE_D.errors %}
                 <span>[{{ error }}]</span>
                 {% endfor %}
         </div>

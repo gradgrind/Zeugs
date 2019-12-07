@@ -3,7 +3,7 @@
 {% block title %}Mantelbogen{% endblock %}
 
 {% block sidepanel %}
-  <div class="pure-menu-heading sidemenu-heading"">Schüler:</div>
+  <div class="pure-menu-heading sidemenu-heading">Schüler:</div>
   <div class="pure-menu sidemenu">
     <ul class="pure-menu-list">
       {% for p in pupils %}
@@ -18,19 +18,19 @@
 {% endblock %}
 
 {% block content %}
-    <h3>Klasse {{klass}}</h3>
-    <p><strong>Warnung:</strong> Änderungen, die hier vorgenommen werden,
-    werden nicht permanent übernommen. Sie gelten nur für den aktuellen
-    Vorgang.</p>
+    <h3>Schüler in Klasse {{klass}}</h3>
     <p>Ein Mantelbogen wird für die hier dargestellten Daten erstellt.
     Die Inhalte aller Felder können angepasst werden. Um den
     Bogen dann zu erstellen, klicken Sie auf die Schaltfläche „Erstellen“.
     </p>
+    <p><strong>Warnung:</strong> Änderungen, die hier vorgenommen werden,
+    werden nicht permanent übernommen. Sie gelten nur für den aktuellen
+    Vorgang.</p>
 
     <form id="dataform" class="pure-form" method="POST">
         {{ form.csrf_token }}
         <div class="form2">
-            {{ form.dateofissue.label }}{{ form.dateofissue }}
+            {{ form.DATE_D.label }}{{ form.DATE_D }}
 
             {% for f, fdata in pupil.items() %}
             <label for="{{f}}">{{fdata[0]}}</label>

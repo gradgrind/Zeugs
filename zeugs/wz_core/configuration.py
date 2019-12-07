@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2019-12-03
+Last updated:  2019-12-05
 
 Configuration items and the handler for the configuration files.
 
@@ -356,25 +356,25 @@ class Paths:
 
 
 #This is also in wz_compat.config! Here superfluous?
-    @classmethod
-    def asciify (cls, string):
-        """This converts a utf-8 string to ASCII, to ensure portable filenames
-        are used when creating files. Also spaces are replaced by underlines.
-        Of course that means that the result might look quite different from
-        the input string!
-        A few explicit conversions are given in the config file 'ASCII_SUB'.
-        """
-        def rsub (m):
-            c = m.group (0)
-            if c == ' ':
-                return '_'
-            try:
-                return lookup [c]
-            except:
-                return '^'
-
-        lookup = CONF.ASCII_SUB
-        return re.sub (cls._invalid_re, rsub, string)
+#    @classmethod
+#    def asciify (cls, string):
+#        """This converts a utf-8 string to ASCII, to ensure portable filenames
+#        are used when creating files. Also spaces are replaced by underlines.
+#        Of course that means that the result might look quite different from
+#        the input string!
+#        A few explicit conversions are given in the config file 'ASCII_SUB'.
+#        """
+#        def rsub (m):
+#            c = m.group (0)
+#            if c == ' ':
+#                return '_'
+#            try:
+#                return lookup [c]
+#            except:
+#                return '^'
+#
+#        lookup = CONF.ASCII_SUB
+#        return re.sub (cls._invalid_re, rsub, string)
 
 
 

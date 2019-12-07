@@ -7,7 +7,7 @@
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.png') }}">
     <link href="{{ url_for('static', filename='css/pure/pure.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/zeugs.css') }}" rel="stylesheet">
-    <script src="{{ url_for('static', filename='js/zeugs.js') }}" defer></script> 
+    <script src="{{ url_for('static', filename='js/zeugs.js') }}" defer></script>
     {% block imports %}{% endblock %}
   </head>
 
@@ -16,41 +16,48 @@
         <!--<button class="openbtn" onclick="toggleSidepanel()">&#9776;</button>-->
         <button class="openbtn" onclick="toggleSidepanel()">
             <img style="height: 1.5rem;" src="{{url_for('static', filename='img/slide_in-e00.svg')}}" />
-        </button>    
+        </button>
         <nav>
             <!--<img src="{{url_for('static', filename='img/zeugs_logo.svg')}}" />
             <!--<div class="navitem navlink"><a href="#">{{ schoolyear }}</a></div>-->
             <div class="navitem"><label>{{ schoolyear }}</label></div>
-            <div class="navitem navtitle"><label>Textzeugnis</label></div>
+            <div class="navitem navtitle"><label>{{ heading }}</label></div>
 
             <div class="dropdown navitem">
                 <!--<label>⮇</label><!--make this a parameter-->
                 <img class="wide-only" src="{{url_for('static', filename='img/zeugs_logo.svg')}}" />
                 <img class="wide-not" src="{{url_for('static', filename='img/favicon.svg')}}" />
                 <div class="dropdown-content">
+                    <a href="#" class="navlink">Textzeugnisse</a>
                     <a href="#" class="navlink">Notenzeugnisse</a>
                     <a href="#" class="navlink">Anwesenheit</a>
                     <a href="#" class="navlink">Einstellungen</a>
                 </div>
             </div>
-            
-            
+
+
         </nav>
     </div>
 
     <div id="sidepanel0" class="sidepanel">
-        {% block sidepanel %}{% endblock %}
+        {% block sidepanel %}
+        <img class="sidelogo" src="{{url_for('static', filename='img/Zeugnis-Logo.svg')}}" />
+        {% endblock %}
     </div>
 
     <main>
         <div id="pagetitle">
+            <a href="{{uplink}}" class="upbtn tooltip">
+                <img style="height: 1.5rem;" src="{{url_for('static', filename='img/back-up.svg')}}" />
+                <span class="tooltiptext">{{uplink_help}}</span>
+            </a>
             {% block title %}{% endblock %}
         </div>
         {% block content %}{% endblock %}
     </main>
-    
+
     <div class="fixed-footer">
-        <div>Copyright &copy; 2019 MT</div>        
+        <div>Copyright &copy; 2019 MT</div>
     </div>
 
   </body>
