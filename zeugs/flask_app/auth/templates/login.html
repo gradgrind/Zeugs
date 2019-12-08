@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_open.html" %}
 
 {% block title %}Einloggen{% endblock %}
 {% block imports %}
@@ -15,7 +15,7 @@
     Falls Sie Hilfe oder neue Zugangsdaten brauchen, kontaktieren
     Sie den Administrator:
     </p>
-    <p id="adminmail">Anton Admin: <a href="mailto:aa@schule.de">aamin@schule.de</a>
+    <p id="adminmail">Anton Admin: <a href="mailto:aa@schule.de">aa@schule.de</a>
     </p>
     <form id="dataform" class="pure-form" method="POST">
         {{ form.csrf_token }}

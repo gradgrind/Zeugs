@@ -20,16 +20,9 @@
             <div class="navitem"><label>{{ schoolyear }}</label></div>
             <div class="navitem navtitle"><label>{{ heading }}</label></div>
 
-            <div class="dropdown navitem">
+            <div class="navitem">
                 <img class="wide-only" src="{{url_for('static', filename='img/zeugs_logo.svg')}}" />
                 <img class="wide-not" src="{{url_for('static', filename='img/favicon.svg')}}" />
-                <div class="dropdown-content">
-                    <a href="#" class="navlink">Textzeugnisse</a>
-                    <a href="#" class="navlink">Notenzeugnisse</a>
-                    <a href="#" class="navlink">Anwesenheit</a>
-                    <a href="#" class="navlink">Einstellungen</a>
-                    <a href="{{url_for('bp_auth.logout')}}" class="navlink">Abmelden</a>
-                </div>
             </div>
 
 
@@ -49,7 +42,6 @@
                 <span class="tooltiptext">{{uplink_help}}</span>
             </a>
             {% block title %}{% endblock %}
-            <p class="uid">&lt;{{session['user_id']}}&gt;</p>
         </div>
         {% block content %}{% endblock %}
     </main>

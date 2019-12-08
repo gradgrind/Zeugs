@@ -3,7 +3,7 @@
 """
 wz_core/teachers.py
 
-Last updated:  2019-09-25
+Last updated:  2019-12-08
 
 Access to the list of teachers.
 
@@ -90,15 +90,14 @@ class TeacherData (OrderedDict):
 
 
 ##################### Test functions
+_testyear = 2020
 def test_1 ():
     REPORT.Test ("Teachers: ID and name")
-    tmap = TeacherData (2016)
+    tmap = TeacherData (_testyear)
     for tid in tmap:
         REPORT.Test ("  id - name: %s - %s" % (tid, tmap.getTeacherName (tid)))
 
 def test_2 ():
-    tmap = TeacherData (2016)
-    tid = 'AM'
-    REPORT.Test ("\nTeacher %s: %s" % (tid, tmap [tid]))
-    tid = 'nn'
-    REPORT.Test ("\nTeacher %s: %s" % (tid, tmap [tid]))
+    tmap = TeacherData (_testyear)
+    for tid in 'AM', 'nn', 'RP', 'MT':
+        REPORT.Test ("\nTeacher %s: %s" % (tid, tmap [tid]))

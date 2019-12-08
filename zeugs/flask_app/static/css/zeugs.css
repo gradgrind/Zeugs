@@ -11,7 +11,10 @@
 
 .fixed-header{
     top: 0;
-    color: #00e
+    color: #00e;
+}
+.fixed-header a:visited {
+    color: #00e;
 }
 
 .fixed-footer{
@@ -105,6 +108,14 @@ nav label {
 
 .upbtn {
     padding: 0 0.5rem;
+}
+
+.uid {
+    position: absolute;
+    padding: 0 0.5rem;
+    right: 0;
+    font-size: 80%;
+    font-weight: normal;
 }
 
 .openbtn:hover, .upbtn:hover {

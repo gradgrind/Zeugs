@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """
-flask_app/text_cover/text_cover.py
+flask_app/text_cover/text.py
 
-Last updated:  2019-12-07
+Last updated:  2019-12-0
 
-Flask Blueprint for text report cover sheets
+Flask Blueprint for text reports
 
 =+LICENCE=============================
 Copyright 2019 Michael Towers
@@ -25,6 +25,8 @@ Copyright 2019 Michael Towers
 
 =-LICENCE========================================
 """
+
+#TODO ...
 
 from flask import Blueprint, render_template, request, send_file, url_for
 from flask import current_app as app
@@ -55,25 +57,24 @@ class DateForm(FlaskForm):
                             validators=[InputRequired()])
 
 # Set up Blueprint
-bp = Blueprint('bp_text_cover',     # internal name of the Blueprint
+bp = Blueprint('bp_text',           # internal name of the Blueprint
         __name__,                   # allows the current package to be found
         template_folder='templates') # package-local templates
 
 
 @bp.route('/', methods=['GET','POST'])
 #@admin_required
-def textCover():
-    p = Pupils(_schoolyear)
-    klasses = [k for k in p.classes() if k >= '01' and k < '13']
+def index():
+#    p = Pupils(_schoolyear)
+#    klasses = [k for k in p.classes() if k >= '01' and k < '13']
 #TODO: Maybe a validity test for text report classes?
 #TODO: DATE_D
-    return render_template('text_cover_entry.html',
+    return render_template('text_entry.html',
                             heading=_HEADING,
                             schoolyear=str(_schoolyear),
                             DATE_D=Dates.dateConv(_date),
-                            uplink=url_for('bp_text.index'),
-                            uplink_help="Textzeugnis: Startseite",
-                            klasses=klasses) #['01', '01K', '02', '02K', '03', '03K']
+                            uplink=url_for('index'),
+                            uplink_help="Zeugs: Startseite")
 
 
 @bp.route('/klass/<klass>', methods=['GET','POST'])

@@ -1,0 +1,17 @@
+{% extends "base_open.html" %}
+
+{% block title %}Zeugs: Willkommen{% endblock %}
+
+{% block content %}
+    <p><strong>Zeugs</strong> unterstützt Sie bei der Erstellung der Zeugnisse.
+    </p>
+    <p>Aktuell sind folgende Bereiche möglich:
+    <p>
+    <ul>
+    </ul>
+    <p>Über die Navigation sind Informationen zu den verschiedenen Bereiche
+    abrufbar.
+    Um mit dem Programm zu arbeiten, müssen Sie sich
+    <a href="{{url_for('bp_auth.login')}}">anmelden</a>.
+    </p>
+{% endblock %}

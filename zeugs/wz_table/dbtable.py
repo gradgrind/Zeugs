@@ -3,7 +3,7 @@
 """
 wz_table/dbtable.py
 
-Last updated:  2019-10-14
+Last updated:  2019-12-08
 
 Read and write a database-like table using a spreadsheet file (xlsx).
 Each file has fields and rows, like a relational db, but there may also
@@ -31,6 +31,27 @@ from collections import UserList, OrderedDict
 
 from .spreadsheet import Spreadsheet
 from .spreadsheet_make import NewSpreadsheet
+
+
+def dbTable(filepath, translate=None):
+    """Read the data from a dbtable, returning an ordered mapping:
+        {[ordered] key -> {field: value}}.
+    The key is the first column. This value also appears in the value mapping.
+    The field names are "translated" when there is a matching entry in
+    <translate>: {internal name -> table ("translated") name}.
+    <filepath> need not have a type-suffix.
+    Also the info-lines are translated.
+
+    The following attributes are available on the returned object:
+        <filepath>: The full path to the file, including file-suffix.
+        <title>: The title of the data sheet.
+        <info>: The data from the info-lines.
+        <fields>: A list of the (internal) field-names, ordered as in
+            the data file.
+    """
+    table = readDBTable (filepath)
+    return digestDBTable (table, translate)
+
 
 
 def readDBTable (filepath):

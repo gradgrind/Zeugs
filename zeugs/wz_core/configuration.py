@@ -425,18 +425,15 @@ def test_2 ():
     REPORT.Test (Dates.dateConv ('2016-02-30'))
 
 def test_3 ():
-    REPORT.Test ("School year: " + Dates.printSchoolYear (2016))
-
-def test_4 ():
     path = 'DIR_GRADES_DATE_BASE'
     REPORT.Test ("PATH %s:\n  %s" % (path, Paths.getYearPath (2016,
             path, date='2016-01-31')))
 
-def test_5 ():
+def test_4 ():
     REPORT.Test (".TTDATA: " + CONF.TABLES.PUPILS_FIELDNAMES.FIRSTNAME)
     REPORT.Test ("[TTDATA]: " + CONF.TABLES.PUPILS_FIELDNAMES ['FIRSTNAME'])
 
-def test_6 ():
+def test_5 ():
     REPORT.Test ("CONF.PATHS:")
     for key, val in CONF.PATHS.items ():
         REPORT.Test ("  > " + key + ": " + repr (val))
