@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block imports %}
+<style>
+    #choice { list-style: none; }
+    #choice li { margin: 0.5rem; }
+    #choice input, #choice label { cursor: pointer; }
+</style>
+{% endblock %}
+{% set uplink = url_for('bp_text.index') %}
+{% set uplink_help = "Textzeugnisse: Startseite" %}
+
+{% block title %}Zeugnisdaten{% endblock %}
+
+{% block content %}
+    <p>Hier können Sie Listen der Zeugniszuordnungen erstellen.
+    </p>
+    <p>Die erste Option erstellt für jede Lehrkraft eine Liste ihrer
+    Zeugnisse: Klasse und Fach. Diese können als Kontrolle an die Lehrkräfte
+    verteilt werden. Sie enthalten auch einen einführenden Text.
+    </p>
+    <p>Die zweite Option erstellt für jede Klasse eine Liste der Fächer mit
+    den zugehörigen (Zeugnis schreibenden) Lehrkräften.
+    </p>
+    <p><strong>TODO:</strong> Klasse-Fach-Lehrkraft-Kombinationen, deren
+    Zeugnisse handschriftlich eingetragen werden, sollten hier entsprechend
+    dargestellt werden!
+    </p>
+    <form id="dataform" class="pure-form" method="POST">
+        {{ form.csrf_token }}
+        {{ form.choice }}
+        <hr />
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Erstellen</button>
+        </div>
+    </form>
+{% endblock %}

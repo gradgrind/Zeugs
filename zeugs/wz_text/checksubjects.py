@@ -3,7 +3,7 @@
 """
 wz_text/checksubjects.py
 
-Last updated:  2019-11-22
+Last updated:  2019-12-09
 
 Prepare checklists of subjects for the teachers.
 
@@ -30,8 +30,6 @@ from weasyprint import HTML, CSS
 from wz_core.configuration import Paths
 from wz_core.courses import CourseTables
 
-#Messages
-_WRITTEN = "Klassen- und Fachzuordnung der Lehrer:\n  {path}"
 
 _TEXT = """
 <h1>Zeugnisse {year}: {teacher}</h1>
@@ -70,6 +68,16 @@ _TEXT = """
 
 _TR = '    <tr><td class="td1">{klass}</td><td>{subject}</td></<tr>'
 
+_NOREPORT = """
+<h1>Anhang</h1>
+<p>Folgende Lehrkräfte haben keine Zeugnisse:</p>
+<ul>
+  {}
+</ul>
+"""
+
+_LI = '<li>{}</li>'
+
 css = CSS (string='''
     @page { size: A4; margin: 2cm }
     h1 {page-break-before: always; font-size: 120%}
@@ -105,8 +113,6 @@ def makeSheets (schoolyear, manager, date):
                         except:
                             tmap [klass] = {sid}
 
-#    return tidmap
-
     noreports = []
     pages = []
     for tid in courses.teacherData:
@@ -126,23 +132,22 @@ def makeSheets (schoolyear, manager, date):
                 tbody="\n".join (lines))
             )
 
+    appendix = [_LI.format(tname) for tname in noreports]
+    pages.append(_NOREPORT.format("\n".join(appendix)))
     html = HTML (string="\n\n".join (pages))
-    fpath = Paths.getYearPath (schoolyear, 'FILE_TEACHER_REPORT_LISTS')
-    html.write_pdf (fpath, stylesheets=[css])
-    REPORT.Info (_WRITTEN, path=fpath)
-
-    return noreports
+    pdfBytes = html.write_pdf(stylesheets=[css])
+    return pdfBytes
 
 
 
 _year = 2020
 _manager = "Michael Towers"
+_WRITTEN = "Klassen- und Fachzuordnung der Lehrer:\n  {path}"
 def test_01 ():
     from datetime import date
     _date = date.today ().strftime ("%d.%m.%Y")
-#    tidmap = makeSheets (_year)
-#    print (tidmap)
-    noreports = makeSheets (_year, _manager, _date)
-    REPORT.Test ("\n**** Folgende Lehrkräfte haben keine Zeugnisse:\n")
-    for tname in noreports:
-        REPORT.Test ("   --- %s" % tname)
+    pdfBytes = makeSheets (_year, _date, '11K')
+    fpath = Paths.getYearPath (_year, 'FILE_TEACHER_REPORT_LISTS')
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)
+    REPORT.Info (_WRITTEN, path=fpath)

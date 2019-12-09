@@ -47,7 +47,10 @@ csrf = CSRFProtect()
 
 def create_app(test_config=None):
     # create and configure the app
-    app = Flask(__name__, instance_path=ZEUGS_DATA, instance_relative_config=True)
+    app = Flask(__name__, instance_path=ZEUGS_DATA,
+            instance_relative_config=True,
+            static_folder=os.path.join(ZEUGS_BASE, 'static'),
+            template_folder=os.path.join(ZEUGS_BASE, 'templates'))
     app.config.from_mapping(
 #       SECRET_KEY = os.environ.get('SECRET_KEY') or 'you-will-never-guess',
         SECRET_KEY = 'not-very-secret', # generate with: os.urandom(24)
@@ -91,7 +94,7 @@ def create_app(test_config=None):
             return None
 #        print ("SESSION:", session)
         perms = session.get('permission', '')
-#        print("ACCESS:", repr(slevel), request_endpoint, request_path)
+        print("ACCESS:", perms, request_endpoint, request_path)
 #TODO: more elaborate access controls ...
         if 's' in perms:
             return None

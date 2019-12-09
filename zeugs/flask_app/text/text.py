@@ -4,7 +4,7 @@
 """
 flask_app/text_cover/text.py
 
-Last updated:  2019-12-0
+Last updated:  2019-12-09
 
 Flask Blueprint for text reports
 
@@ -28,27 +28,30 @@ Copyright 2019 Michael Towers
 
 #TODO ...
 
-from flask import Blueprint, render_template, request, send_file, url_for
+from flask import (Blueprint, render_template, request, send_file,
+        session, url_for)
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
-from wtforms import StringField
+from wtforms import RadioField
 from wtforms.fields.html5 import DateField
-from wtforms.validators import InputRequired, Length
+from wtforms.validators import InputRequired
 
-import datetime, io
-from types import SimpleNamespace
+import os, datetime, io
+#from types import SimpleNamespace
 
 from wz_core.configuration import Dates
-from wz_core.pupils import Pupils
-from wz_compat.config import sortingName
-from wz_text.coversheet import makeSheets, pupilFields, makeOneSheet
+#from wz_core.pupils import Pupils
+#from wz_compat.config import sortingName
+from wz_text.checksubjects import makeSheets as tSheets
+from wz_text.print_klass_subject_teacher import makeSheets as ksSheets
+
+# Filenames for downloading
+_TEACHER_TABLE = 'Lehrer-Klasse-Tabelle'
+_KLASS_TABLE = 'Klasse-Fach-Tabelle'
 
 _HEADING = "Textzeugnis"
 
-#TODO: school year should be the latest one by default (?), but can be
-# stored in the session data to allow access to other years.
-_schoolyear = 2020
 #TODO: the date should be saved with the year ...
 _date = '2020-07-15'
 class DateForm(FlaskForm):
@@ -57,96 +60,66 @@ class DateForm(FlaskForm):
                             validators=[InputRequired()])
 
 # Set up Blueprint
-bp = Blueprint('bp_text',           # internal name of the Blueprint
+_BPNAME = 'bp_text'
+bp = Blueprint(_BPNAME,             # internal name of the Blueprint
         __name__,                   # allows the current package to be found
         template_folder='templates') # package-local templates
 
 
 @bp.route('/', methods=['GET','POST'])
-#@admin_required
 def index():
 #    p = Pupils(_schoolyear)
 #    klasses = [k for k in p.classes() if k >= '01' and k < '13']
 #TODO: Maybe a validity test for text report classes?
 #TODO: DATE_D
-    return render_template('text_entry.html',
+    return render_template(os.path.join(_BPNAME, 'index.html'),
                             heading=_HEADING,
-                            schoolyear=str(_schoolyear),
                             DATE_D=Dates.dateConv(_date),
                             uplink=url_for('index'),
                             uplink_help="Zeugs: Startseite")
 
 
-@bp.route('/klass/<klass>', methods=['GET','POST'])
-#@admin_required
-def klassview(klass):
-    form = DateForm()
+#TODO: Put something "like" this in the db?
+def getManager():
+    return {
+        "name": "Michael Towers",
+        "mail": "michael.towers@waldorfschule-bothfeld.de"
+    }
+
+@bp.route('/summary', methods=['GET','POST'])
+def summary():
+    class RadioForm(FlaskForm):
+        choice = RadioField(choices=[
+            ('teachers','Kontrollblätter für die Lehrer'),
+            ('classes','Fach-Lehrer-Zuordnung für die Klassen')
+        ])
+    form = RadioForm()
     if form.validate_on_submit():
         # POST
-        _d = form.DATE_D.data.isoformat()
-        pdfBytes = makeSheets (_schoolyear, _d, klass,
-#TODO check list not empty ...
-                pids=request.form.getlist('Pupil'))
-        return send_file(
-            io.BytesIO(pdfBytes),
-            attachment_filename='Mantel_%s.pdf' % klass,
-            mimetype='application/pdf',
-            as_attachment=True
-        )
+        if form.choice.data == 'teachers':
+            pdfBytes = tSheets(session['year'],
+                            getManager()['name'],
+                            Dates.today())
+            filename = _TEACHER_TABLE
+        elif form.choice.data == 'classes':
+            pdfBytes = ksSheets(session['year'],
+                            getManager()['name'],
+                            Dates.today(iso=False))
+            filename = _KLASS_TABLE
+        else:
+            pdfBytes = None
+        if pdfBytes:
+            return send_file(
+                io.BytesIO(pdfBytes),
+                attachment_filename=filename + '.pdf',
+                mimetype='application/pdf',
+                as_attachment=True
+            )
     # GET
-    p = Pupils(_schoolyear)
-    pdlist = p.classPupils(klass)
-    klasses = [k for k in p.classes() if k >= '01' and k < '13']
-    return render_template('text_cover_klass.html', form=form,
+    return render_template(os.path.join(_BPNAME, 'summary.html'),
+                            form=form,
                             heading=_HEADING,
-                            schoolyear=str(_schoolyear),
-                            klass=klass,
-                            uplink=url_for('bp_text_cover.textCover'),
-                            uplink_help="Mantelbogen: Startseite",
-                            klasses=klasses,
-                            pupils=[(pd['PID'], pd.name()) for pd in pdlist])
-#TODO: The form has the school-year.
-# There might be a checkbox/switch for print/pdf, but print might not
-# be available on all hosts.
-# It might be helpful to a a little javascript to implement a pupil-
-# selection toggle (all/none).
+                            uplink=url_for('bp_text.index'),
+                            uplink_help="Textzeugnis: Startseite")
 
 
-def _allklasses(schoolyear, klasses):
-    pass
-
-
-@bp.route('/pupil/<klass>/<pid>', methods=['GET','POST'])
-#@admin_required
-def pupilview(klass, pid):
-    fields = pupilFields(klass)
-    form = DateForm()
-    if form.validate_on_submit():
-        # POST
-        _d = form.DATE_D.data.isoformat()
-        pupil = SimpleNamespace (**{f: request.form[f] for f, _ in fields})
-        pdfBytes = makeOneSheet(_schoolyear, _d, klass, pupil)
-        return send_file(
-            io.BytesIO(pdfBytes),
-            attachment_filename='Mantel_%s.pdf' % sortingName(
-                    pupil.FIRSTNAMES, pupil.LASTNAME),
-            mimetype='application/pdf',
-            as_attachment=True
-        )
-    # GET
-    p = Pupils(_schoolyear)
-    pdlist = p.classPupils(klass)
-    pupils = []
-    for pdata in pdlist:
-        _pid = pdata['PID']
-        pupils.append((_pid, pdata.name()))
-        if _pid == pid:
-            pupil = {f: (fname, pdata[f]) for f, fname in fields}
-    return render_template('text_cover_pupil.html', form=form,
-                            heading=_HEADING,
-                           schoolyear=str(_schoolyear),
-                           klass=klass,
-                           uplink=url_for('bp_text_cover.klassview', klass=klass),
-                           uplink_help="Klasse " + klass,
-                           pupil=pupil,
-                           pupils=pupils)

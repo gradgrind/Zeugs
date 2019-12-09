@@ -3,7 +3,7 @@
 """
 wz_text/print_klass_subject_teacher.py
 
-Last updated:  2019-11-22
+Last updated:  2019-12-09
 
 Prepare checklists of subject-teacher mapping for each school-class.
 
@@ -30,9 +30,6 @@ from weasyprint import HTML, CSS
 
 from wz_core.configuration import Paths
 from wz_core.courses import CourseTables
-
-#Messages
-_WRITTEN = "Fach-Lehrer-Zuordnung der Klassen:\n  {path}"
 
 #TODO: Mark for hand-written?
 _TEXT = """
@@ -111,16 +108,20 @@ def makeSheets (schoolyear, manager, date):
                 tbody="\n".join (lines)))
 
     html = HTML (string="\n\n".join (pages))
-    fpath = Paths.getYearPath (schoolyear, 'FILE_CLASS_REPORT_LISTS')
-    html.write_pdf (fpath, stylesheets=[CSS (string=_css.replace ('{{year}}',
+    pdfBytes = html.write_pdf (stylesheets=[CSS (string=_css.replace ('{{year}}',
             str (schoolyear)))])
-    REPORT.Info (_WRITTEN, path=fpath)
+    return pdfBytes
 
 
 
 _year = 2020
 _manager = "Michael Towers"
+_WRITTEN = "Fach-Lehrer-Zuordnung der Klassen:\n  {path}"
 def test_01 ():
     from datetime import date
     _date = date.today ().strftime ("%d.%m.%Y")
-    makeSheets (_year, _manager, _date)
+    pdfBytes = makeSheets (_year, _manager, _date)
+    fpath = Paths.getYearPath (_year, 'FILE_CLASS_REPORT_LISTS')
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)
+    REPORT.Info (_WRITTEN, path=fpath)

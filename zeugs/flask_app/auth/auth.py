@@ -63,14 +63,6 @@ bp = Blueprint('bp_auth',           # internal name of the Blueprint
         template_folder='templates') # package-local templates
 
 ##### LOGIN #####
-#TODO: Implement a real user-db, then remove the test data ...
-_USERDATA = {
-    'u1': ('UID100', 'Ernst Normalbenutzer',
-            generate_password_hash('passu1'), 1),
-
-    'a1': ('UID1', 'Ina Alleskönner',
-            generate_password_hash('passa1'), 5)
-}
 _BADUSER = "Ungültiger Benutzername"
 _BADPW = "Falsches Passwort"
 
@@ -78,17 +70,13 @@ class LoginForm(FlaskForm):
     USER = StringField('Benutzername', validators=[DataRequired()])
     def validate_USER(form, field):
         if not Users().valid(field.data):
-#TODO:
-#        if field.data not in _USERDATA:
             raise StopValidation(_BADUSER)
 
     PASSWORD = PasswordField('Passwort', validators=[DataRequired()])
     def validate_PASSWORD(form, field):
         user = form.USER.data
-#TODO:
         try:
             pwhash = Users().getHash(user)
-#            pwhash = _USERDATA[user][2]
         except:
             return
         if not check_password_hash(pwhash, field.data):
@@ -107,15 +95,13 @@ def login():
         session['user_id'] = tid
         session['permission'] = permission
 #TODO:
-#        userdata = _USERDATA[form.USER.data]
-#        session['user_id'] = userdata[0]
-#        session['level'] = userdata[3]
-#TODO:
         session['year'] = 2020
 #        print("LOGGED IN:", userdata)
 #TODO: remove:
         print("LOGGED IN:", tid, permission)
-        return redirect(url_for('bp_text_cover.textCover'))
+        #return redirect(url_for('bp_text_cover.textCover'))
+    if session.get('user_id'):
+        return redirect(url_for('index'))
     return render_template('login.html', form=form)
 
 

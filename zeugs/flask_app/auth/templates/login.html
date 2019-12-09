@@ -1,9 +1,11 @@
-{% extends "base_open.html" %}
+{% extends "base.html" %}
+{% set uplink = url_for('index') %}
+{% set uplink_help = "Startseite" %}
 
 {% block title %}Einloggen{% endblock %}
 {% block imports %}
 <style>
-    .upbtn { display: none; }
+    #userbtn  { display: none; }
 </style>
 {% endblock %}
 
@@ -20,7 +22,7 @@
     <form id="dataform" class="pure-form" method="POST">
         {{ form.csrf_token }}
         <div class="form2">
-            {{ form.USER.label }}{{ form.USER }}
+            {{ form.USER.label }}{{ form.USER(autofocus=true) }}
                 {% for error in form.USER.errors %}
                 <span>[{{ error }}]</span>
                 {% endfor %}

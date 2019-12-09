@@ -1,6 +1,11 @@
-{% extends "base_open.html" %}
+{% extends "base.html" %}
 
 {% block title %}Zeugs: Willkommen{% endblock %}
+{% block imports %}
+<style>
+    #upbtn { display: none; }
+</style>
+{% endblock %}
 
 {% block content %}
     <p><strong>Zeugs</strong> unterstützt Sie bei der Erstellung der Zeugnisse.
@@ -8,6 +13,7 @@
     <p>Aktuell sind folgende Bereiche möglich:
     <p>
     <ul>
+        <li><a href="{{url_for('bp_text_cover.index')}}">Mantelbögen für Textzeugnisse</a></li>
     </ul>
     <p>Über die Navigation sind Informationen zu den verschiedenen Bereiche
     abrufbar.
