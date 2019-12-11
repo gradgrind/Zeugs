@@ -4,7 +4,7 @@
 """
 flask_app/auth/auth.py
 
-Last updated:  2019-12-08
+Last updated:  2019-12-10
 
 Flask Blueprint for user authentication (login).
 
@@ -29,6 +29,7 @@ Copyright 2019 Michael Towers
 
 #TODO: Check imports
 
+import os
 #import functools
 
 from flask import (Blueprint, g, redirect, render_template, request,
@@ -58,9 +59,9 @@ class Users:
 
 
 # Set up Blueprint
-bp = Blueprint('bp_auth',           # internal name of the Blueprint
-        __name__,                   # allows the current package to be found
-        template_folder='templates') # package-local templates
+_BPNAME = 'bp_auth'
+bp = Blueprint(_BPNAME,             # internal name of the Blueprint
+        __name__)                   # allows the current package to be found
 
 ##### LOGIN #####
 _BADUSER = "Ungültiger Benutzername"
@@ -96,13 +97,12 @@ def login():
         session['permission'] = permission
 #TODO:
         session['year'] = 2020
-#        print("LOGGED IN:", userdata)
 #TODO: remove:
         print("LOGGED IN:", tid, permission)
         #return redirect(url_for('bp_text_cover.textCover'))
     if session.get('user_id'):
         return redirect(url_for('index'))
-    return render_template('login.html', form=form)
+    return render_template(os.path.join(_BPNAME, 'login.html'), form=form)
 
 
 @bp.route('/logout')
@@ -128,7 +128,7 @@ def login_required(view):
     @functools.wraps(view)
     def wrapped_view(**kwargs):
         if g.user is None:
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('bp_auth.login'))
 
         return view(**kwargs)
 

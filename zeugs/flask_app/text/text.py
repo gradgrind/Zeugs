@@ -4,7 +4,7 @@
 """
 flask_app/text_cover/text.py
 
-Last updated:  2019-12-09
+Last updated:  2019-12-11
 
 Flask Blueprint for text reports
 
@@ -41,10 +41,9 @@ import os, datetime, io
 #from types import SimpleNamespace
 
 from wz_core.configuration import Dates
-#from wz_core.pupils import Pupils
-#from wz_compat.config import sortingName
-from wz_text.checksubjects import makeSheets as tSheets
-from wz_text.print_klass_subject_teacher import makeSheets as ksSheets
+#from wz_text.checksubjects import makeSheets as tSheets
+from wz_text.summary import tSheets, ksSheets
+#from wz_text.print_klass_subject_teacher import makeSheets as ksSheets
 
 # Filenames for downloading
 _TEACHER_TABLE = 'Lehrer-Klasse-Tabelle'
@@ -62,8 +61,7 @@ class DateForm(FlaskForm):
 # Set up Blueprint
 _BPNAME = 'bp_text'
 bp = Blueprint(_BPNAME,             # internal name of the Blueprint
-        __name__,                   # allows the current package to be found
-        template_folder='templates') # package-local templates
+        __name__)                   # allows the current package to be found
 
 
 @bp.route('/', methods=['GET','POST'])
@@ -92,7 +90,7 @@ def summary():
         choice = RadioField(choices=[
             ('teachers','Kontrollblätter für die Lehrer'),
             ('classes','Fach-Lehrer-Zuordnung für die Klassen')
-        ])
+        ], default='teachers')
     form = RadioForm()
     if form.validate_on_submit():
         # POST
@@ -104,7 +102,7 @@ def summary():
         elif form.choice.data == 'classes':
             pdfBytes = ksSheets(session['year'],
                             getManager()['name'],
-                            Dates.today(iso=False))
+                            Dates.today())
             filename = _KLASS_TABLE
         else:
             pdfBytes = None

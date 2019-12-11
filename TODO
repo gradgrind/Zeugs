@@ -1,0 +1,14 @@
+Print text-report matrix on one sheet:
+    Teacher-Class (value: subjects?)
+    or Teacher-Subject (value: classes?)
+    Maybe the best-fitting (spatially) would be Class-Subject (value: teachers)
+
+Handle handwritten reports? (in summary tables, etc.)
+
+Simplify subject table.
+    Perhaps the grade stuff can be done in the grade matrix template?
+    Use the grade matrix template as a basis: add pupils, remove/hide subjects?
+    
+Grade reports with weasyprint?
+
++ much more ... 
