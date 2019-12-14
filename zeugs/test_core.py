@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
+#!../venv/bin/python
 # -*- coding: utf-8 -*-
 """
 test_core.py
 
-Last updated:  2019-11-16
+Last updated:  2019-12-14
 
 Run some tests on the modules in the wz_core package.
 
@@ -25,8 +25,6 @@ Copyright 2019 Michael Towers
 
 =-LICENCE========================================
 """
-
-import os, builtins
 
 from wz_core.configuration import init
 

@@ -4,6 +4,10 @@
 #
 #     venv/bin/pip install -r requirements.pip
 
+# But first you must set up the virtual environment. Use at least python3.7
+# and do this in the Zeugs base folder:
+#     python3 -m venv venv
+
 openpyxl
 #pdfrw
 #wheel

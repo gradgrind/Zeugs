@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2019-09-25
+Last updated:  2019-12-14
 
 This module handles access to an sqlite database.
 
@@ -204,20 +204,33 @@ class DB0:
             return cur.fetchall ()
 
 
-    def selectDistinct (self, table, column, order=False, reverse=False):
+    def selectDistinct (self, table, column, **criteria):
+        """Select distinct values from a single column.
+        The <criteria> may be of the form FIELDNAME=value.
+        """
         with self._dbcon as con:
             cur = con.cursor ()
-            cmd = "SELECT DISTINCT {} FROM {}".format (column, table)
-            if order:
-                cmd += ' ORDER BY ' + column
-                if reverse:
-                    cmd += ' DESC'
-            cur.execute (cmd)
+            clist = []
+            vlist = []
+            for c, v in criteria.items ():
+                clist.append (c + '=?')
+                vlist.append (v)
+            if clist:
+                cmd = 'SELECT DISTINCT {} FROM {} WHERE {}'.format (
+                        column, table, ' AND '.join (clist))
+                cur.execute (cmd, vlist)
+            else:
+                cmd = "SELECT DISTINCT {} FROM {}".format (column, table)
+                cur.execute (cmd)
             return [row [column] for row in cur.fetchall ()]
 
 
-    def select (self, table, order=None, # order can be a list of fields
-            reverse=False, **criteria):
+    def select (self, table, order=None, reverse=False, **criteria):
+        """Select all fields of the given table.
+        The results may may ordered by specifying a list of fields to
+        <order>. Set <reverse> to true to order descending.
+        The <criteria> may be of the form FIELDNAME=value.
+        """
         with self._dbcon as con:
             cur = con.cursor ()
             clist = []

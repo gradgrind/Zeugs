@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 #TODO ...
@@ -6,10 +5,10 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2019-03-31
+Last updated:  2019-12-14
 
-Generate the grade reports for a given class.
-User fields in template files are replaced by the report information.
+Generate the grade reports for a given class/stream.
+Fields in template files are replaced by the report information.
 
 It caters for templates in which slots for grades are marked with
 subject tags but also for more general versions in which also the
@@ -67,6 +66,118 @@ _NOSLOTFORGRADE         = ("Klasse {klass}, Schüler {pid}:"
 _GRADEREPORTDONE        = "Notenzeugnis fertig: {path}"
 
 
+import os, re
+
+import jinja2
+
+from weasyprint import HTML, CSS
+from weasyprint.fonts import FontConfiguration
+
+from wz_core.configuration import Paths, Dates
+from wz_core.pupils import Pupils
+from wz_compat.config import printSchoolYear, klassData, textCoverTemplate
+
+
+def makeReports (schoolyear, date, klass_stream, pids=None):
+    """
+    <schoolyear>: year in which school-year ends (int)
+    <data>: date of issue ('YYYY-MM-DD')
+    <klass_stream>: name of the school-class and stream ("klass.stream")
+    <pids>: a list of pids (must all be in the given klass), only
+        generate reports for pupils in this list.
+        If not supplied, generate reports for the whole klass.
+    """
+
+    pupils = Pupils(schoolyear)
+    plist = pupils.classPupils(klass_stream)
+    if pids:
+        pall = plist
+        pset = set (pids)
+        plist = []
+        for pdata in pall:
+            try:
+                pset.remove(pdata['PID'])
+            except KeyError:
+                continue
+            plist.append(pdata)
+        if pset:
+            REPORT.Bug(_PUPILSNOTINCLASS, pids=', '.join(pset), klass=klass)
+    font_config = FontConfiguration()
+    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
+    templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
+    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
+    tpfile = '???'
+    try:
+        tpfile = textCoverTemplate(klass)
+        template = templateEnv.get_template(tpfile)
+    except:
+        REPORT.Fail(_NOTEMPLATE, klass=klass, path=os.path.join(tpdir, tpfile))
+    source = template.render(
+            SCHOOLYEAR = printSchoolYear(schoolyear),
+            DATE_D = date,
+            todate = Dates.dateConv,
+            logopath = Paths.getUserPath('FILE_TEXT_REPORT_LOGO'),
+            fontdir = Paths.getUserPath('DIR_FONTS'),
+            pupils = plist,
+            klass = klassData(klass)
+        )
+
+    if plist:
+        html = HTML (string=source)
+        pdfBytes = html.write_pdf(font_config=font_config)
+        REPORT.Info(_MADEKCOVERS, klass=klass)
+        return pdfBytes
+    else:
+        REPORT.Fail(_NOPUPILS)
+
+
+
+def pupilFields(klass):
+    """Return a list of the pupil data fields needed for a cover sheet.
+    The items are returned as pairs: (internal tag, display name).
+    """
+    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
+    tpfile = textCoverTemplate(klass)
+    path=os.path.join(tpdir, tpfile)
+    with open(path, 'r', encoding='utf-8') as fh:
+        text = fh.read()
+    tags = re.findall(r'pupil\.(\w+)', text)
+    name = CONF.TABLES.PUPILS_FIELDNAMES
+    return [(tag, name[tag]) for tag in tags]
+
+
+
+def makeOneSheet(schoolyear, date, klass, pupil):
+    """
+    <schoolyear>: year in which school-year ends (int)
+    <data>: date of issue ('YYYY-MM-DD')
+    <klass>: name of the school-class
+    <pupil>: A <SimpleNamespace> with the pupil data (pupil.field = val)
+    """
+    font_config = FontConfiguration()
+    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
+    templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
+    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
+    template = templateEnv.get_template(textCoverTemplate(klass))
+    source = template.render(
+            SCHOOLYEAR = printSchoolYear(schoolyear),
+            DATE_D = date,
+            todate = Dates.dateConv,
+            logopath = Paths.getUserPath('FILE_TEXT_REPORT_LOGO'),
+            fontdir = Paths.getUserPath('DIR_FONTS'),
+            pupils = [pupil],
+            klass = klassData(klass)
+        )
+    html = HTML (string=source)
+    pdfBytes = html.write_pdf(font_config=font_config)
+    REPORT.Info(_MADEPCOVER, pupil=pupil.FIRSTNAMES + ' ' + pupil.LASTNAME)
+    return pdfBytes
+
+
+
+
+
+
 import os, copy
 from glob import glob
 from collections import OrderedDict
@@ -78,6 +189,7 @@ from wz_textdoc.simpleodt import OdtUserFields
 from wz_io.support import toPdf
 
 _PUPIL = "Schüler-Id {pid}"
+
 
 
 class GradeReports:

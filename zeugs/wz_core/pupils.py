@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2019-12-05
+wz_core/pupils.py - last updated 2019-12-14
 
 Database access for reading pupil data.
 
@@ -22,6 +22,10 @@ Copyright 2019 Michael Towers
    limitations under the License.
 """
 
+# Note that "klass" is often used, in comments as well as in the code,
+# to mean school-class. The "k" can help to avoid confusion with
+# Python classes.
+
 from collections import OrderedDict, UserList
 
 from .db import DB
@@ -29,14 +33,14 @@ from .db import DB
 
 def fromKlassStream (ks):
     try:
-        k, s = ks.split ('-')
+        k, s = ks.split ('.')
         return (k, s)
     except:
         return (ks, None)
 
 
 def toKlassStream (k, s):
-    return klass + '-' + stream if stream else klass
+    return klass + '.' + stream if stream else klass
 
 
 
@@ -100,20 +104,29 @@ class Pupils:
         PupilData.fields ()
 
     def classes (self):
-        """Return a sorted list of class names.
+        """Return a sorted list of klass names.
         """
-        return self.db.selectDistinct ('PUPILS', 'CLASS', order=True)
+        return sorted (self.db.selectDistinct ('PUPILS', 'CLASS'))
 
-    def classPupils (self, klass, date=None, stream=None):
-        """Read in a table containing pupil data for the given class.
+    def streams (self, klass):
+        """Return a sorted list of stream names for the given klass.
+        """
+        return sorted (self.db.selectDistinct ('PUPILS', 'STREAM',
+                CLASS=klass))
+
+    def classPupils (self, klass_stream, date=None):
+        """Read the pupil data for the given klass (and stream).
         Return an ordered list of <PupilData> named tuples.
         If a <date> is supplied, pupils who left the school before that
         date will not be included.
-        If a <stream> is supplied, only pupils in this stream will be
-        included.
+        <klass_stream> may be just the klass name, in which case all
+        pupils are returned. It may, however, also include a stream name,
+        as <klass>.<stream>, restricting the result to those pupils in
+        the given stream.
         To enable indexing on pupil-id, the result has an extra
         attribute, <pidmap>: {pid-> <PupilData> instance}
         """
+        klass, stream = fromKlassStream (klass_stream)
         fetched = self.db.select ('PUPILS', CLASS=klass)
         rows = UserList()
         rows.pidmap = {}
@@ -140,6 +153,11 @@ def test_01 ():
 def test_02 ():
     schoolyear = 2016
     pdb = Pupils (schoolyear)
+    REPORT.Test ("Streams: %s" % repr(pdb.streams ('12')))
+
+def test_03 ():
+    schoolyear = 2016
+    pdb = Pupils (schoolyear)
     date = '2016-06-20'
     c = '10'
     cdata = pdb.classPupils (c, date)
@@ -147,14 +165,13 @@ def test_02 ():
     for line in cdata:
         REPORT.Test ("     " + repr (line))
 
-def test_03 ():
+def test_04 ():
     schoolyear = 2016
     pdb = Pupils (schoolyear)
 #    date = '2016-06-20'
-    c = '10'
-    g = 'RS'
-    cdata = pdb.classPupils (c, stream=g)
-    REPORT.Test ("\n-- Class/Stream %s %s" % (c, g))
+    cs = '10.RS'
+    cdata = pdb.classPupils (cs)
+    REPORT.Test ("\n-- Class.Stream %s" % cs)
     for line in cdata:
         REPORT.Test ("     " + repr (line))
 
