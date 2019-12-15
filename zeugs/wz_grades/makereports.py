@@ -5,7 +5,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2019-12-14
+Last updated:  2019-12-15
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -38,10 +38,17 @@ Copyright 2017-2019 Michael Towers
 #       Sozialpraktikum:        3 Wochen
 #TODO: Maybe component courses (& eurythmy?) merely as "teilgenommen"?
 
+
 # Messages
+_PUPILS_NOT_IN_CLASS_STREAM = "Schüler {pids} nicht in Klasse/Gruppe {ks}"
+#_NOTEMPLATE = "Vorlagedatei (Notenzeugnis) fehlt für Klasse {ks}:\n  {path}"
+_MADEKREPORTS = "Notenzeugnisse für Klasse {ks} wurden erstellt"
+_NOPUPILS = "Notenzeugnisse: keine Schüler"
+_MADEPREPORT = "Notenzeugnis für {pupil} wurde erstellt"
+
+
+#??
 _NOGRADES = "Klasse {klass}: keine Noten für {pname}"
-
-
 
 _INVALIDRTYPEXTRA       = ("Ungültiger Wert in Zeugnistyp-Konfiguration"
                         " GRADES/REPORT_TYPES/{rtype}. Feld: {field},"
@@ -66,27 +73,31 @@ _NOSLOTFORGRADE         = ("Klasse {klass}, Schüler {pid}:"
 _GRADEREPORTDONE        = "Notenzeugnis fertig: {path}"
 
 
-import os, re
-
-import jinja2
+import os
+from types import SimpleNamespace
 
 from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Pupils
-from wz_compat.config import printSchoolYear, klassData, textCoverTemplate
+from wz_compat.config import (printSchoolYear, klassData, printStream,
+        getTemplateTags, pupilFields)
 
-
-def makeReports (schoolyear, date, klass_stream, pids=None):
+#TODO: Maybe <date> should be a term (or date)?
+def makeReports(schoolyear, date, klass_stream, report_type, pids=None):
     """
     <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
     <klass_stream>: name of the school-class and stream ("klass.stream")
+    <report_type>: name-tag for the type of report to be produced
+        (see <GRADE_TEMPLATES> in wz_compat/config.py)
     <pids>: a list of pids (must all be in the given klass), only
         generate reports for pupils in this list.
         If not supplied, generate reports for the whole klass.
     """
+#TODO:
+    grades = SimpleNamespace(abschluss='RS')
 
     pupils = Pupils(schoolyear)
     plist = pupils.classPupils(klass_stream)
@@ -100,84 +111,109 @@ def makeReports (schoolyear, date, klass_stream, pids=None):
             except KeyError:
                 continue
             plist.append(pdata)
+#TODO:
+            pdata.grades = grades
+
         if pset:
-            REPORT.Bug(_PUPILSNOTINCLASS, pids=', '.join(pset), klass=klass)
-    font_config = FontConfiguration()
-    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
-    templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
-    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
-    tpfile = '???'
-    try:
-        tpfile = textCoverTemplate(klass)
-        template = templateEnv.get_template(tpfile)
-    except:
-        REPORT.Fail(_NOTEMPLATE, klass=klass, path=os.path.join(tpdir, tpfile))
-    source = template.render(
+            REPORT.Bug(_PUPILS_NOT_IN_CLASS_STREAM, pids=', '.join(pset),
+                    ks=klass_stream)
+
+    classdata = klassData(klass_stream, report_type)
+    source = classdata.template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
-            logopath = Paths.getUserPath('FILE_TEXT_REPORT_LOGO'),
-            fontdir = Paths.getUserPath('DIR_FONTS'),
+            STREAM = printStream,
             pupils = plist,
-            klass = klassData(klass)
+            klass = classdata
         )
 
     if plist:
-        html = HTML (string=source)
-        pdfBytes = html.write_pdf(font_config=font_config)
-        REPORT.Info(_MADEKCOVERS, klass=klass)
+        html = HTML (string=source,
+                base_url=os.path.dirname (classdata.template.filename))
+        pdfBytes = html.write_pdf(font_config=FontConfiguration())
+        REPORT.Info(_MADEKREPORTS, ks=klass_stream)
         return pdfBytes
     else:
         REPORT.Fail(_NOPUPILS)
 
 
-
-def pupilFields(klass):
-    """Return a list of the pupil data fields needed for a cover sheet.
-    The items are returned as pairs: (internal tag, display name).
-    """
-    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
-    tpfile = textCoverTemplate(klass)
-    path=os.path.join(tpdir, tpfile)
-    with open(path, 'r', encoding='utf-8') as fh:
-        text = fh.read()
-    tags = re.findall(r'pupil\.(\w+)', text)
-    name = CONF.TABLES.PUPILS_FIELDNAMES
-    return [(tag, name[tag]) for tag in tags]
-
-
-
-def makeOneSheet(schoolyear, date, klass, pupil):
+def makeOneSheet(schoolyear, date, klass_stream, report_type, pupil):
     """
     <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
-    <klass>: name of the school-class
+    <klass_stream>: name of the school-class and stream ("klass.stream")
+    <report_type>: name-tag for the type of report to be produced
+        (see <GRADE_TEMPLATES> in wz_compat/config.py)
     <pupil>: A <SimpleNamespace> with the pupil data (pupil.field = val)
     """
-    font_config = FontConfiguration()
-    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
-    templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
-    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
-    template = templateEnv.get_template(textCoverTemplate(klass))
-    source = template.render(
+#TODO:
+    pupil.grades = SimpleNamespace(abschluss='RS')
+
+    classdata = klassData(klass_stream, report_type)
+    source = classdata.template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
-            logopath = Paths.getUserPath('FILE_TEXT_REPORT_LOGO'),
-            fontdir = Paths.getUserPath('DIR_FONTS'),
+            STREAM = printStream,
             pupils = [pupil],
-            klass = klassData(klass)
+            klass = classdata
         )
-    html = HTML (string=source)
-    pdfBytes = html.write_pdf(font_config=font_config)
-    REPORT.Info(_MADEPCOVER, pupil=pupil.FIRSTNAMES + ' ' + pupil.LASTNAME)
+    html = HTML (string=source,
+            base_url=os.path.dirname (classdata.template.filename))
+    pdfBytes = html.write_pdf(font_config=FontConfiguration())
+    REPORT.Info(_MADEPREPORT, pupil=pupil.FIRSTNAMES + ' ' + pupil.LASTNAME)
     return pdfBytes
 
 
 
+_year = 2016
+_date = '2016-06-22'
+_klass_stream = '10.Gym'
+def test_01():
+    classdata = klassData(_klass_stream, report_type='Zeugnis')
+    tags = getTemplateTags(classdata.template)
+    REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
+
+def test_02():
+    pdfBytes = makeReports (_year, _date, _klass_stream, 'Zeugnis')
+    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
+    fpath = os.path.join (folder, 'test.pdf')
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)
+
+def test_03():
+    pupils = Pupils(_year)
+    plist = pupils.classPupils(_klass_stream)
+    from types import SimpleNamespace
+    p = plist[0]
+    pmap = {f: p[f] for f in p.fields()}
+    pdfBytes = makeOneSheet(_year, _date, _klass_stream, 'Abgang',
+            SimpleNamespace(**pmap))
+    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
+    fpath = os.path.join (folder, 'test1.pdf')
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)
+    REPORT.Test(" --> %s" % fpath)
+
+def test_04():
+    _klass_stream = '12.RS'
+    pupils = Pupils(_year)
+    plist = pupils.classPupils(_klass_stream)
+    from types import SimpleNamespace
+    p = plist[0]
+    pmap = {f: p[f] for f in p.fields()}
+    pdfBytes = makeOneSheet(_year, _date, _klass_stream, 'Abschluss',
+            SimpleNamespace(**pmap))
+    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
+    fpath = os.path.join (folder, 'test2.pdf')
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)
+    REPORT.Test(" --> %s" % fpath)
 
 
 
+'''
 import os, copy
 from glob import glob
 from collections import OrderedDict
@@ -638,3 +674,4 @@ class GradeReports:
             k = fmap ['K_KEY'].string ()
             xfields [k] = fmap
         return xfields
+'''

@@ -4,7 +4,7 @@
 """
 wz_text/coversheet.py
 
-Last updated:  2019-12-04
+Last updated:  2019-12-15
 
 Build the outer sheets (cover sheets) for the text reports.
 User fields in template files are replaced by the report information.
@@ -29,21 +29,20 @@ Copyright 2017-2019 Michael Towers
 
 _PUPILSNOTINCLASS   = "Schüler {pids} nicht in Klasse {klass}"
 _NOPUPILS           = "Mantelbogen: keine Schüler"
-_NOTEMPLATE         = "Vorlagedatei (Mantelbogen) fehlt für Klasse {klass}:\n  {path} "
+#_NOTEMPLATE         = "Vorlagedatei (Mantelbogen) fehlt für Klasse {klass}:\n  {path} "
 _MADEKCOVERS        = "Mantelbögen für Klasse {klass} wurden erstellt"
 _MADEPCOVER         = "Mantelbogen für {pupil} wurde erstellt"
 _BADPID             = "Schüler {pid} nicht in Klasse {klass}"
 
-import os, re
-
-import jinja2
+import os
 
 from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Pupils
-from wz_compat.config import printSchoolYear, klassData, textCoverTemplate
+from wz_compat.config import (printSchoolYear, klassData,
+        getTemplateTags, pupilFields)
 
 
 def makeSheets (schoolyear, date, klass, pids=None):
@@ -69,49 +68,23 @@ def makeSheets (schoolyear, date, klass, pids=None):
             plist.append(pdata)
         if pset:
             REPORT.Bug(_PUPILSNOTINCLASS, pids=', '.join(pset), klass=klass)
-    font_config = FontConfiguration()
-    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
-    templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
-    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
-    tpfile = '???'
-    try:
-        tpfile = textCoverTemplate(klass)
-        template = templateEnv.get_template(tpfile)
-    except:
-        REPORT.Fail(_NOTEMPLATE, klass=klass, path=os.path.join(tpdir, tpfile))
-    source = template.render(
+    classdata = klassData(klass)
+    source = classdata.template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
-            logopath = Paths.getUserPath('FILE_TEXT_REPORT_LOGO'),
-            fontdir = Paths.getUserPath('DIR_FONTS'),
             pupils = plist,
-            klass = klassData(klass)
+            klass = classdata
         )
 
     if plist:
-        html = HTML (string=source)
-        pdfBytes = html.write_pdf(font_config=font_config)
+        html = HTML (string=source,
+                base_url=os.path.dirname (classdata.template.filename))
+        pdfBytes = html.write_pdf(font_config=FontConfiguration())
         REPORT.Info(_MADEKCOVERS, klass=klass)
         return pdfBytes
     else:
         REPORT.Fail(_NOPUPILS)
-
-
-
-def pupilFields(klass):
-    """Return a list of the pupil data fields needed for a cover sheet.
-    The items are returned as pairs: (internal tag, display name).
-    """
-    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
-    tpfile = textCoverTemplate(klass)
-    path=os.path.join(tpdir, tpfile)
-    with open(path, 'r', encoding='utf-8') as fh:
-        text = fh.read()
-    tags = re.findall(r'pupil\.(\w+)', text)
-    name = CONF.TABLES.PUPILS_FIELDNAMES
-    return [(tag, name[tag]) for tag in tags]
-
 
 
 def makeOneSheet(schoolyear, date, klass, pupil):
@@ -119,35 +92,50 @@ def makeOneSheet(schoolyear, date, klass, pupil):
     <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
     <klass>: name of the school-class
-    <pupil>: A <SimpleNamespace> with the pupil data (pupil.field = val)
+    <pupil>: An object (e.g. <SimpleNamespace>) with the pupil data as
+    attributes (pupil.field = val)
     """
-    font_config = FontConfiguration()
-    tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
-    templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
-    templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
-    template = templateEnv.get_template(textCoverTemplate(klass))
-    source = template.render(
+    classdata = klassData(klass)
+    source = classdata.template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
-            logopath = Paths.getUserPath('FILE_TEXT_REPORT_LOGO'),
-            fontdir = Paths.getUserPath('DIR_FONTS'),
             pupils = [pupil],
-            klass = klassData(klass)
+            klass = classdata
         )
-    html = HTML (string=source)
-    pdfBytes = html.write_pdf(font_config=font_config)
+    html = HTML (string=source,
+            base_url=os.path.dirname (classdata.template.filename))
+    pdfBytes = html.write_pdf(font_config=FontConfiguration())
     REPORT.Info(_MADEPCOVER, pupil=pupil.FIRSTNAMES + ' ' + pupil.LASTNAME)
     return pdfBytes
 
 
 
+_year = 2016
+_date = '2016-06-22'
+_klass = '10'
+def test_01():
+    classdata = klassData(_klass, report_type='text')
+    tags = getTemplateTags(classdata.template)
+    REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 
-_year = 2020
-_date = '2020-07-15'
-def test_01 ():
-    pdfBytes = makeSheets (_year, _date, '11K')
+def test_02():
+    pdfBytes = makeSheets (_year, _date, _klass)
     folder = Paths.getUserPath ('DIR_TEXT_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test.pdf')
     with open(fpath, 'wb') as fh:
         fh.write(pdfBytes)
+    REPORT.Test(" --> %s" % fpath)
+
+def test_03():
+    pupils = Pupils(_year)
+    plist = pupils.classPupils(_klass)
+    from types import SimpleNamespace
+    p = plist[0]
+    pmap = {f: p[f] for f in p.fields()}
+    pdfBytes = makeOneSheet(_year, _date, _klass, SimpleNamespace(**pmap))
+    folder = Paths.getUserPath ('DIR_TEXT_REPORT_TEMPLATES')
+    fpath = os.path.join (folder, 'test1.pdf')
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)
+    REPORT.Test(" --> %s" % fpath)

@@ -29,19 +29,7 @@ Copyright 2019 Michael Towers
 from collections import OrderedDict, UserList
 
 from .db import DB
-
-
-def fromKlassStream (ks):
-    try:
-        k, s = ks.split ('.')
-        return (k, s)
-    except:
-        return (ks, None)
-
-
-def toKlassStream (k, s):
-    return klass + '.' + stream if stream else klass
-
+from wz_compat.config import fromKlassStream, toKlassStream
 
 
 class PupilData (list):
