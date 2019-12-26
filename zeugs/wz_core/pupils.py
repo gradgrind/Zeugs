@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2019-12-14
+wz_core/pupils.py - last updated 2019-12-23
 
 Database access for reading pupil data.
 
@@ -99,8 +99,9 @@ class Pupils:
     def streams (self, klass):
         """Return a sorted list of stream names for the given klass.
         """
-        return sorted (self.db.selectDistinct ('PUPILS', 'STREAM',
-                CLASS=klass))
+        return sorted ([s or ''
+                for s in self.db.selectDistinct ('PUPILS', 'STREAM',
+                        CLASS=klass)])
 
     def classPupils (self, klass_stream, date=None):
         """Read the pupil data for the given klass (and stream).

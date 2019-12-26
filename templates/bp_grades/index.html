@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% set uplink = url_for('index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}Zeugnisart{% endblock %}
+
+{% block content %}
+    <p>Notenzeugnisse können für ganze Klassen zu den Halbjahren oder für
+    einzelne Schüler zu beliebigen Zeitpunkten erstellt werden.
+    </p>
+    <p>Wählen Sie hier die Art Zeugnis, die es zu erstellen gilt:
+    </p>
+    <ul class="modules">
+        <li><a href="{{url_for('bp_grades.term', termn=1)}}">Halbjahreszeugnisse</a></li>
+        <li><a href="{{url_for('bp_grades.term', termn=2)}}">Jahresendzeugnisse</a></li>
+        <li><a href="{{url_for('bp_grades.single', rtype='normal')}}">Einzelzeugnisse: Zwischenzeugnis</a></li>
+        <li><a href="{{url_for('bp_grades.single', rtype='leaving')}}">Einzelzeugnisse: Abgang</a></li>
+    </ul>
+{% endblock %}

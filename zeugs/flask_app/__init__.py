@@ -4,7 +4,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2019-12-08
+Last updated:  2019-12-26
 
 The Flask application: zeugs front-end.
 
@@ -26,11 +26,10 @@ Copyright 2019 Michael Towers
 =-LICENCE========================================
 """
 
-import os, sys
-import datetime
+import os, sys, datetime
 
 from flask import (Flask, render_template, request, redirect, session,
-        send_from_directory, url_for)
+        send_from_directory, url_for, flash)
 from flask_wtf import FlaskForm
 from wtforms import StringField
 from wtforms.fields.html5 import DateField
@@ -38,11 +37,23 @@ from wtforms.validators import InputRequired, Length
 
 ZEUGS_BASE = os.environ['ZEUGS_BASE']
 ZEUGS_DATA = os.path.join (ZEUGS_BASE, 'zeugs_data')
-from wz_core.configuration import init
-init(ZEUGS_DATA)
+from wz_core.configuration import init, Paths
 
 from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
+
+
+def logger(messages):
+    for mi, mt, msg in messages:
+        flash(mt + '::: ' + msg, mt)
+    l = session.get('logger')
+    if not l:
+        user = session.get('user_id', '##')
+        l = datetime.datetime.now().isoformat(timespec='seconds') + '-' + user
+        session['logger'] = l
+    return Paths.logfile(l)
+
+init(ZEUGS_DATA, xlog=logger)
 
 
 def create_app(test_config=None):
@@ -88,7 +99,8 @@ def create_app(test_config=None):
         request_path = request.path
         print ("--->", request_endpoint)
         print (" @@@", request_path)
-        if request_endpoint in ('index', 'bp_auth.login', 'static', 'zeugs_data'):
+
+        if request_endpoint in (None, 'index', 'bp_auth.login', 'static', 'zeugs_data'):
             return None
         if request_endpoint.startswith('bp_info.'):
             return None
@@ -166,5 +178,8 @@ def create_app(test_config=None):
 
     from .text_cover import text_cover
     app.register_blueprint(text_cover.bp, url_prefix='/text_cover')
+
+    from .grades import grades
+    app.register_blueprint(grades.bp, url_prefix='/grade_report')
 
     return app

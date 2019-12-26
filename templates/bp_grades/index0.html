@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% set uplink = url_for('index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}Notenzeugnis{% endblock %}
+
+<!-- TODO: remove this block -->
+{% block sidepanel %}
+  <div class="pure-menu-heading sidemenu-heading"">Klasse:</div>
+  <div class="pure-menu sidemenu">
+    <ul class="pure-menu-list">
+      {% for k in klasses %}
+      <li class="pure-menu-item"><a href="{{url_for('bp_grades.klassview', klass=k)}}" class="pure-menu-link">{{k}}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}
+
+{% block content %}
+    <p>Notenzeugnisse können für ganze Klassen zu den Halbjahren oder für
+    einzelne Schüler zu beliebigen Zeitpunkten erstellt werden.
+    </p>
+    <p>Wählen Sie hier die Art Zeugnis, die es zu erstellen gilt:
+    </p>
+
+<!--
+    <form id="dataform" class="pure-form" method="POST">
+        {{ form.csrf_token }}
+        <div class="form2">
+            {{ form.KLASS.label }}{{ form.KLASS }}
+            {{ form.TERM.label }}{{ form.TERM }}
+            {{ form.REPORT.label }}{{ form.REPORT }}
+        </div>
+        {% for error in errors %}
+        <p style="color: red;">[{{ error }}]</p>
+        {% endfor %}
+        <hr />
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Annehmen</button>
+        </div>
+    </form>
+-->
+{% endblock %}

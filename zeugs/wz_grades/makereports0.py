@@ -5,16 +5,17 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2019-12-22
+Last updated:  2019-12-15
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
 
-In the templates there are grouped and numbered slots for subject names
-and the corresponding grades.
+It caters for templates in which slots for grades are marked with
+subject tags but also for more general versions in which also the
+subject names are entered into fields.
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2017-2019 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -38,7 +39,7 @@ Copyright 2019 Michael Towers
 #TODO: Maybe component courses (& eurythmy?) merely as "teilgenommen"?
 
 
-## Messages
+# Messages
 _PUPILS_NOT_IN_CLASS_STREAM = "Schüler {pids} nicht in Klasse/Gruppe {ks}"
 #_NOTEMPLATE = "Vorlagedatei (Notenzeugnis) fehlt für Klasse {ks}:\n  {path}"
 _MADEKREPORTS = "Notenzeugnisse für Klasse {ks} wurden erstellt"
@@ -46,8 +47,34 @@ _NOPUPILS = "Notenzeugnisse: keine Schüler"
 _MADEPREPORT = "Notenzeugnis für {pupil} wurde erstellt"
 
 
+#??
+_NOGRADES = "Klasse {klass}: keine Noten für {pname}"
+
+_INVALIDRTYPEXTRA       = ("Ungültiger Wert in Zeugnistyp-Konfiguration"
+                        " GRADES/REPORT_TYPES/{rtype}. Feld: {field},"
+                        " Wert: {val}")
+_MADENREPORTS           = "{n} Notenzeugnisse wurden erstellt, in:\n  {folder}"
+_MISSINGGRADEENTRY      = "Klasse {klass}, Schüler {pid}: Keine Note im Kurs {cid}"
+_MISSINGFIELD           = "XCOLUMNS.{fname}.{tag}: Information fehlt: {field}"
+_NOTEMPLATE             = ("Klasse {klass}, Gruppe {stream}: Vorlagedatei"
+                        " für Zeugnistyp {rtype} fehlt")
+_NOMATCHINGSUBJECTFIELD = ("Fach-Feld {field} fehlt in Notenzeugnisvorlage:\n"
+                        " {filepath}")
+_NOMATCHINGGRADEFIELD   = ("Notenfeld {field} fehlt in Notenzeugnisvorlage:\n"
+                        " {filepath}")
+_INVALIDGRADEFIELDINDEX = ("Ungültiges Notenfeld ({field}) in Notenzeugnisvorlage:\n"
+                        " {filepath}")
+_NOGRADEINSUBJECT       = ("Klasse {klass}, Schüler {pid}: Zeugnisvorlage"
+                        " erwartet eine Note im Fach {sbj}")
+_PUPILNOTINCLASSSTREAM  = "Schüler {pid} nicht in Klasse/Gruppe {ks}"
+_NOGRADEMAPPING         = "Klasse {klass}, Schüler {pid}: unbekannte Note '{grade}'"
+_NOSLOTFORGRADE         = ("Klasse {klass}, Schüler {pid}:"
+                        " Keine Spalte für Note im Fach {sbj}")
+_GRADEREPORTDONE        = "Notenzeugnis fertig: {path}"
+
+
 import os
-#from types import SimpleNamespace
+from types import SimpleNamespace
 
 from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
@@ -57,18 +84,23 @@ from wz_core.pupils import Pupils
 from wz_compat.config import (printSchoolYear, klassData, printStream,
         getTemplateTags, pupilFields)
 
-
-def makeReports(reportdata, date, pids=None):
-    """Build a single file containing reports for the given pupils:
-    <reportdata>: a <GradeData> instance
+#TODO: Maybe <date> should be a term (or date)?
+def makeReports(schoolyear, date, klass_stream, report_type, pids=None):
+    """
+    <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
+    <klass_stream>: name of the school-class and stream ("klass.stream")
+    <report_type>: name-tag for the type of report to be produced
+        (see <GRADE_TEMPLATES> in wz_compat/config.py)
     <pids>: a list of pids (must all be in the given klass), only
         generate reports for pupils in this list.
         If not supplied, generate reports for the whole klass.
     """
-    grades = reportdata.getGrades()
-    pupils = Pupils(reportdata.schoolyear)
-    plist = pupils.classPupils(reportdata.klass_stream)
+#TODO:
+    grades = SimpleNamespace(abschluss='RS')
+
+    pupils = Pupils(schoolyear)
+    plist = pupils.classPupils(klass_stream)
     if pids:
         pall = plist
         pset = set (pids)
@@ -79,32 +111,33 @@ def makeReports(reportdata, date, pids=None):
             except KeyError:
                 continue
             plist.append(pdata)
+#TODO:
+            pdata.grades = grades
+
         if pset:
             REPORT.Bug(_PUPILS_NOT_IN_CLASS_STREAM, pids=', '.join(pset),
-                    ks=reportdata.klass_stream)
-    # Get a tag mapping for the grade data of each pupil:
-    for pdata in plist:
-        pdata.grades = reportdata.getTagmap(grades, pdata['PID'])
-    source = reportdata.klassdata.template.render(
-            SCHOOLYEAR = printSchoolYear(reportdata.schoolyear),
+                    ks=klass_stream)
+
+    classdata = klassData(klass_stream, report_type)
+    source = classdata.template.render(
+            SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
             STREAM = printStream,
             pupils = plist,
-            klass = reportdata.klassdata
+            klass = classdata
         )
 
     if plist:
-        html = HTML(string=source,
-                base_url=os.path.dirname(reportdata.klassdata.template.filename))
+        html = HTML (string=source,
+                base_url=os.path.dirname (classdata.template.filename))
         pdfBytes = html.write_pdf(font_config=FontConfiguration())
-        REPORT.Info(_MADEKREPORTS, ks=reportdata.klass_stream)
+        REPORT.Info(_MADEKREPORTS, ks=klass_stream)
         return pdfBytes
     else:
         REPORT.Fail(_NOPUPILS)
 
 
-#TODO ...
 def makeOneSheet(schoolyear, date, klass_stream, report_type, pupil):
     """
     <schoolyear>: year in which school-year ends (int)
@@ -114,7 +147,7 @@ def makeOneSheet(schoolyear, date, klass_stream, report_type, pupil):
         (see <GRADE_TEMPLATES> in wz_compat/config.py)
     <pupil>: A <SimpleNamespace> with the pupil data (pupil.field = val)
     """
-#TODO: abschluss -> corresponding sid (_Q12?)
+#TODO:
     pupil.grades = SimpleNamespace(abschluss='RS')
 
     classdata = klassData(klass_stream, report_type)
@@ -133,7 +166,7 @@ def makeOneSheet(schoolyear, date, klass_stream, report_type, pupil):
     return pdfBytes
 
 
-#deprecated:
+
 _year = 2016
 _date = '2016-06-22'
 _klass_stream = '10.Gym'

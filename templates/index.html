@@ -4,7 +4,6 @@
 {% block imports %}
 <style>
     #upbtn { display: none; }
-    #modules li { margin: 0.5rem; }
 </style>
 {% endblock %}
 
@@ -13,7 +12,7 @@
     </p>
     <p>Aktuell sind folgende Bereiche möglich:
     <p>
-    <ul id="modules">
+    <ul class="modules">
         <li><a href="{{url_for('bp_text_cover.index')}}">Mantelbögen für Textzeugnisse</a></li>
         <li><a href="{{url_for('bp_text.summary')}}">Kontrolllisten für Textzeugnisse</a></li>
     </ul>

@@ -22,3 +22,6 @@ if __name__ == '__main__':
 
     from wz_compat import config
     runTests (config)
+
+    from wz_compat import grades
+    runTests (grades)

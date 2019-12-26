@@ -3,7 +3,7 @@
 """
 wz_text/summary.py
 
-Last updated:  2019-12-11
+Last updated:  2019-12-19
 
 Prepare checklists of classes/subjects for the teachers.
 Prepare checklists of subjects/teachers for the classes.
@@ -26,6 +26,8 @@ Copyright 2019 Michael Towers
 =-LICENCE========================================
 """
 
+_nn = 'nn'  # Unknown teacher id
+
 import os
 
 import jinja2
@@ -40,26 +42,22 @@ _NOTEMPLATE = "Vorlagedatei (Lehrer-Zeugniskontrolle) fehlt:\n  {path} "
 def tSheets (schoolyear, manager, date):
     courses = CourseTables (schoolyear)
     tidmap = {}
-
     for klass in courses.classes ():
-        if klass < '13':
-            tmatrix = courses.teacherMatrix (klass)
-            for pid, sid2tids in tmatrix.items ():
-                for sid, tids in sid2tids.items ():
-                    if tmatrix.sid2info [sid].NOTTEXT:
+        sid2tids = courses.filterText (klass)
+        for sid, tids in sid2tids.items ():
+            if tids.TEXT:
+                if not tids:
+                    tids = [_nn]
+                for tid in tids:
+                    try:
+                        tmap = tidmap [tid]
+                    except:
+                        tidmap [tid] = {klass: {sid}}
                         continue
-                    if type (tids) == str:
-                        tids = [tids]
-                    for tid in tids:
-                        try:
-                            tmap = tidmap [tid]
-                        except:
-                            tidmap [tid] = {klass: {sid}}
-                            continue
-                        try:
-                            tmap [klass].add (sid)
-                        except:
-                            tmap [klass] = {sid}
+                    try:
+                        tmap [klass].add (sid)
+                    except:
+                        tmap [klass] = {sid}
 
     noreports = []
     teachers = []
@@ -105,16 +103,12 @@ def ksSheets (schoolyear, manager, date):
 
     klasses = []
     for klass in courses.classes ():
-        if klass >= '13':
-            continue
         sidmap = {}
-        tmatrix = courses.teacherMatrix (klass)
-        for pid, sid2tids in tmatrix.items ():
-            for sid, tids in sid2tids.items ():
-                if tmatrix.sid2info [sid].NOTTEXT:
-                    continue
-                if type (tids) == str:
-                    tids = [tids]
+        sid2tids = courses.filterText (klass)
+        for sid, tids in sid2tids.items ():
+            if tids.TEXT:
+                if not tids:
+                    tids = [_nn]
                 for tid in tids:
                     try:
                         sidmap [sid].add (tid)

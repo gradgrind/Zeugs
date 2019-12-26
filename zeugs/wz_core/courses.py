@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2019-11-07
+Last updated:  2019-12-19
 
 Handler for the basic course info.
 
@@ -36,32 +36,22 @@ The structure of an entry:
 The simplest form is a teacher-id. There may also be a comma-separated
 list of teacher-ids.
 
-Additional information for grade reports may be included by prefixing
-the teacher data by  ':'. Before the ':' there is then a flag:
+Subjects which are relevant for text reports, but not for grade reports
+have their teacher entry prefixed by '*'.
 
-    Empty (e.g. ':MS'): This subject is not relevant for grade reports.
+There are entries in the subject table which do not represent taught
+subjects. These have tags (first column) which begin with '_'.
+One type is "composite subjects", which are for grade reports and
+represent "subjects" whose grade results as a combination (average) of
+other subjects.
+TODO: There may also be entries for special grade information, such as
+averages, qualifications, etc.
 
-    '-' (e.g. '-:LM'): This subject is graded, but the grade is not
-    relevant for qualifications.
+Teacher entries may also be prefixed by '$', which means the subject is
+graded, but no text report is expected.
 
-    A subject-id (e.g. 'ku:FK'): The grade for this subject (that of the
-    line) is to be used to build an average grade in a "composite" subject,
-    given by the id in the cell for the class.
-
-If streams are relevant for grades, it is possible to specify one or more
-streams for an entry using suffix '/' followed by the stream list, e.g.
-'AWT/RS'.
-
-"Composite" subjects are not actually "taught", they just get graded, so
-no teacher may be given and text reports are not written. If the composite
-grade is to be generated for a class, the cell for the composite subject
-should contain just '*'.
-
-Together with the pupils database, an "opt-out" table can be generated.
-This makes it possible to allocate a particular teacher to a pupil when
-the main table supplies a list. It is also possible to indicate that a
-pupil doesn't take a subject when there are optional subjects. There
-can be a table for each class, with path FILE_CLASS_SUBJECTS.
+Finally, a '#' prefix indicates that a subject may be taught, but no
+report entry is expected (perhaps relevant for timetabling, etc.).
 
 The course data for all classes is managed by <CourseTables>, which has
 the following methods:
@@ -75,10 +65,10 @@ the following methods:
     <subjectName (sid)>
         returns the full name of the subject.
     <filterGrades (klass)>
-        returns an ordered mapping {sid -> subject info} for
+        returns an ordered mapping {sid -> [tid, ...]} for
         the given class, only those subjects relevant for grade reports.
     <filterText (klass)>
-        returns an ordered mapping {sid -> subject info} for
+        returns an ordered mapping {sid -> [tid, ...]} for
         the given class, only those subjects relevant for text reports.
     <teacherMatrix (klass)>
         returns a mapping {pid -> {sid -> tid}} for "real" subjects
@@ -88,6 +78,15 @@ the following methods:
         specifiying opt-outs of optional courses and choosing teachers
         for subjects with teaching groups.
 """
+
+# Special subject information
+_NOTTEXT = '$'
+_NOTGRADE = '*'
+_NOREPORT = '#'
+
+_OPTOUT = '---'
+_INVALID = '-----'
+
 
 _MATRIXTITLE = 'Fachbelegung (Fach+Schüler -> Lehrer oder "nicht gewählt")'
 
@@ -99,7 +98,7 @@ _UNKNOWN_STREAM = "In Fachtabelle, unbekannte Maßstabsgruppe: {stream} in {entr
 _INVALID_STREAM = "In Fachtabelle, ungültige Angabe der Maßstabsgruppen: {entry}"
 _INVALID_TEACHER = "In Fachtabelle, ungültige Angabe der Lehrer: {entry}"
 _EMPTY_COMPOSITE = "In Fachtabelle, Sammelfach fehlt: {entry}"
-_EMPTY_TEACHER = "In Fachtabelle, kein Lehrer: {entry}"
+_EMPTY_TEACHER = "In Fachtabelle, kein Lehrer für Fach {sid} in Klasse {klass}"
 #_TEXT_GRADE_CONFLICT = "Fach {sid}, Klasse {klass}: ungültiger Eintrag: {entry}"
 _BAD_COMPOSITE = "Klasse {klass}, Fach '{sid}': ungültiges Sammelfach '{c}'"
 _NO_COMPOSITE = "Klasse {klass} hat kein Sammelfach '{sid}'"
@@ -111,7 +110,7 @@ _TEACHER_CLASH = ("Klasse {klass}, Wahltabelle: Lehrer für Schüler {pid}"
         " im Fach {sid} überflüssig")
 
 
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict, UserList
 
 from .configuration import Paths
 from .pupils import Pupils
@@ -122,50 +121,48 @@ from wz_table.dbtable import readDBTable
 from wz_table.formattedmatrix import FormattedMatrix
 
 
-def _rdlist (commasep):
-    """Read a comma-separated list.
+class TeacherList(list):
+    """A list of teacher-ids.
+    There are also flag attributes to indicate whether the list is
+    relevant for particular report types: <TEXT> and <GRADE>.
     """
-    items = []
-    for item in commasep.split (','):
-        i = item.strip ()
-        if not i:
-            raise ValueError
-        items.append (i)
-    return items
+    def __init__(self, commasep, rowflag):
+        """Convert a comma-separated string into a list.
+        <rowflag> is the default flag for the subject:
+            <None>, <_NOTTEXT>, <_NOTGRADE> or <_NOREPORT>
+        """
+        super().__init__()
+        for item in commasep.split (','):
+            i = item.strip ()
+            if i:
+                self.append (i)
+        i0 = self[0][0]
+        if i0.isalpha():
+            i0 = rowflag
+        else:
+            self[0] = self[0][1:]
+        self.TEXT = i0 not in (_NOTTEXT, _NOREPORT)
+        self.GRADE = i0 not in (_NOTGRADE, _NOREPORT)
 
 
-# Handle subject information
-_NOTTEXT = '$'
-_EXTRA = '#'
-_NOTGRADE = '*'
-_GRADESEP = ':'     # composite:teachers
-_NULLGRADE = '-'    # Is this really useful – a grade that doesn't count?
-_STREAMSEP = '/'    # /RS,HS
-_NNTEACHER = '?'
-_OPTOUT = '---'
-_INVALID = '-----'
-SubjectInfo = namedtuple ('SubjectInfo', (
-        'NOTTEXT',      # bool: not for text reports
-        'NOTGRADE',     # bool: not for grade reports
-        'COMPOSITE',    # composite-id or <_NULLGRADE or <None>
-        'STREAMS',      # [stream, ...] (min. 1 entry) or <None>
-        'TIDS',         # tid or <_NNTEACHER> or [tid, ...]
-    ))
-COMPOSITE = SubjectInfo (True, False, None, None, None)
-
-
+_CLASSESCOL = 3 # First column with class-info
 class CourseTables:
     def __init__ (self, schoolyear):
         """Read the subject table for the year.
         The first column is the subject id, the second the subject name.
-        The third column (header '#') is for flags. At present only <_EXTRA>
-        is recognised, which effectively prefixes all entries in the line
-        with <_EXTRA>.
-        Subsequent columns are for the classes.
+        The third column (header '#') is for flags which can specify that
+        a subject is not relevant for certain reports:
+            <_NOTGRADE>: not relevant for grade reports
+            <_NOTTEXT>: not relevant for text reports
+            <_NOREPORT>: not relevant for any reports
+        The flags may also be prepended to the teacher lists for individual
+        classes – in case the handling of the subject varies from class
+        to class.
         Two mappings are built:
         <self._names>: {sid -> subject name}
-        <self._classses>: {class -> {[ordered] sid -> namedtuple 'SubjectInfo'}}
-        In the latter, there are only entries for non-empty cells.
+        <self._classses>: {class -> {[ordered] sid -> <TeacherList> instance}
+        In the latter there are only entries for non-empty cells (the
+        teacher list may, however, be empty).
         """
         self.schoolyear = schoolyear
         self.teacherData = TeacherData (schoolyear)
@@ -173,52 +170,26 @@ class CourseTables:
         data = readDBTable (fpath)
         # The class entries are in the columns after that with '#' as header.
         classes = {}            # {class -> table column}
-        flag = False
         for f, col in data.headers.items ():
-            if f == '#':
-                flag = True
-                continue
-            if flag:
+            if col >= _CLASSESCOL:
                 classes [f] = col
         # Read the subject rows
         self._classes = {}
         self._names = {}
-        composites = {}
         for row in data:
             sid = row [0]
             self._names [sid] = row [1]
-            extra = row [2]
+            flag = row [2]
             # Add to affected classes ({[ordered] sid -> SubjectInfo})
             for klass, col in classes.items ():
+                # Handle the teacher tags
                 val = row [col]
                 if val:
-                    v = self._getSubjectInfo (val, extra)
-                    if v == COMPOSITE:
-                        try:
-                            composites [klass].add (sid)
-                        except:
-                            composites [klass] = {sid}
+                    tlist = TeacherList(val, flag)
                     try:
-                        self._classes [klass] [sid] = v
+                        self._classes [klass] [sid] = tlist
                     except:
-                        self._classes [klass] = OrderedDict ([(sid, v)])
-        # Check composites are valid
-        for klass, cdata in self._classes.items ():
-            try:
-                cset = composites [klass]
-            except:
-                cset = {}
-            ccheck = cset.copy ()
-            for sid, sinfo in cdata.items ():
-                c = sinfo.COMPOSITE
-                if c and (c != _NULLGRADE):
-                    if c in ccheck:
-                        ccheck.remove (c)
-                    elif c not in cset:
-                        REPORT.Fail (_BAD_COMPOSITE, klass=klass, sid=sid, c=c)
-            # Check all composites have components
-            for c in ccheck:
-                REPORT.Fail (_NO_COMPONENTS, klass=klass, composite=c)
+                        self._classes [klass] = OrderedDict ([(sid, tlist)])
 
 
     def classes (self):
@@ -227,7 +198,7 @@ class CourseTables:
 
     def classSubjects (self, klass):
         """Return the subject list for the given class:
-            {[ordered] sid -> SubjectInfo}
+            {[ordered] sid -> <TeacherList> instance}
         """
         return self._classes [klass]
 
@@ -244,9 +215,9 @@ class CourseTables:
             {[ordered] sid -> namedtuple 'SubjectInfo'}
         """
         sids = OrderedDict ()
-        for sid, sinfo in self.classSubjects (klass).items ():
-            if not sinfo.NOTGRADE:
-                sids [sid] = sinfo
+        for sid, tlist in self.classSubjects (klass).items ():
+            if tlist.GRADE:
+                sids [sid] = tlist
         return sids
 
 
@@ -256,12 +227,13 @@ class CourseTables:
             {[ordered] sid -> namedtuple 'SubjectInfo'}
         """
         sids = OrderedDict ()
-        for sid, sinfo in self.classSubjects (klass).items ():
-            if not sinfo.NOTTEXT:
-                sids [sid] = sinfo
+        for sid, tlist in self.classSubjects (klass).items ():
+            if tlist.TEXT:
+                sids [sid] = tlist
         return sids
 
 
+#TODO?
     def optoutMatrix (self, klass):
         """Build a class-course matrix of teachers for each pupil and
         subject combination.
@@ -307,7 +279,7 @@ class CourseTables:
         fpath = build.save ()
         REPORT.Info (_COURSEMATRIX, klass=klass, path=fpath)
 
-
+#?
     def teacherMatrix (self, klass):
         """Return a mapping {[ordered] pid -> {sid -> tid}} for "real"
         subjects taken by the pupils, those that are represented in text
@@ -397,77 +369,6 @@ class CourseTables:
         return pid2tids
 
 
-    def _getSubjectInfo (self, val0, extra):
-        """Return a <SubjectInfo> (namedtuple) for the given course-matrix
-        cell value.
-        """
-        if val0 == _NOTTEXT and extra != _EXTRA:
-            return COMPOSITE
-        nottext, notgrade, cps = False, False, None
-        char0 = val0 [0]
-        # "Double" _EXTRA (#-column and here) is not an error
-        ntg = (char0 == _EXTRA)
-        # Split off stream tag
-        try:
-            val, strmlist = val0.split (_STREAMSEP)
-        except:
-            streams = None
-            val = val0
-        else:
-            try:
-                streams = _rdlist (strmlist)
-            except ValueError:
-                REPORT.Fail (_INVALID_STREAM, entry=val0)
-            # Check streams
-            for s in streams:
-                if s not in CONF.GROUPS.STREAMS:
-                    REPORT.Fail (_UNKNOWN_STREAM, entry=val0, stream=s)
-        if ntg:
-            # Not relevant for text or grade reports
-            val = val [1:]
-            nottext, notgrade = True, True
-        elif extra == _EXTRA:
-            nottext, notgrade = True, True
-        elif char0 == _NOTGRADE:
-            notgrade = True
-            val = val [1:]
-        elif char0 == _NOTTEXT:
-            nottext = True
-            val = val [1:]
-        elif char0 == _NULLGRADE:
-            cps = _NULLGRADE
-            val = val [1:]
-        else:
-            # Check for <_GRADESEP> (composite-component subjects)
-            try:
-                cps, val = val.split (_GRADESEP)
-            except:
-                pass
-            else:
-                cps = cps.strip ()
-                if not cps:
-                    REPORT.Fail (_EMPTY_COMPOSITE, entry=val0)
-        # Now handle the teacher tags
-        val = val.strip ()
-        if val:
-            if val == _NNTEACHER:
-                teachers = val
-            else:
-                try:
-                    teachers = _rdlist (val)
-                except ValueError:
-                    REPORT.Fail (_INVALID_TEACHER, entry=val0)
-                # Check teachers
-                for t in teachers:
-                    self.teacherData.checkTeacher (t)
-                if len (teachers) == 1:
-                    teachers = teachers [0]
-        elif not nottext:
-             REPORT.Fail (_EMPTY_TEACHER, entry=val0)
-        else:
-            teachers = None
-
-        return SubjectInfo (nottext, notgrade, cps, streams, teachers)
 
 
 
@@ -505,6 +406,7 @@ def test_01 ():
         REPORT.Test ("  ++ %s (%s): %s" % (ctables.subjectName (sid),
                 sid, sinfo))
 
+"""
 def test_02 ():
     _klass = '12'
     ctables = CourseTables (_testyear)
@@ -517,3 +419,4 @@ def test_03 ():
     for _klass in '10', '11', '12', '13':
         REPORT.Test ("Kursbelegungsmatrix, Klasse %s" % _klass)
         ctables.optoutMatrix (_klass)
+"""

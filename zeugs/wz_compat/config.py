@@ -4,7 +4,7 @@
 """
 wz_compat/config.py
 
-Last updated:  2019-12-15
+Last updated:  2019-12-22
 
 Functions for handling configuration for a particular location.
 
@@ -29,6 +29,7 @@ Copyright 2019 Michael Towers
 
 #TODO: Perhaps class 13 should be completely separate?
 #TODO: Perhaps this data should be in a conf. file?
+#deprecated?
 GRADE_TEMPLATES = {
     '13': {
             'Abgang': 'Abgang-13.html',
@@ -38,7 +39,11 @@ GRADE_TEMPLATES = {
             'Abgang': 'Notenzeugnis-12_SII.html',
             'Zeugnis': 'Notenzeugnis-12_SII.html'
         },
-    '12': {
+    '12.RS': {
+            'Abgang': 'Notenzeugnis-SI.html',
+            'Zeugnis': 'Notenzeugnis-SI.html',
+        },
+    '12.RS/2': {
             'Abgang': 'Notenzeugnis-SI.html',
             'Zeugnis': 'Notenzeugnis-SI.html',
             'Abschluss': 'Notenzeugnis-SI.html'
@@ -51,13 +56,41 @@ GRADE_TEMPLATES = {
         },
 }
 
+# Based on report type?
+"""
+GRADE_TEMPLATES = {
+    'Zeugnis': {
+        '13':'Notenzeugnis-13.html',
+        '12.Gym':'Notenzeugnis-12_SII.html',
+        '12': 'Notenzeugnis-SI.html',
+        '11/2': 'Notenzeugnis-SI.html'
+    },
+    'Abgang': {
+        '13': 'Abgang-13.html',
+        '12.Gym': 'Notenzeugnis-12_SII.html',
+        '*': 'Notenzeugnis-SI.html'
+    },
+    'Abschluss': {
+        '12.RS/2': 'Notenzeugnis-SI.html'
+    },
+    'Orientierung': {
+        '10/2': 'Orientierung.html'
+    },
+    'Zwischen': {
+        '13': None,
+        '12': None,
+        '11/2': None,
+        '*': 'Notenzeugnis-SI.html'
+    }
+}
+"""
 
 import re
-from types import SimpleNamespace
+#from types import SimpleNamespace
 
 import jinja2
 
-from wz_core.configuration import Paths
+from wz_core.configuration import Paths, Dates
 
 
 def printSchoolYear(year1):
@@ -121,30 +154,77 @@ def pupilFields(tags):
     return fields
 
 
-def getReportTypes(klass_stream):
-    try:
-        return GRADE_TEMPLATES[klass_stream]
-    except:
-        pass
-    k, s = fromKlassStream(klass_stream)
-    if s:
+#deprecated?
+def getReportTypes(klass, stream, term):
+    """Search for a matching entry in <GRADE_TEMPLATES> starting with
+    the most specific (klass, stream and term) and ending with the
+    least specific (a default template choice).
+    Note that klass + term will be chosen over klass + stream.
+    Specification of stream or term without klass is not supported.
+    """
+    def _lookup(k, s, tag):
         try:
-            return GRADE_TEMPLATES[k]
+            return GRADE_TEMPLATES[k + '.' + s + tag]
+        except:
+            if s:
+                return GRADE_TEMPLATES[k + tag]
+            raise
+
+    if term:
+        try:
+            return _lookup(klass, stream, '/%d' % term)
         except:
             pass
-    return GRADE_TEMPLATES['*']
+    try:
+        return _lookup(klass, stream, '')
+    except:
+        return GRADE_TEMPLATES['*']
 
 
+class KlassData:
+    def __init__(self, klass_stream):
+        self.klass, self.stream = fromKlassStream(klass_stream)
+        self.name = self.klass.lstrip('0') # no leading zero on klass names
+#TODO: switch to klasstag
+#        self.klein = self.klass[-1] == 'K'      # "Kleinklasse"
+        self.klasstag = self.klass[2:]          # assumes 2-digit classes
+        self.year = self.klass[:2].lstrip('0')  # assumes 2-digit classes
+
+
+    def setTemplate(self, report_type='text', term=None):
+        self.term = term
+        self.report_type = report_type
+        if report_type == 'text':
+            self.template = getTemplate('DIR_TEXT_REPORT_TEMPLATES',
+                    'CoverSheet.html')
+            self.final = self.klass.startswith('12') # highest class (text reports)
+        else:
+            # Get report templates
+            rtypes = getReportTypes(self.klass, self.stream, term)
+            try:
+                self.template = getTemplate('DIR_GRADE_REPORT_TEMPLATES',
+                        rtypes[report_type])
+            except:
+                REPORT.Bug("Invalid grade report type for class {ks}: {rtype}",
+                        ks=toKlassStream(self.klass, self.stream),
+                        rtype=report_type)
+
+
+
+# deprecated
 def klassData(klass_stream, report_type='text', term=None):
     """Return a class instance with info required for printing reports
     for the given klass (and stream).
     """
+    print ("klassData is DEPRECATED!")
     klass, stream = fromKlassStream(klass_stream)
     data = SimpleNamespace (
+        klass = klass,
         name = klass.lstrip('0'),       # no leading zero on klass names
         klein = klass[-1] == 'K',       # "Kleinklasse"
         stream = stream,
-        year = klass[:2].lstrip('0')    # assumes 2-digit classes
+        year = klass[:2].lstrip('0'),   # assumes 2-digit classes
+        term = term
     )
     if report_type == 'text':
         data.template = getTemplate('DIR_TEXT_REPORT_TEMPLATES',
@@ -153,7 +233,7 @@ def klassData(klass_stream, report_type='text', term=None):
         return data
 
     # Get report templates
-    rtypes = getReportTypes(klass_stream)
+    rtypes = getReportTypes(klass, stream, term)
     try:
         data.template = getTemplate('DIR_GRADE_REPORT_TEMPLATES',
                 rtypes[report_type])
@@ -176,10 +256,12 @@ def fromKlassStream (klass_stream):
         return (klass_stream, None)
 
 
-def toKlassStream (klass, stream):
+def toKlassStream (klass, stream, forcestream=False):
     """Build a klass_stream name from klass and stream.
     Stream may be <None> or other "false" value, in which case
-    just the klass is returned.
+    just the klass is returned ...
+    However, if <forcestream> is true, stream is set to '_' if
+    there is no stream.
     Return klass_stream as <str>.
     """
     return klass + '.' + stream if stream else klass
@@ -244,6 +326,19 @@ def asciify(string):
 
     lookup = CONF.ASCII_SUB
     return re.sub (_invalid_re, rsub, string)
+
+
+def guessTerm(schoolyear):
+    """Guess an initial value for the term field based on the current date.
+    """
+    today = Dates.today()
+    cal = Dates.getCalendar(schoolyear)
+    term = CONF.MISC.TERMS
+    while term > 0:
+        if today >= cal['TERM_%d' % term]:
+            return term
+        term -= 1
+    return 1
 
 
 ##################### Test functions

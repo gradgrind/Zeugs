@@ -4,7 +4,7 @@
 """
 flask_app/auth/auth.py
 
-Last updated:  2019-12-10
+Last updated:  2019-12-24
 
 Flask Blueprint for user authentication (login).
 
@@ -42,6 +42,8 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, StopValidation
 
 from wz_table.dbtable import dbTable
+from wz_core.configuration import Paths
+
 
 class Users:
     def __init__(self):
@@ -95,8 +97,11 @@ def login():
         permission = Users().permission(tid)
         session['user_id'] = tid
         session['permission'] = permission
-#TODO:
-        session['year'] = 2020
+        # The logging handler will be set when needed, see the start module
+        # (<flask_app.__init__>, method <logger>):
+        session['logger'] = None
+        # Set the school-year to the latest one:
+        session['year'] = Paths.getYears()[0]
 #TODO: remove:
         print("LOGGED IN:", tid, permission)
         #return redirect(url_for('bp_text_cover.textCover'))

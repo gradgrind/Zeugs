@@ -77,12 +77,11 @@ nav label {
      font-weight: bold;
 }
 
-
 .dropdown-content {
     display: none;
     position: fixed;
     right: 0;
-    background-color: #f8a;
+    background-color: #ffe0e0;
     min-width: 160px;
     box-shadow: -0.5rem 0.5rem 1rem rgba(240,0,100,0.6);
     z-index: 3;
@@ -92,6 +91,16 @@ nav label {
 
 .dropdown:hover .dropdown-content {
     display: block;
+}
+
+.Info {
+    color: #00a000;
+}
+.Error {
+    color: #d50000;
+}
+.Warning {
+    color: #ff5400;
 }
 
 /* Style buttons */
@@ -139,6 +148,18 @@ nav label {
     color: #00e;
 }
 
+.modules li {
+    margin: 0.5rem;
+}
+
+.modules li a {
+    color: #00e;
+}
+
+.modules li a:visited {
+    color: #00e;
+}
+
 #dataform {
     padding-top: 1rem;
 }
@@ -150,17 +171,21 @@ nav label {
     align-items: center;
 }
 
-form.form2 label {
+.form2 label {
     text-align: right;
     grid-column: 1 / 2;
 }
 
-form.form2 input, form.form2 button {
+.form2 input, .form2 button {
     grid-column: 2 / 3;
 }
 
-form.form2 button {
+/*.form2 button {
     justify-self: end;
+}*/
+
+.form2 select {
+    height: auto; /* value set by pure-form is too low */
 }
 
 .formsubmit {
@@ -192,6 +217,19 @@ form span {
 .form-group input[type="checkbox"],
 .form-group input[type="radio"] {
     margin-right: 1rem;
+}
+
+.uploaddiv {
+    margin-left: 1rem;
+}
+
+.uploaddiv input[type="file"] {
+    margin-left: 2rem;
+}
+
+input[type="file"] {
+    color: #e77;
+    font-style: italic;
 }
 
 /* The sidepanel menu */

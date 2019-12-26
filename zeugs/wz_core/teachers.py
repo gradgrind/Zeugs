@@ -90,7 +90,7 @@ class TeacherData (OrderedDict):
 
 
 ##################### Test functions
-_testyear = 2020
+_testyear = 2016
 def test_1 ():
     REPORT.Test ("Teachers: ID and name")
     tmap = TeacherData (_testyear)

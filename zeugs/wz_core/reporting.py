@@ -3,7 +3,7 @@
 """
 wz_core/reporting.py
 
-Last updated:  2019-09-25
+Last updated:  2019-12-26
 
 Handle the basic reporting needs of the program.
 Supports various error levels and other informative output.
@@ -34,11 +34,16 @@ class Report:
     method.
     The method <printMessages> outputs the messages sequentially with a
     little formatting. By default the output is sent to "stdout", but it
-    is also possible to pass an open file object to the constructor.
+    is also possible to set a file-path: attribute <logfile>.
+    A further possibility is to supply the method <getLogFile> which
+    returns a file-path. This method takes the message list as argument,
+    allowing additional handling of the messages.
     """
     ### The 'structural' methods
-    def __init__ (self, ofile=None):
-        self._ofile = ofile
+    def __init__ (self):
+        self.logfile = None # defaults to stdout
+        # A function to determine the output file, by default undefined:
+        self.getLogfile = None
         self._report = []
 
     def messages (self):
@@ -46,44 +51,50 @@ class Report:
         self._report = []
         return msgs
 
-    def PRINT (self, *args):
-        print (*args, file=self._ofile)
+    def printMessages(self):
+        messages = self.messages()
+        try:
+            outfile = self.getLogfile(messages)
+        except:
+            # Output to default/fallback log
+            outfile = self.logfile
+        try:
+            fh = (open(outfile, 'a', encoding='utf-8', newline='')
+                    if outfile else None)
+            for mi, mt, msg in messages:
+                if mi >= 4:
+                    print("\n *****", mt, "*****", file=fh)
+                    print(msg, file=fh)
+                    print("------------------------------------\n", file=fh)
+                else:
+                    print("::: %s:" % mt, msg, file=fh)
+        finally:
+            if fh:
+                fh.close()
 
-    def printMessages (self):
-        for mt, msg in self.messages ():
-            if mt [0] == '-':
-                self.PRINT (msg)
-            elif mt [0] >= '4':
-                self.PRINT ("\n *****", mt.split ('_', 1) [1], "*****")
-                self.PRINT (msg)
-                self.PRINT ("------------------------------------\n")
-            else:
-                self.PRINT ("::: %s:" % mt.split ('_', 1) [1], msg)
-
-    def out (self, etype, msg, **kargs):
-        self._report.append ((etype, msg.format (**kargs) if kargs else msg))
-
+    def out (self, enum, etype, msg, **kargs):
+        self._report.append ((enum, etype, msg.format (**kargs) if kargs else msg))
 
     ### The methods actually used for reporting
-    def Info (self, msg, **kargs):
-        self.out ("2_Info", msg, **kargs)
+    def Test(self, msg):
+        self.out(-1, "Test", msg)
 
-    def Error (self, msg, **kargs):
-        self.out ("6_Error", msg, **kargs)
+    def Background(self, msg):
+        self.out(0, "Output", msg)
 
-    def Fail (self, msg, **kargs):
-        self.out ("8_ERROR", msg, **kargs)
+    def Info(self, msg, **kargs):
+        self.out(2, "Info", msg, **kargs)
+
+    def Warn(self, msg, **kargs):
+        self.out(4, "Warning", msg, **kargs)
+
+    def Error(self, msg, **kargs):
+        self.out(6, "Error", msg, **kargs)
+
+    def Fail(self, msg, **kargs):
+        self.out(8, "Fail", msg, **kargs)
         raise RuntimeError ("REPORT.Fail")
 
-    def Warn (self, msg, **kargs):
-        self.out ("4_Warning", msg, **kargs)
-
-    def Bug (self, msg, **kargs):
-        self.out ("9_BUG", msg, **kargs)
+    def Bug(self, msg, **kargs):
+        self.out(9, "Bug", msg, **kargs)
         raise RuntimeError ("REPORT.Bug")
-
-    def Background (self, msg):
-        self.out ("0_Output", msg)
-
-    def Test (self, msg):
-        self.out ("-", msg)

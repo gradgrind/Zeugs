@@ -3,7 +3,7 @@
 """
 wz_table/spreadsheet.py
 
-Last updated:  2019-12-26
+Last updated:  2019-01-28
 
 Spreadsheet file reader, returning all cells as strings.
 
@@ -42,8 +42,6 @@ _MULTIPLEMATCHINGFILES  = "Mehrere passende Dateien:\n   {path}"
 _TABLENOTREADABLE       = "Tabellendatei konnte nicht eingelesen werden:\n   {path}"
 _INVALIDSHEETNAME       = "Ungültige Tabellenname: '{name}'"
 _INVALIDCELLNAME        = "Ungültiger Zellenbezeichnung: '{name}'"
-_INVALID_FILE           = "Ungültige oder fehlerhafte Datei"
-_NO_TYPE_EXTENSION      = "Dateityp-Erweiterung fehlt: {fname}"
 
 
 import os, datetime
@@ -159,6 +157,9 @@ class ODS_spreadsheet:
 
 class Spreadsheet:
     """This class manages a (read-only) representation of a spreadsheet file.
+    The filepath can be passed with or without type-extension. If no type-
+    extension is given, the folder will be searched for a suitable file.
+
     The individual table/sheet names are available via the method getTableNames().
     The currently selected table can be set using the method setTable('sheetname').
     The first table is accessed primarily. To access others, an optional argument
@@ -183,74 +184,53 @@ class Spreadsheet:
 
 
     def __init__ (self, filepath, mustexist=True):
-        """The filepath can be passed with or without type-extension.
-        If no type-extension is given, the folder will be searched for a
-        suitable file.
-        Alternatively, <filepath> may be a file object with attribute
-        'filename' (so that the type-extension can be read).
-        """
         self._spreadsheet = None
         self._sheetNames = None
         self._table = None
         self.ixHeaderEnd = None
 
-        if type(filepath) == str:
-            # realfile = True
-            fname = os.path.basename(filepath)
-            try:
-                ending = fname.rsplit('.', 1)[1]
-            except:
-                ending = None
-                # No type-extension provided, test valid possibilities
-                fpbase = filepath
-                for e in self._SUPPORTED_TYPES:
-                    fp = '%s.%s' % (fpbase, e)
-                    if os.path.isfile (fp):
-                        if ending:
-                            REPORT.Fail (_MULTIPLEMATCHINGFILES, path=fpbase)
-                        ending = e
-                        filepath = fp
-                if not ending:
-                    if mustexist:
-                        REPORT.Fail(_TABLENOTFOUND, path=filepath)
-                    else:
-                        # To handle this, this exception must be caught ...
-                        raise FileNotFoundError
-                    return
-            else:
-                # Check that file exists
-                if not os.path.isfile (filepath):
-                    if mustexist:
-                        REPORT.Fail(_TABLENOTFOUND, path=filepath)
-                    else:
-                        # To handle this, this exception must be caught ...
-                        raise FileNotFoundError
-                    return
-            self.filepath = filepath
-
-        else:
-            # realfile = False
-            try:
-                fname = filepath.filename
-            except:
-                REPORT.Fail(_INVALID_FILE)
-            try:
-                ending = fname.rsplit('.', 1)[1]
-            except:
-                REPORT.Fail(_NO_TYPE_EXTENSION, fname=fname)
-            self.filepath = None
-
-        try:
+        handler = None
+        fpsplit = filepath.rsplit ('.', 1)
+        if len (fpsplit) == 2:
+            ending = fpsplit [1]
+            if ending not in self._SUPPORTED_TYPES:
+                REPORT.Fail (_UNSUPPORTEDFILETYPE, ending=ending, path=filepath)
+                assert False
+            if not os.path.isfile (filepath):
+                if mustexist:
+                    REPORT.Fail (_TABLENOTFOUND, path=filepath)
+                    assert False
+                else:
+                    # To handle this, this exception must be caught ...
+                    raise FileNotFoundError
+                return
             handler = self._SUPPORTED_TYPES [ending]
-        except:
-            REPORT.Fail (_UNSUPPORTED_FILETYPE, ending=ending)
-        try:
-            self._spreadsheet = handler(filepath)
-        except:
-            raise
-            # Error: couldn't read file
-            REPORT.Fail (_TABLENOTREADABLE, path=self.filepath or fname)
+        else:
+            for ending in self._SUPPORTED_TYPES:
+                fp = '%s.%s' % (filepath, ending)
+                if os.path.isfile (fp):
+                    if handler:
+                        REPORT.Fail (_MULTIPLEMATCHINGFILES, path=filepath)
+                        assert False
+                    handler = self._SUPPORTED_TYPES [ending]
+                    filepath = fp
+            if not handler:
+                if mustexist:
+                    REPORT.Fail (_TABLENOTFOUND, path=filepath)
+                    assert False
+                else:
+                    # To handle this, this exception must be caught ...
+                    raise FileNotFoundError
+                return
 
+        try:
+            self._spreadsheet = handler (filepath)
+        except:
+            # Error: couldn't read file
+            REPORT.Fail (_TABLENOTREADABLE, path=filepath)
+            assert False
+
+        self.filepath = filepath
         self._sheetNames = list (self._spreadsheet.sheets)
         # Default sheet is the first:
         self._table = self._spreadsheet.sheets [self._sheetNames [0]]

@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2019-12-05
+Last updated:  2019-12-26
 
 Configuration items and the handler for the configuration files.
 
@@ -51,21 +51,25 @@ _APPENDNONE         = ("In Konfigurationsdatei '{path}':\n"
                     "  Folgezeile nicht erwartet: {line}")
 
 
-import os, re
+import os, re, glob
 from collections import OrderedDict
 import datetime
 import builtins
 
 from .reporting import Report
 
-def init (userFolder):
+def init (userFolder, logfile=None, xlog=None):
     if not userFolder:
         appdir = os.path.dirname (
                 os.path.dirname (os.path.realpath (__file__)))
 #TODO: This should probably be switched to 'TestData' at some stage ...
         userFolder = os.path.join (os.path.dirname (appdir), 'zeugs_data')
-    builtins.REPORT = Report () # no argument => console output
+    builtins.REPORT = Report () # set up basic logging (to console)
     Paths._init (userFolder)
+    if logfile:
+        REPORT.logfile = logfile
+    if xlog:
+        REPORT.getLogfile = xlog
 
 
 def readFloat (string):
@@ -308,7 +312,6 @@ class Paths:
                     cls._paths [k] = v
                 except:
                     REPORT.Fail (_PATHSBADPATH, k=k, v=v)
-                    raise
         return cls._paths
 
 
@@ -353,6 +356,35 @@ class Paths:
             if not os.path.isdir (mpath):
                 os.makedirs (mpath)
         return path
+
+
+    @classmethod
+    def getYears(cls):
+        """Return a list of the school-years (<int>) for which there is
+        data available, sorted with the latest first.
+        No validity checks are made on the data, beyond checking that
+        a database file exists for each year.
+        """
+        path = cls.getYearPath('*', 'FILE_SQLITE')
+        return sorted([int(re.search(r'_(\d{4})\.', f).group(1))
+                for f in glob.glob(path)],
+                reverse=True)
+
+
+    @classmethod
+    def logfile(cls, tag):
+        """Return a user- and time-based log-file path.
+        Excess old log files for the given user are deleted.
+        """
+        folder = cls.getUserPath('DIR_LOGS')
+        user = tag.rsplit('-', 1)[1]
+        files = sorted(glob.glob(os.path.join(folder, '*-%s.log' % user)),
+                reverse=True)
+        # Delete excess old log files for this user
+        nmax = CONF.MISC.MAXLOGFILES.nat()
+        while len(files) > nmax:
+            os.path.remove(files.pop())
+        return os.path.join(folder, tag + '.log')
 
 
 #This is also in wz_compat.config! Here superfluous?
@@ -425,9 +457,9 @@ def test_2 ():
     REPORT.Test (Dates.dateConv ('2016-02-30'))
 
 def test_3 ():
-    path = 'DIR_GRADES_DATE_BASE'
+    path = 'DIR_GRADES_BASE'
     REPORT.Test ("PATH %s:\n  %s" % (path, Paths.getYearPath (2016,
-            path, date='2016-01-31')))
+            path, term='1')))
 
 def test_4 ():
     REPORT.Test (".TTDATA: " + CONF.TABLES.PUPILS_FIELDNAMES.FIRSTNAME)

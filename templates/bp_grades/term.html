@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Notenzeugnisse: Startseite" %}
+
+{% block title %}{{termn}}. Halbjahr{% endblock %}
+
+{% block content %}
+    <p>Wählen Sie hier die Klasse/Gruppe, für die die Zeugnisse zu
+    erstellen sind. Das Ausgabedatum können Sie ggf. anpassen.
+    </p>
+    <form id="dataform" class="pure-form" method="POST">
+        {{ form.csrf_token }}
+        <div class="form2">
+            {{ form.DATE_D.label }}{{ form.DATE_D }}
+            {{ form.KLASS.label }}{{ form.KLASS }}
+        </div>
+        {% for error in errors %}
+        <p style="color: red;">[{{ error }}]</p>
+        {% endfor %}
+        <hr />
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Erstellen</button>
+        </div>
+    </form>
+{% endblock %}

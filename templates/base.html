@@ -26,14 +26,12 @@
                 <div class="dropdown-content">
                     {% block topnavi %}
                     <a href="{{url_for('bp_text.index')}}" class="navlink">Textzeugnisse</a>
-                    <a href="#" class="navlink">Notenzeugnisse</a>
+                    <a href="{{url_for('bp_grades.index')}}" class="navlink">Notenzeugnisse</a>
                     <a href="#" class="navlink">Anwesenheit</a>
                     <a href="#" class="navlink">Einstellungen</a>
                     {% endblock %}
                 </div>
             </div>
-
-
         </nav>
     </div>
 
@@ -70,6 +68,27 @@
             {% endwith %}
             <!--</div>-->
         </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="dropdown">
+                    {% set msg0 = messages[0] %}
+                    <p class="{{msg0[0]}}"
+                            style="background-color: #ebfff6;
+                                padding: 0.2rem;">
+                        {{ msg0[1][:36] + ' ...' }}
+                        <!-- or '... ' + last line? -->
+                    </p>
+                    <ul class="dropdown-content"
+                        style="position: relative; top: 0;">
+                    {% for category, message in messages %}
+                      <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        {% endwith %}
+
         {% block content %}{% endblock %}
     </main>
 
