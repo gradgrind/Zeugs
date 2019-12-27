@@ -1,0 +1,8 @@
+############## GRADES/XCOLUMNS/DEM
+############## Version: 2019-10-27
+
+TAG = %DEM
+TEXT = Φ: De-En-Ma
+TYPE = AVERAGE_DEM
+
+GROUPS =& *-RS

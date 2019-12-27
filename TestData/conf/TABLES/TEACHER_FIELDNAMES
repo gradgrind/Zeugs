@@ -1,5 +1,5 @@
 ############## TABLES/TEACHER_FIELDNAMES
-############## Version: 2019-05-29
+############## Version: 2019-12-08
 
 ### Feldnamen der Lehrertabelle
 
@@ -14,3 +14,7 @@ SHORTNAME = Kurzname
 
 # E-Mail-Adresse
 MAIL = Mail
+
+## Authentizierung und Berechtigungen
+PASSWORD = Passwort
+PERMISSION = Berechtigung

@@ -36,7 +36,8 @@ from wtforms.fields.html5 import DateField
 from wtforms.validators import InputRequired, Length
 
 ZEUGS_BASE = os.environ['ZEUGS_BASE']
-ZEUGS_DATA = os.path.join (ZEUGS_BASE, 'zeugs_data')
+#ZEUGS_DATA = os.path.join (ZEUGS_BASE, 'zeugs_data')
+ZEUGS_DATA = os.path.join (ZEUGS_BASE, 'TestData')
 from wz_core.configuration import init, Paths
 
 from flask_wtf.csrf import CSRFProtect
@@ -44,13 +45,15 @@ csrf = CSRFProtect()
 
 
 def logger(messages):
-    for mi, mt, msg in messages:
-        flash(mt + '::: ' + msg, mt)
     l = session.get('logger')
     if not l:
         user = session.get('user_id', '##')
         l = datetime.datetime.now().isoformat(timespec='seconds') + '-' + user
         session['logger'] = l
+    for mi, mt, msg in messages:
+        if mi > 9:
+            msg = "Unerwarter Programmfehler: siehe Log-Datei %s" % l
+        flash(mt + '::: ' + msg, mt)
     return Paths.logfile(l)
 
 init(ZEUGS_DATA, xlog=logger)

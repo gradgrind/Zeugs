@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <title>Klasse-Fach-Lehrer-Liste</title>
+    <style>
+        @page { size: A4; margin: 2cm;
+
+            @top-right {
+                content: "Zeugnisse {{year}}: " string(heading);
+            }
+        }
+
+        h1 {
+            page-break-before: always;
+            font-size: 120%;
+            string-set: heading content();
+        }
+        .td1 {padding-left: 2em}
+        .td2 {padding-left: 2em}
+        .th1 {width: 5em; padding-left: 2em; border-bottom: 1pt solid}
+        .th2 {border-bottom: 1pt solid; padding-left: 2em}
+        li {line-height: 1.5}
+    </style>
+  </head>
+
+  <body>
+    {% for klass, stlist in klasses %}
+        <h1>Kontrollblatt Klasse {{klass}}</h1>
+        <p>Korrekturen bitte an {{manager}}.</p>
+        <p>Stand {{date}}</p>
+        <hr></hr>
+
+        <table>
+        <thead>
+            <th class="th1">Fach</th>
+            <th class="th2">Lehrer</th>
+        </thead>
+        <tbody>
+            {% for subject, teacher in stlist %}
+                <tr>
+                    <td class="td1">{{subject}}</td>
+                    <td class="td2">{{teacher}}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    {% endfor %}
+  </body>
+</html>

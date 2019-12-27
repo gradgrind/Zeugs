@@ -1,0 +1,49 @@
+############## GRADES/ORDERING
+############## Version: 2019-12-21
+
+### Abitur
+A =& De
+   & En
+   & Fr
+   & Ku
+   & Mu
+   
+B =& Ges
+   & Ek
+
+C =& Ma
+   & Bio
+   & Ch
+   & Ph
+   
+X =& Sp
+
+### Sek-I
+# Versetzungsrelevant
+S =& De
+   & En
+   & Fr
+   & _Ku
+   & Mu
+   & Ges
+   & Soz
+   & Geo
+   & Rel
+   & Ma
+   & Bio
+   & Ch
+   & Ph
+   & AWT
+   & Sp
+   
+# Künstlerisch-praktisch
+K =& Eu
+   & FK
+   & Kge
+   & Ktr
+   & Mal
+   & MZ
+   & Pls
+   & Snt
+   & Sth
+   & Web

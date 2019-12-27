@@ -2,7 +2,6 @@ __pycache__
 tmp
 todo
 venv
-
-flask_instance
+logs
 
 zeugs_data

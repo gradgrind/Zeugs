@@ -1,0 +1,13 @@
+############## GRADES/XCOLUMNS/V12
+############## Version: 2019-10-27
+
+TAG = _v12
+TEXT = Versetzung
+TYPE = CHOICE
+VALID =& Q
+
+### Die entsprechenden Texte
+# Versetzung
+Q = Durch Konferenzbeschluss vom {GDATE_D} in die Qualifikationsphase versetzt.
+
+GROUPS =& 11-Gym

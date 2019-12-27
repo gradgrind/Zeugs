@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>A test document</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        body {
+            margin: 0;
+            font-family: Times New Roman;
+            font-size: 12pt;
+        }
+
+        .page1 {
+            width: 17cm;
+            height: 25cm;
+            border-style: solid;
+            border-color: red;
+        }
+
+        h1 {
+            font-size: 150%;
+            font-weight: normal;
+            margin: 0;
+            padding: 0 0 0.1rem 0;
+            border-bottom: solid 0.5pt black;
+            text-align: center;
+        }
+    </style>
+  </head>
+
+  <body>
+    <div class="page1">
+            <h1>THE BIG HEADER</h1>
+<!--            <img class="logo" src="file://{{logopath}}">-->
+            <center style="font-size: 200%; margin: 15mm 0 0 0;">
+                SOMETHING
+            </center>
+            <center style="font-size: 133%; margin: 6mm 0 0 0;">
+                Another thing
+            </center>
+
+            <div style="margin: 20mm 0 0 0; display: flex;
+                    justify-content: center;">
+                <div style="width: 75mm;">
+                    <span style="display: inline-block; width: 24mm;">Klasse:</span>
+                    <span style="">{{klassname}}</span>
+                </div>
+                <div style="width: 75mm;">
+                    <span style="display: inline-block; width: 24mm;">Schuljahr:</span>
+                    <span style="">{{year}}</span>
+                </div>
+            </div>
+
+            <div style="margin: 20mm 0 0 0; display: flex;
+                    justify-content: center;">
+                <div style="width: 150mm;">
+                    <span style="display: inline-block; width: 24mm;">
+                        Name:
+                    </span>
+                    <span style="display: inline-block; width: 11cm;
+                            padding: 0.1rem 1rem;
+                            border-bottom: solid 0.5pt black;">
+                        <strong>{{FIRSTNAMES}} {{LASTNAME}} pgyq</strong></span>
+                </div>
+            </div>
+    </div>
+  </body>
+</html>

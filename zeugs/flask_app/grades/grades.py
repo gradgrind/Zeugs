@@ -183,15 +183,23 @@ def addgrades(termn):
 #        return redirect(url_for('bp_grades.term', termn=termn))
 
         from wz_grades.gradedata import readGradeTable
-        gtbl = readGradeTable(f)
-        REPORT.Info("Datei erfasst: %s" % f.filename)
-        REPORT.printMessages()
+        def readdata(f):
+            gtbl = readGradeTable(f)
 
-        flash("INFO: %s" % repr(gtbl.info))
+#            flash("INFO: %s" % repr(gtbl.info))
 #        flash("DATA: %s" % repr(gtbl))
 
+            transl = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
+            y0, y1 = session['year'], int(gtbl.info[transl['SCHOOLYEAR']])
+            if y1 != y0:
+                REPORT.Fail("Falsches Jahr: %s in %s" % (y1, f.filename))
 #TODO: Check that the data matches year and term.
+            REPORT.Info("Datei erfasst: %s" % f.filename)
 
+        REPORT.wrap(readdata, f)
+
+#TODO: make a wrapper for run/trap/print, taking handler function?
+# Maybe pass the error message to the logfile but not the display?
 
 #TODO: signal success
 

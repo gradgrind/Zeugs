@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>A test document</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        body {
+            margin: 0;
+            font-family: Times New Roman;
+            font-size: 12pt;
+        }
+
+        .page1 {
+            width: 17cm;
+            height: 25cm;
+            display: flex;
+            flex-direction: column;
+/*            align-items: stretch;*/
+            align-items: center;
+            border-style: solid;
+            border-color: red;
+        }
+
+        h1 {
+            font-size: 150%;
+            font-weight: normal;
+            width: inherit;
+            margin: 0;
+            padding: 0 0 0.2rem 0;
+            border-bottom: solid 0.5pt black;
+            text-align: center;
+        }
+
+        .outline {
+            border: dotted 0.5pt blue;
+        }
+    </style>
+  </head>
+
+  <body>
+    <div class="page1">
+        <h1>THE BIG HEADER</h1>
+        <div class="outline" style="font-size: 200%; margin: 15mm 0 0 0;">
+            SOMETHING
+        </div>
+        <div class="outline" style="font-size: 133%; margin: 6mm 0 0 0;
+                text-align: center; flex-grow: 0;">
+            Another thing
+        </div>
+        <div class="outline" style="height: 1rem; width: 10rem;"></div>
+    </div>
+  </body>
+</html>

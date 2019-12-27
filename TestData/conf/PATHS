@@ -1,7 +1,10 @@
 ############## PATHS
-############## Version: 2019-10-23
+############## Version: 2019-12-26
 
 ### Hier wird das Layout des Datenordners definiert
+
+# Pfad der Log-Datei
+DIR_LOGS =& logs
 
 # Maske für den Pfad eines Schuljahresordners.
 # Dies wird u.a. dafür verwendet, einen solchen Ordner zu erkennen.
@@ -16,14 +19,6 @@ FILE_SQLITE =& db_{year}.sqlite3
 # Unterordner von <DIR_SCHOOLYEAR>.
 DIR_SCHOOLDATA =& Schuldaten
 
-# Pfad für eine Sicherungskopie der Schülerdaten
-#FILE_PUPILS_SAVE =& *DIR_SCHOOLDATA
-#                  & Schuelerdaten-{year}_*
-
-# Pfad für eine Gesamttabellen der Schülerdaten (zur Sicherung, Änderung, usw.)
-#FILE_DB_ALLPUPILS =& *DIR_SCHOOLDATA
-#                   & Schuelerdaten-{year}_alle
-
 # Pfad für die Tabelle mit Rohdaten der Schüler (von der Schul-Datenbank)
 FILE_PUPILS_RAW =& *DIR_SCHOOLDATA
                  & Schuelerdaten_roh
@@ -34,21 +29,6 @@ FILE_PUPILS_RAW =& *DIR_SCHOOLDATA
 FILE_SUBJECTS =& *DIR_SCHOOLDATA
                & Fachliste
 
-# Pfad und Maske für den Dateinamen einer Fachdatentabelle:
-FILE_CLASS_SUBJECTS =& *DIR_SCHOOLDATA
-                    & Fachbelegung
-                    & Kurse_*
-
-## Pfad und Maske für den Dateinamen einer Wahlkurstabelle.
-#FILE_COURSE_OPTIONS =& *DIR_CLASSDATA
-#                     & Wahl_*
-
-## Pfad und Maske für den Dateinamen einer neuen Fachdatentabelle:
-#FILE_CLASSDATA_NEW =& *DIR_CLASSDATA
-#                    & neu
-#                    & Klasse_*
-###########
-
 # Pfad für die Lehrerdatentabelle
 FILE_TEACHERDATA =& *DIR_SCHOOLDATA
                   & Lehrerliste
@@ -57,121 +37,37 @@ FILE_TEACHERDATA =& *DIR_SCHOOLDATA
 FILE_CALENDAR =& *DIR_SCHOOLDATA
                & Kalender
 
-# Pfad der Log-Datei
-FILE_LOG =& logs
-          & output.log
- 
+# Ordner für Text-Vorlagen, usw.
+DIR_TEMPLATES =& Vorlagen
+DIR_FONTS =& *DIR_TEMPLATES
+           & fonts
+
 ###############################################################
 ## Textzeugnisse
 
-#####TODO ...
+DIR_TEXT_REPORT_TEMPLATES =& *DIR_TEMPLATES
+                           & Textzeugnis
+FILE_TEXT_REPORT_LOGO =& *DIR_TEMPLATES
+                       & Zeugnis-Logo.svg
 
-# Ordner für alle Daten, die einem Ausgabedatum entsprechen.
-# 'date' should be in the form yyyy-mm-dd. 
-# Der Ordnername muss mit '_{date}' enden!
-DIR_TEXT_DATE_BASE =& T_{date}
-# sqlite-Datenbank für ein Ausgabedatum
-FILE_TEXT_SQLITE =& *DIR_TEXT_DATE_BASE
-                  & dbt_{date}.sqlite3
-# Ordner für die erstellten Textzeugnisse, jede Klasse hat einen eigenen Ordner. 
-DIR_TEXT_REPORTS =& *DIR_TEXT_DATE_BASE
-                  & Textzeugnisse
-                  & K_{klass}
-DIR_TEXT_REPORTS_PDF =& *DIR_TEXT_REPORTS
-                      & pdf
+DIR_TEXT_REPORTS =& Textzeugnisse
 
-DIR_TEXT_COVERS =& *DIR_TEXT_DATE_BASE
-                 & Deckblatt
-# Die Klasse ({klass}) muss am Ende sein, nach '_':
-DIR_TEXT_COVERS_ODT =& *DIR_TEXT_COVERS
-                     & K_{klass}
-FILE_TEXT_COVERS_ALL =& *DIR_TEXT_COVERS
-                      & Deckblatt_Alle_{date}.zip
-FILE_TEXT_COVERS_KLASS =& *DIR_TEXT_COVERS
-                        & Deckblatt_K_{klass}.pdf
+TEXT_COVER = Mantel_*.pdf
 
 ###############################################################
 ## Notenzeugnisse
 
-# Ordner für alle Daten, die einem Ausgabedatum entsprechen.
-# 'date' should be in the form yyyy-mm-dd. 
-# Der Ordnername muss mit '_{date}' enden!
-DIR_GRADES_DATE_BASE =& Z_{date}
-# Datei mit Mail-Informationen (für das Verschicken von Eingabetabellen)
-FILE_GRADES_MAIL =& *DIR_GRADES_DATE_BASE
-                  & MAIL.csv
-
-# Datei mit 'Gruppe:Konferenzdatum'-Daten
-FILE_GROUPS =& *DIR_GRADES_DATE_BASE
-             & GRUPPEN
-
-####### Notentabellen für Lehrer
-DIR_GRADES_TEACHERS =& *DIR_GRADES_DATE_BASE
-                     & Noten-Lehrer
-
-# Pfad und Maske für Noten-Eingabe-Formulare für einzelne Lehrer
-FILE_GRADES_RAW =& *DIR_GRADES_TEACHERS
-                 & Formulare
-                 & Noten_*
-
-# Pfad und Maske für fertige Noten-Eingabe-Formulare für einzelne Lehrer
-FILE_GRADES =& *DIR_GRADES_TEACHERS
-             & Lehrer
-             & Noten_*
-
-####### Notentabellen für Klassen
-FILE_CLASS_GRADES =& *DIR_GRADES_DATE_BASE
-                   & Noten
-                   & Notentabelle_*
-             
-# Leere Notentabellen für Klassen
-FILE_CLASS_GRADES0 =& *DIR_GRADES_DATE_BASE
-                   & Noten0
-                   & Notentabelle_*
-             
-####### Notentabellen für Gruppen ("class-stream")
-DIR_GRADES_GROUPS =& *DIR_GRADES_DATE_BASE
-                   & Noten-Gruppen
-
-# Pfad und Maske für leere Eingabe-Formulare für Gruppen
-FILE_GRADE_TABLE_RAW =& *DIR_GRADES_GROUPS
-                      & Formulare
-                      & Notentabelle_*
-
-# Pfad und Maske für die von Lehrern ausgefüllten Formulare
-FILE_GRADE_TABLE_TEACHER =& *DIR_GRADES_GROUPS
-                          & Lehrer
-                          & Notentabelle_*
-# z.B. Notentabelle_10-Gym.AK.xlsx
-
-# Pfad und Maske für fertige Noten-Tabellen für Gruppen
-FILE_GRADE_TABLE =& *DIR_GRADES_GROUPS
-                  & Notentabellen
-                  & Notentabelle_*
-#######
-
-# Pfad und Maske für den Dateinamen einer Bewertungstabelle für die Noten.
-FILE_GRADES_FULL =& *DIR_GRADES_DATE_BASE
-                  & Noten-Tabellen
-                  & Bewertungen-{klass}-{stream}
-
-# Ordner für die erstellten Notenzeugnisse, jede Klasse hat einen eigenen Ordner. 
-DIR_GRADE_REPORTS =& *DIR_GRADES_DATE_BASE
-                   & Notenzeugnisse
-                   & K_{klass}
-DIR_GRADE_REPORTS_PDF =& *DIR_GRADE_REPORTS
-                       & pdf
-
-# Ordner für Text-Vorlagen, usw.
-DIR_TEMPLATES =& Vorlagen
-DIR_TEXT_REPORT_TEMPLATES =& *DIR_TEMPLATES
-                           & Textzeugnis
 DIR_GRADE_REPORT_TEMPLATES =& *DIR_TEMPLATES
                             & Notenzeugnis
 
-# Maske für die Zeugnis-Dateinamen
-# {tag} muss durch '-' abgegrenzt werden, davor darf kein weiteres '-' sein.
-REPORT_FILE_TEMPLATE =& Z{number:02d}_{pid}-{tag}-{name}.odt
+# Ordner für alle Daten, die einem Ausgabedatum entsprechen –
+# <term> ist eine Nummer für die Notenperiode (Semester o.ä).
+DIR_GRADES_BASE =& Noten_{term}
+
+# Pfad und Maske für fertige Noten-Tabellen für Gruppen
+FILE_GRADE_TABLE =& *DIR_GRADES_BASE
+                  & Notentabelle_*
+
 
 ###############################################################
 ### Abitur
@@ -271,3 +167,5 @@ FILE_SP_SUBJECTS =& *DIR_SP
 
 FILE_TEACHER_REPORT_LISTS =& *DIR_SCHOOLDATA
                            & Zeugnis-Checkliste.pdf
+FILE_CLASS_REPORT_LISTS =& *DIR_SCHOOLDATA
+                         & Zeugnis-KlassenKontrolle.pdf

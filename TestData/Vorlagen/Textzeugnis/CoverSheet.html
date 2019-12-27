@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <title>Mantelbögen {{klass.name}}</title>
+    <style>
+        @font-face {
+            font-family: ZeugsFont;
+            src: url(../fonts/DroidSans.ttf);
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        body {
+            margin: 0;
+            font-family: ZeugsFont;
+            font-size: 12pt;
+            color: #0019E6;
+        }
+
+        @page {
+            size: A3 landscape;
+            margin: 2cm;
+        }
+
+        .page-a3 {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+/*            border-style: dotted;
+            border-color: blue; ... for testing */
+        }
+        .backpage {
+            width: 17cm;
+            height: 25cm;
+/*            border-style: solid;
+            border-color: green; ... for testing */
+        }
+        .frontpage {
+            width: 17cm;
+            height: 25cm;
+/*            border-style: solid;
+            border-color: red; ... for testing */
+        }
+
+        .logo {
+            display: block;
+            width: 100%;
+            margin 0 2cm;
+        }
+        .Zeugnis {
+            font-size: 400%;
+            text-align: center;
+            margin: 0 0 15mm 0;
+        }
+        .kleinklasse {
+            font-size: 200%;
+            text-align: center;
+            margin: 0;
+        }
+        .fuer {
+            font-size: 133%;
+            text-align: center;
+            margin: 0 0 15mm 0;
+        }
+        .entry {
+            display: inline-block;
+            text-align: center;
+            margin: 1cm 0;
+            width: 100%;
+            font-size: 133%;
+        }
+        .frontblock {
+/*            background-color: #ffe080; ... for testing */
+            height: 14cm;
+            width: 100%;
+        }
+        .frontblock span {
+            font-weight: bold;
+            padding: 0 0.5rem;
+        }
+        .KK1 {
+            {% if not klass.klein %}
+            visibility: hidden;
+            {% endif %}
+            height: 30mm;
+            padding-top: 10mm;
+        }
+        .underline {
+            margin: 0 10mm 10mm 10mm;
+            border-bottom: solid 1pt;
+        }
+        h1 {
+            font-size: 133%;
+            margin: 0 0 0.1rem 0;
+            padding: 0;
+            text-align: center;
+        }
+        .empty {
+            margin: 0 0 10mm 0;
+            height: 13cm;
+            border-bottom: solid 1pt;
+        }
+
+        .info1 {
+            display: inline-block;
+            text-align: center;
+            margin: 0 0 15mm 0;
+            width: 100%;
+        }
+        .space1 { display: inline-block; width: 3cm; }
+        .underline1 {
+            display: inline-block;
+            position: relative;
+            bottom: -0.5rem;
+            width: 15mm;
+            border-bottom: solid 1pt;
+            margin: 0 0.5rem;
+        }
+        .info2 {
+            display: inline-block;
+            margin: 0 0 15mm 0;
+            width: 100%;
+        }
+        .info3 {
+            display: inline-block;
+            margin: 0;
+            width: 100%;
+        }
+        .info4 {
+            margin: 0;
+            width: 100%;
+            font-size: 80%;
+            font-style: italic;
+            border: solid 0.5pt #999999;
+            {% if klass.final %}
+            display: none;
+            {% endif %}
+        }
+        .info4 p {
+            margin: 0;
+            padding: 0.3rem;
+        }
+        .signline {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10mm;
+        }
+        .signbox {
+            display: inline-block;
+            vertical-align: bottom;
+            width: 54mm;
+        }
+        .signbox p {
+            font-size: 80%;
+            font-style: italic;
+            text-align: center;
+            height: 2rem;
+            margin: 27mm 0 0 0;
+            padding: 1mm 1mm;
+            border-top: solid 1pt;
+        }
+        .stampbox {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 42mm;
+            height: 36mm;
+            border: solid 0.5pt #999999;
+            {% if klass.final %}
+            margin-right: 20mm;
+            {% endif %}
+        }
+        .stampbox p {
+            color: #999999;
+        }
+    </style>
+  </head>
+
+  <body>
+    {% for pupil in pupils %}
+    <div class="page-a3">
+        <div class="backpage">
+            <div class="empty"></div>
+            <p class="info1"><span class="underline1"></span>Tage versäumt
+                <span class="space1"></span>
+                <span class="underline1"></span>mal verspätet
+            </p>
+            <p class="info2">Dieses Zeugnis enthält<span class="underline1"></span>Blätter.</p>
+            <p class="info3">Hannover, den <strong>{{todate(DATE_D)}}</strong></p>
+            <div class="signline">
+                <div class="signbox">
+                    <p>Für die Lehrerschaft der Schule</p>
+                </div>
+                <div class="stampbox">
+                    <p>Siegel</p>
+                </div>
+                {% if not klass.final %}
+                <div class="signbox">
+                    <p>Erziehungsberechtigte/r oder volljährige/r Schüler/in</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="info4">
+                <p>Das Zeugnis muss zu Beginn des neuen Schuljahres
+                mit der Unterschrift des Erziehungsberechtigten zur
+                Schule mitgebracht werden.
+                </p>
+            </div>
+        </div>
+        <div class="frontpage">
+            <img class="logo" src="../Zeugnis-Logo.svg">
+            <div class="KK1"><p class="kleinklasse">Kleinklassenzweig</p></div>
+            <div class="frontblock">
+                <p class="Zeugnis">Zeugnis</p>
+                <p class="fuer">für</p>
+                <div class="underline">
+                    <h1>{{pupil.FIRSTNAMES}} {{pupil.LASTNAME}}</h1>
+                </div>
+                <p class="entry">geboren am <span>{{todate(pupil.DOB_D)}}</span></p>
+                <p class="entry">für die Klasse <span>{{klass.name}}</span>
+                        <span></span> im Schuljahr <span>{{SCHOOLYEAR}}</span></p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+  </body>
+</html>

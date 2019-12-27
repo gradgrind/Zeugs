@@ -1,0 +1,9 @@
+############## TEXT/COVER_SHEETS
+############## Version: 2019-05-01
+
+### Die Vorlage kann von Jahrgang und Klassentyp abhängen
+* = Vorlage_WaldorfZeugnis.odt
+12 = Vorlage_WaldorfZeugnis-Abgang.odt
+
+*K = Vorlage_WaldorfZeugnis-Kleinklasse.odt
+12K = Vorlage_WaldorfZeugnis-Kleinklasse-Abgang.odt

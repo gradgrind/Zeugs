@@ -1,9 +1,0 @@
-############## GRADES/XCOLUMNS/V_12
-############## Version: 2018-10-28
-
-K_TEXT = Versetzung
-VALID = Q
-
-### Die entsprechenden Texte
-# Versetzung
-Q = Durch Konferenzbeschluss vom {GDATE_D} in die Qualifikationsphase versetzt.

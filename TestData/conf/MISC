@@ -1,10 +1,16 @@
 ############## MISC
-############## Version: 2019-09-27
+############## Version: 2019-12-26
 
 ### Einstellungen, die nicht woanders gehören.
 
 # Der erste Monat des Schuljahres (1 - 12 für Jan. - Dez.)
 SCHOOLYEAR_MONTH_1 = 8
+
+# Die Unterteilung des Jahres (Notenzeugnisse): Halbjahre/Semester
+TERMS = 2
+
+# Pro Benutzer werden maximal soviele Log-Dateien aufbewahrt
+MAXLOGFILES = 2
 
 # Für welche Klassen Notenzeugnisse normalerweise ausgegeben werden
 GRADES_FOR_CLASS = 10, 11, 12, 13

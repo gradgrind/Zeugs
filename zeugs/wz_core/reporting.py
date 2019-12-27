@@ -27,6 +27,9 @@ Copyright 2019 Michael Towers
 =-LICENCE========================================
 """
 
+import traceback
+
+
 class Report:
     """Handle reporting.
     Messages are collected in a list of tuples (error code, message).
@@ -39,6 +42,12 @@ class Report:
     returns a file-path. This method takes the message list as argument,
     allowing additional handling of the messages.
     """
+    class RuntimeFail(RuntimeError):
+        pass
+
+    class RuntimeBug(RuntimeError):
+        pass
+
     ### The 'structural' methods
     def __init__ (self):
         self.logfile = None # defaults to stdout
@@ -75,6 +84,21 @@ class Report:
     def out (self, enum, etype, msg, **kargs):
         self._report.append ((enum, etype, msg.format (**kargs) if kargs else msg))
 
+
+    def wrap(self, f, *args, **kargs):
+        """Wrap a call to the given function <f>, with the given arguments.
+        Exceptions are trapped and finally <printMessages> is called.
+        """
+        try:
+            return f(*args, **kargs)
+        except (self.RuntimeFail, self.RuntimeBug):
+            pass
+        except:
+            self.out(10, "Trap", traceback.format_exc())
+        finally:
+            self.printMessages()
+
+
     ### The methods actually used for reporting
     def Test(self, msg):
         self.out(-1, "Test", msg)
@@ -93,8 +117,8 @@ class Report:
 
     def Fail(self, msg, **kargs):
         self.out(8, "Fail", msg, **kargs)
-        raise RuntimeError ("REPORT.Fail")
+        raise self.RuntimeFail
 
     def Bug(self, msg, **kargs):
         self.out(9, "Bug", msg, **kargs)
-        raise RuntimeError ("REPORT.Bug")
+        raise self.RuntimeBug

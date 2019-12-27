@@ -1,0 +1,19 @@
+############## GRADES/XCOLUMNS/Q12
+############## Version: 2019-10-27
+
+TAG = _q12
+TEXT = Abschluss
+TYPE = CHOICE
+VALID =& Erw
+       & RS
+       & HS
+
+### Die entsprechenden Texte
+# Sek-I-Abschlüsse
+Erw = Erweiterter Sekundarabschluss I
+RS  = Sekundarabschluss I – Realschulabschluss
+HS  = Sekundarabschluss I – Hauptschulabschluss
+
+GROUPS =& 12-RS
+        & 12-HS
+        

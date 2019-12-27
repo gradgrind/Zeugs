@@ -66,5 +66,8 @@ nt = nicht teilgenommen
 t = teilgenommen
 #* = nicht gewählt / noch nicht erteilt
 * = ––––––
+? = ––––––
 
 #*ne = nicht erteilt
+
+NONE = ––––––––––

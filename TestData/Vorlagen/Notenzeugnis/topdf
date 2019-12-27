@@ -1,0 +1,4 @@
+#!/bin/bash
+../../../venv/bin/weasyprint Notenzeugnis-SI-pre.html Notenzeugnis-SI.pdf
+#../../../venv/bin/weasyprint test1.html test.pdf
+#../../../venv/bin/weasyprint test.html test.pdf

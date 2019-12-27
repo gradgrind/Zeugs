@@ -1,0 +1,11 @@
+############## GRADES/XCOLUMNS/BB
+############## Version: 2019-10-27
+
+TAG = _bb
+TEXT = Blauer Brief
+TYPE = CHOICE
+VALID =& B
+
+#B = (Blauer Brief)
+
+GROUPS =& *
