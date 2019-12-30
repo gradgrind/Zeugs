@@ -4,7 +4,7 @@
 """
 wz_compat/config.py
 
-Last updated:  2019-12-22
+Last updated:  2019-12-30
 
 Functions for handling configuration for a particular location.
 
@@ -30,7 +30,7 @@ Copyright 2019 Michael Towers
 #TODO: Perhaps class 13 should be completely separate?
 #TODO: Perhaps this data should be in a conf. file?
 #deprecated?
-GRADE_TEMPLATES = {
+GRADE_TEMPLATES_OLD = {
     '13': {
             'Abgang': 'Abgang-13.html',
             'Zeugnis': 'Notenzeugnis-13.html'
@@ -91,6 +91,7 @@ import re
 import jinja2
 
 from wz_core.configuration import Paths, Dates
+from .grades import GRADE_TEMPLATES
 
 
 def printSchoolYear(year1):
@@ -183,31 +184,31 @@ def getReportTypes(klass, stream, term):
 
 class KlassData:
     def __init__(self, klass_stream):
+        self.klass_stream = klass_stream
         self.klass, self.stream = fromKlassStream(klass_stream)
         self.name = self.klass.lstrip('0') # no leading zero on klass names
-#TODO: switch to klasstag
+#TODO: switch to klasstag (report covers!)
 #        self.klein = self.klass[-1] == 'K'      # "Kleinklasse"
         self.klasstag = self.klass[2:]          # assumes 2-digit classes
         self.year = self.klass[:2].lstrip('0')  # assumes 2-digit classes
 
-
-    def setTemplate(self, report_type='text', term=None):
-        self.term = term
+#TODO: need to call this! (also for text covers ...)
+    def setTemplate(self, rcat='text'):
+        self.rcat = rcat
         self.report_type = report_type
-        if report_type == 'text':
+        if rcat == 'text':
             self.template = getTemplate('DIR_TEXT_REPORT_TEMPLATES',
                     'CoverSheet.html')
             self.final = self.klass.startswith('12') # highest class (text reports)
         else:
             # Get report templates
-            rtypes = getReportTypes(self.klass, self.stream, term)
+            tlist = GRADE_TEMPLATES[rcat]
             try:
-                self.template = getTemplate('DIR_GRADE_REPORT_TEMPLATES',
-                        rtypes[report_type])
+                rtag, template = findmatching(self.klass_stream, tlist)
             except:
-                REPORT.Bug("Invalid grade report type for class {ks}: {rtype}",
-                        ks=toKlassStream(self.klass, self.stream),
-                        rtype=report_type)
+                REPORT.Bug("Invalid grade report category for class {ks}: {rcat}",
+                        ks=self.klass_stream,
+                        rcat=rcat)
 
 
 
@@ -328,17 +329,16 @@ def asciify(string):
     return re.sub (_invalid_re, rsub, string)
 
 
+#TODO: Is this used?
 def guessTerm(schoolyear):
     """Guess an initial value for the term field based on the current date.
     """
     today = Dates.today()
     cal = Dates.getCalendar(schoolyear)
-    term = CONF.MISC.TERMS
-    while term > 0:
-        if today >= cal['TERM_%d' % term]:
+    for term in CONF.MISC.TERMS:
+        if today >= cal['TERM_%s' % term]:
             return term
-        term -= 1
-    return 1
+    return CONF.MISC.TERMS[0]
 
 
 ##################### Test functions

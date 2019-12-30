@@ -5,7 +5,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2019-12-22
+Last updated:  2019-12-30
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -58,17 +58,20 @@ from wz_compat.config import (printSchoolYear, klassData, printStream,
         getTemplateTags, pupilFields)
 
 
-def makeReports(reportdata, date, pids=None):
+#TODO
+def makeReports(schoolyear, termn, klass_stream, date, pids)
+#def makeReports(reportdata, date, pids=None):
     """Build a single file containing reports for the given pupils:
     <reportdata>: a <GradeData> instance
     <data>: date of issue ('YYYY-MM-DD')
     <pids>: a list of pids (must all be in the given klass), only
         generate reports for pupils in this list.
-        If not supplied, generate reports for the whole klass.
+        If not supplied, generate reports for the whole klass/group.
     """
-    grades = reportdata.getGrades()
-    pupils = Pupils(reportdata.schoolyear)
-    plist = pupils.classPupils(reportdata.klass_stream)
+    grades = db2grades(schoolyear, termn, klass_stream)
+#    reportdata.getGrades()
+    pupils = Pupils(schoolyear)
+    plist = pupils.classPupils(klass_stream)
     if pids:
         pall = plist
         pset = set (pids)
@@ -81,12 +84,16 @@ def makeReports(reportdata, date, pids=None):
             plist.append(pdata)
         if pset:
             REPORT.Bug(_PUPILS_NOT_IN_CLASS_STREAM, pids=', '.join(pset),
-                    ks=reportdata.klass_stream)
+                    ks=klass_stream)
+
+
+
+#TODO
     # Get a tag mapping for the grade data of each pupil:
     for pdata in plist:
         pdata.grades = reportdata.getTagmap(grades, pdata['PID'])
     source = reportdata.klassdata.template.render(
-            SCHOOLYEAR = printSchoolYear(reportdata.schoolyear),
+            SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
             STREAM = printStream,
@@ -98,7 +105,7 @@ def makeReports(reportdata, date, pids=None):
         html = HTML(string=source,
                 base_url=os.path.dirname(reportdata.klassdata.template.filename))
         pdfBytes = html.write_pdf(font_config=FontConfiguration())
-        REPORT.Info(_MADEKREPORTS, ks=reportdata.klass_stream)
+        REPORT.Info(_MADEKREPORTS, ks=klass_stream)
         return pdfBytes
     else:
         REPORT.Fail(_NOPUPILS)

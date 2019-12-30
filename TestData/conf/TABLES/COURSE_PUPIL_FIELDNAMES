@@ -1,5 +1,5 @@
 ############## TABLES/COURSE_PUPIL_FIELDNAMES
-############## Version: 2019-09-29
+############## Version: 2019-12-29
 
 ### Feldnamen der Fach-Schüler-Tabellen (Matrizen).
 ### Nur einige besondere Felder haben "übersetzte" Namen.
@@ -7,6 +7,7 @@
 ## Diese Felder sind im Info-Teil der Tabelle:
 CLASS = Klasse
 SCHOOLYEAR = Schuljahr
+TERM = Halbjahr
 
 ## Hauptteil der Tabelle
 # Erste Spalte

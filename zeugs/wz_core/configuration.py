@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2019-12-26
+Last updated:  2019-12-29
 
 Configuration items and the handler for the configuration files.
 
@@ -62,8 +62,7 @@ def init (userFolder, logfile=None, xlog=None):
     if not userFolder:
         appdir = os.path.dirname (
                 os.path.dirname (os.path.realpath (__file__)))
-#TODO: This should probably be switched to 'TestData' at some stage ...
-        userFolder = os.path.join (os.path.dirname (appdir), 'zeugs_data')
+        userFolder = os.path.join (os.path.dirname (appdir), 'TestData')
     builtins.REPORT = Report () # set up basic logging (to console)
     Paths._init (userFolder)
     if logfile:
@@ -383,7 +382,7 @@ class Paths:
         # Delete excess old log files for this user
         nmax = CONF.MISC.MAXLOGFILES.nat()
         while len(files) > nmax:
-            os.path.remove(files.pop())
+            os.remove(files.pop())
         return os.path.join(folder, tag + '.log')
 
 
@@ -470,3 +469,6 @@ def test_5 ():
     for key, val in CONF.PATHS.items ():
         REPORT.Test ("  > " + key + ": " + repr (val))
 
+def test_6():
+    REPORT.Test("Calendar:")
+    REPORT.Test(Dates.getCalendar(2016))

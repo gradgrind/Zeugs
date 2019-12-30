@@ -6,20 +6,20 @@
 
 {% block content %}
     <p>Wählen Sie hier die Klasse/Gruppe, für die die Zeugnisse zu
-    erstellen sind. Das Ausgabedatum können Sie ggf. anpassen.
+    erstellen sind. Das Ausgabedatum können Sie ggf. bei der
+    Erstellung anpassen.
     </p>
-    <form id="dataform" class="pure-form" method="POST">
-        {{ form.csrf_token }}
-        <div class="form2">
-            {{ form.DATE_D.label }}{{ form.DATE_D }}
-            {{ form.KLASS.label }}{{ form.KLASS }}
-        </div>
-        {% for error in errors %}
-        <p style="color: red;">[{{ error }}]</p>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for k in klasses %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.klassview', termn=termn,
+                                klass_stream=k)}}"
+                        class="pure-menu-link">
+                    Klasse/Gruppe {{ k }}
+                </a>
+            </li>
         {% endfor %}
-        <hr />
-        <div class="formsubmit">
-            <button type="submit" class="pure-button pure-button-primary">Erstellen</button>
-        </div>
-    </form>
+        </ul>
+    </div>
 {% endblock %}

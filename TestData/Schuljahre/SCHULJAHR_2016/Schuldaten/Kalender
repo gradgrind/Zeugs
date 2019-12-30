@@ -1,18 +1,35 @@
 ### Ferienzeiten, usw.
-### Version: 2019-12-22
+### Version: 2019-12-29
 
 START = 2015-09-03
 END = 2016-06-22
 
-RANGES = | Sommer | Herbst | Weihnachten | Ostern | Sommer2
+RANGES =& Sommer
+        & Herbst
+        & Weihnachten
+        & Ostern
+        & Sommer2
 
-Sommer =        | 2015-08-01 | 2015-09-02
-Herbst =        | 2015-10-19 | 2015-10-30
-Weihnachten =   | 2015-12-23 | 2016-01-08
-Ostern =        | 2016-03-14 | 2016-04-01
-Sommer2 =       | 2016-06-23 | 2016-07-31
+Sommer =&       2015-08-01
+        &       2015-09-02
+Herbst =&       2015-10-19
+        &       2015-10-30
+Weihnachten =&  2015-12-23
+             &  2016-01-08
+Ostern =&       2016-03-14
+        &       2016-04-01
+Sommer2 =&      2016-06-23
+         &      2016-07-31
 
-SINGLE_DAYS =   | 10-03 | 05-01 | 05-05 | 05-06 | 05-16 | 05-17
+SINGLE_DAYS =& 10-03
+             & 05-01
+             & 05-05
+             & 05-06
+             & 05-16
+             & 05-17
 
 TERM_1 = 2015-08-01
 TERM_2 = 2016-02-01
+
+REPORTS_1 = 2016-01-29
+REPORTS_2 = 2016-06-22

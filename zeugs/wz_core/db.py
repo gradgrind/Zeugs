@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2019-12-14
+Last updated:  2019-12-30
 
 This module handles access to an sqlite database.
 
@@ -34,12 +34,24 @@ _DBMULTIPLERECORDS  = ("Es wurde mehr als ein passender Datensatz gefunden:\n"
 _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
                     " da sie schon existiert")
 
-#?
-_GRADE_INFO_FIELDS = ('_ISSUE_D', '_PGROUP', '_SIDS', 'GDATE_D')
+### Field names for the grade table.
+# Note that the stream should be recorded as this can change in the
+# course of a year.
+# Before a report has been generated, the fields REPORT_TYPE and DATE_D
+# are empty. For each term, only the data for the last report generated
+# will be remembered. For extra reports, there should be a special TERM
+# entry to identify the report.
+#TODO: perhaps it should be possible to delete entries, or at least mark
+# them as superseded.
+#TODO: There should be only one report for a given date, regardless of
+# the TERM?
+GRADE_FIELDS = ('CLASS_STREAM', 'PID', 'TERM', 'REPORT_TYPE',
+        'DATE_D', 'GRADES')
+GRADE_UNIQUE = [('PID', 'TERM')]
 
 
 import os, sqlite3
-from collections import OrderedDict, namedtuple
+#from collections import OrderedDict #, namedtuple
 
 from .configuration import Paths
 
@@ -55,7 +67,6 @@ class DB0:
         else:
             if flag == None:
                 REPORT.Fail (_DBFILENOTFOUND, path=filepath)
-                assert False
             if flag == 'NOREPORT':
                 raise RuntimeError ("db-file not found")
             # Otherwise, the file may be created
@@ -67,7 +78,7 @@ class DB0:
         self._dbcon = sqlite3.connect (filepath)
         self._dbcon.row_factory = sqlite3.Row
 #        self._dbcon.row_factory = namedtuple_factory
-#        self._checkDB ()
+        self._checkDB ()
 
 
     def close (self):
@@ -78,8 +89,8 @@ class DB0:
     def _checkDB (self):
         """Check that all necessary tables are present.
         """
-        if not self.tableExists ('GRADE_INFO'):
-            self.makeTable ('GRADE_INFO', _GRADE_INFO_FIELDS)
+        if not self.tableExists ('GRADES'):
+            self.makeTable2 ('GRADES', GRADE_FIELDS, index=GRADE_UNIQUE)
 #TODO ...
 
 
@@ -229,14 +240,20 @@ class DB0:
         """Select all fields of the given table.
         The results may may ordered by specifying a list of fields to
         <order>. Set <reverse> to true to order descending.
-        The <criteria> may be of the form FIELDNAME=value.
+        The <criteria> are by default of the form FIELDNAME=value.
+        However passing a tuple/list of the form (operator, value)
+        for the value parameter is also possible.
         """
         with self._dbcon as con:
             cur = con.cursor ()
             clist = []
             vlist = []
             for c, v in criteria.items ():
-                clist.append (c + '=?')
+                if isinstance(v, (list, tuple)):
+                    op, v = v
+                else:
+                    op = '='
+                clist.append ('%s %s ?' % (c, op))
                 vlist.append (v)
             cmd = 'SELECT * FROM {} WHERE {}'.format (table,
                     ' AND '.join (clist))
@@ -244,6 +261,7 @@ class DB0:
                 cmd += ' ORDER BY ' + (', '.join (order))
                 if reverse:
                     cmd += ' DESC'
+            print("???", cmd, "\n  +++", vlist)
             cur.execute (cmd, vlist)
             return cur.fetchall ()
 
@@ -273,6 +291,40 @@ class DB0:
                 vlist.append (v)
             cur.execute ('UPDATE {} SET {} = ? WHERE {}'.format (table, key,
                     ' AND '.join (clist)), vlist)
+
+
+    def updateOrAdd (self, table, data, **criteria):
+        """If an entry matching the criteria exists, update it with the
+        given data (ignoring unsupplied fields).
+        If there is no matching entry, add it, leaving unsupplied fields
+        empty.
+        In order for this to work as desired, there must be at least one
+        constraint (e.g. UNIQUE) to ensure that the INSERT fails if the
+        UPDATE has succeeded.
+        """
+        with self._dbcon as con:
+            cur = con.cursor()
+            fields = []     # for INSERT
+            ufields = []    # for UPDATE
+            vlist = []
+            for f, v in data.items():
+                ufields.append(f + '=?')
+                fields.append(f)
+                vlist.append(v)
+            # For UPDATE: criteria
+            clist = []
+            cvlist = []
+            for c, v in criteria.items():
+                clist.append(c + '=?')
+                cvlist.append(v)
+            cur.execute('UPDATE {} SET {} WHERE {}'.format(table,
+                    ', '.join(ufields),
+                    ' AND '.join(clist)),
+                    vlist + cvlist)
+            cmd = 'INSERT OR IGNORE INTO {}({}) VALUES({})'.format(table,
+                            ','.join(fields),
+                            ','.join(['?']*len(fields)))
+            cur.execute(cmd, vlist)
 
 
     def updateN (self, table, key, criteria, vals):
@@ -403,8 +455,8 @@ class DB (DB0):
 #    return Row (*row)
 
 
-
-class PupilsFieldnames (OrderedDict):
+#deprecated?
+#class PupilsFieldnames (OrderedDict):
     """Ordered field name mapping for the PUPILS database table.
     In addition, a non-ordered reversed mapping is produced at
     <self.rfieldmap>.
@@ -413,6 +465,8 @@ class PupilsFieldnames (OrderedDict):
     keys of the reversed mapping are set to upper case (to be more
     tolerant of dodgy input), and the transformation data is at
     <self.fieldmods>.
+    """
+
     """
     def __init__ (self, extended=False):
         super ().__init__ ()
@@ -445,3 +499,4 @@ class PupilsFieldnames (OrderedDict):
             if extended:
                 val = val.upper ()
             self.rfieldnames [val] = f
+    """

@@ -4,7 +4,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2019-12-26
+Last updated:  2019-12-29
 
 The Flask application: zeugs front-end.
 
@@ -44,16 +44,47 @@ from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
 
 
-def logger(messages):
+ERROR_TYPES = {
+    -1: "Test",     # Test
+    0: "(-->)",     # Output
+    2: "",          # Info
+    4: "Warnung",   # Warning
+    6: "Fehler",    # Error
+    8: "Kritischer Fehler", # Fail
+    9: "Programmfehler" # Bug
+}
+
+def logger(messages, suppressok):
     l = session.get('logger')
     if not l:
         user = session.get('user_id', '##')
         l = datetime.datetime.now().isoformat(timespec='seconds') + '-' + user
         session['logger'] = l
+    mimax = -10
+    toflash = []
     for mi, mt, msg in messages:
         if mi > 9:
             msg = "Unerwarter Programmfehler: siehe Log-Datei %s" % l
-        flash(mt + '::: ' + msg, mt)
+        elif mi > mimax:
+            mimax = mi
+        try:
+            etype = ERROR_TYPES[mi]
+        except:
+            etype = "ERROR %d" % mi
+            mimax = 10
+        toflash.append ((etype + '::: ' + msg, mt))
+    if len(toflash) > 10:
+        flash("Abgekürzt: für alle Meldungen, siehe Log-Datei %s. ..." % l)
+        toflash = toflash[-9:]
+    for msg in toflash:
+        flash(*msg)
+    # Add a headline (the template will render this to the top, visible, line)
+    if mimax >= 6:
+        flash("!!! Aktion mit Fehler(n) abgeschlossen ...", "Error")
+    elif mimax >= 4:
+        flash("*** Aktion mit Warnung(en) abgeschlossen ...", "Warning")
+    elif not suppressok:
+        flash("+++ Aktion erfolgreich abgeschlossen ...", "Info")
     return Paths.logfile(l)
 
 init(ZEUGS_DATA, xlog=logger)

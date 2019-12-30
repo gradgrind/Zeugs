@@ -294,6 +294,11 @@ main {
     background: #fdf;
 }
 
+.menu-item {
+    color: #777;
+    padding: 0.5rem 1rem;
+}
+
 @media (min-width: 768px){
     #sidepanel0 {
         display: block !important;

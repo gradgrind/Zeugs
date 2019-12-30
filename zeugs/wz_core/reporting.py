@@ -60,10 +60,10 @@ class Report:
         self._report = []
         return msgs
 
-    def printMessages(self):
+    def printMessages(self, suppressok):
         messages = self.messages()
         try:
-            outfile = self.getLogfile(messages)
+            outfile = self.getLogfile(messages, suppressok)
         except:
             # Output to default/fallback log
             outfile = self.logfile
@@ -85,7 +85,7 @@ class Report:
         self._report.append ((enum, etype, msg.format (**kargs) if kargs else msg))
 
 
-    def wrap(self, f, *args, **kargs):
+    def wrap(self, f, *args, suppressok=False, **kargs):
         """Wrap a call to the given function <f>, with the given arguments.
         Exceptions are trapped and finally <printMessages> is called.
         """
@@ -96,7 +96,7 @@ class Report:
         except:
             self.out(10, "Trap", traceback.format_exc())
         finally:
-            self.printMessages()
+            self.printMessages(suppressok)
 
 
     ### The methods actually used for reporting

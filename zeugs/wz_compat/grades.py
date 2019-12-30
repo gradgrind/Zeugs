@@ -4,7 +4,7 @@
 """
 wz_compat/grades.py
 
-Last updated:  2019-12-24
+Last updated:  2019-12-30
 
 Functions for grade-report handling for a particular location.
 
@@ -61,19 +61,19 @@ GRADE_TEMPLATES = {
 ########################################################################
 from fnmatch import fnmatchcase
 
-from wz_core.pupils import Pupils
+#from wz_core.pupils import Pupils
 
 
-def findmatching(klass, kmap):
-    """Find the first matching entry for the "klass" in the mapping list.
+def findmatching(klass_stream, kmap):
+    """Find the first matching entry for the klass/group in the mapping list.
     """
     for k, rtag, template in kmap:
         try:
             kmin, k = k.split('<')
         except:
             kmin = '00'
-        if fnmatchcase(klass, k):
-            if klass >= kmin:
+        if fnmatchcase(klass_stream, k):
+            if klass_stream >= kmin:
                 return (rtag, template) if rtag else None
     return None
 

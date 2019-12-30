@@ -1,5 +1,5 @@
 ############## MISC
-############## Version: 2019-12-26
+############## Version: 2019-12-30
 
 ### Einstellungen, die nicht woanders gehören.
 
@@ -7,7 +7,8 @@
 SCHOOLYEAR_MONTH_1 = 8
 
 # Die Unterteilung des Jahres (Notenzeugnisse): Halbjahre/Semester
-TERMS = 2
+TERMS =& 1
+       & 2
 
 # Pro Benutzer werden maximal soviele Log-Dateien aufbewahrt
 MAXLOGFILES = 2

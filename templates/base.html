@@ -88,12 +88,11 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="dropdown">
-                    {% set msg0 = messages[0] %}
+                    {% set msg0 = messages.pop() %}
                     <p class="{{msg0[0]}}"
                             style="background-color: #ebfff6;
                                 padding: 0.2rem;">
-                        {{ msg0[1][:36] + ' ...' }}
-<!-- or '... ' + last line? -->
+                        {{ msg0[1] }}
                     </p>
                     <ul class="dropdown-content dropdown-content0"
                         style="position: relative; top: 0;">

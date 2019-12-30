@@ -2,11 +2,10 @@
 {% set uplink = url_for('bp_grades.term', termn=termn) %}
 {% set uplink_help = "Notenzeugnisse: %s. Halbjahr" % termn %}
 
-{% block title %}Noten hochladen ({{termn}}. HJ.){% endblock %}
+{% block title %}Notentabellen einlesen ({{termn}}. HJ.){% endblock %}
 
 {% block content %}
-    <p>Selektieren Sie hier die Datei, die die Notentabelle enthält,
-    die Sie hochladen möchten.
+    <p>Selektieren Sie hier die Datei (Notentabelle) zum Einlesen.
     </p>
     <form id="dataform" class="pure-form pure-form-stacked" method="POST" enctype="multipart/form-data">
         {{ form.csrf_token }}
@@ -15,7 +14,7 @@
         </div>
         <hr />
         <div class="formsubmit">
-            <button type="submit" class="pure-button pure-button-primary">Hochladen</button>
+            <button type="submit" class="pure-button pure-button-primary">Einlesen</button>
         </div>
     </form>
 {% endblock %}

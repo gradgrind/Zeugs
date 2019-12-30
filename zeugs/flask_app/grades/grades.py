@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2019-12-24
+Last updated:  2019-12-30
 
 Flask Blueprint for grade reports
 
@@ -26,28 +26,30 @@ Copyright 2019 Michael Towers
 =-LICENCE========================================
 """
 
+_HEADING = "Notenzeugnis"
+
+
 import datetime, io, os
-from types import SimpleNamespace
+#from types import SimpleNamespace
 
 from flask import (Blueprint, render_template, request, session,
         send_file, url_for, abort, redirect, flash)
-from flask import current_app as app
+#from flask import current_app as app
 
 from flask_wtf import FlaskForm
-from wtforms import SelectField
+#from wtforms import SelectField
 from wtforms.fields.html5 import DateField
-from wtforms.validators import InputRequired, Length
+from wtforms.validators import InputRequired #, Length
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-from werkzeug.utils import secure_filename
+#from werkzeug.utils import secure_filename
 
 from wz_core.configuration import Dates
 from wz_core.pupils import Pupils
-from wz_compat.config import sortingName, toKlassStream
+from wz_compat.config import toKlassStream #, sortingName
 from wz_compat.grades import GRADE_TEMPLATES, findmatching
-from wz_grades.gradedata import grade_data
+from wz_grades.gradedata import readGradeTable, grades2db, db2grades
 from wz_grades.makereports import makeReports
 
-_HEADING = "Notenzeugnis"
 
 # Set up Blueprint
 _BPNAME = 'bp_grades'
@@ -65,65 +67,98 @@ def index():
 @bp.route('/term/<termn>', methods=['GET','POST'])
 #@admin_required
 def term(termn):
-    class TermForm(FlaskForm):
-        DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
-        KLASS = SelectField('Klasse/Gruppe')
+    def prepare(schoolyear, termn, kmap):
+        """Gather the possible klasses/streams.
+        """
+        p = Pupils(schoolyear)
+        klasses = []
+        # Only if all groups have the same template
+        # can the whole klass be done together.
+        for c in p.classes():
+            allmatch = True     # whole klass possible
+            template = None     # for template matching
+            klist = []          # klass.stream list
+            for s in p.streams(c):
+                ks = toKlassStream(c, s, forcestream=True)
+                rtype_tpl = findmatching(ks, kmap)
+                if rtype_tpl:
+                    klist.append(toKlassStream(c, s))
+                    if template:
+                        if rtype_tpl[1] != template:
+                            allmatch = False
+                    else:
+                        template = rtype_tpl[1]
+                else:
+                    allmatch = False
+            if allmatch:
+                # Add the whole class as an option
+                klasses.append (c)
+                if len(klist) > 1:
+                    # Only add the individual groups if there are more than one
+                    klasses += klist
+            else:
+                klasses += klist
+        return klasses
 
-    form = TermForm()
+    # Start of method
     schoolyear = session['year']
     try:
         kmap = GRADE_TEMPLATES[termn]
     except KeyError:
         abort(404)
-    p = Pupils(schoolyear)
-    klasses = []
-    # Only if all groups have the same template
-    # can the whole klass be done together.
-    for c in p.classes():
-        allmatch = True     # whole klass possible
-        template = None     # for template matching
-        klist = []          # klass.stream list
-        for s in p.streams(c):
-            ks = toKlassStream(c, s, forcestream=True)
-            rtype_tpl = findmatching(ks, kmap)
-            if rtype_tpl:
-                klist.append(toKlassStream(c, s))
-                if template:
-                    if rtype_tpl[1] != template:
-                        allmatch = False
-                else:
-                    template = rtype_tpl[1]
-            else:
-                allmatch = False
-        if allmatch:
-            # Add the whole class as an option
-            klasses.append (c)
-            if len(klist) > 1:
-                # Only add the individual groups if there are more than one
-                klasses += klist
-        else:
-            klasses += klist
-    form.KLASS.choices = [(k, k) for k in klasses]
-    if form.validate_on_submit():
-        klass_stream = form.KLASS.data
-        g = grade_data(schoolyear, termn=termn, klass_stream=klass_stream)
-        if not g:
-            return redirect(url_for('bp_grades.nogrades',
-                    klass_stream = klass_stream, termn = termn))
-
-        date = str(form.DATE_D.data)
-#TODO
-        return "??? %s:%s %s (%s)" % (schoolyear, termn, klass_stream, date)
-
-#TODO: get date from year data
-    form.DATE_D.data = datetime.date.fromisoformat(
-            '2020-01-29' if termn == '1' else '2020-07-15')
-    errors = []
+    klasses = REPORT.wrap(prepare, schoolyear, termn, kmap,
+            suppressok=True)
+    if not klasses:
+        return index()
     return render_template(os.path.join(_BPNAME, 'term.html'),
                             heading=_HEADING,
                             termn=termn,
+                            klasses=klasses)
+
+
+@bp.route('/klass/<termn>/<klass_stream>', methods=['GET','POST'])
+#@admin_required
+def klassview(termn, klass_stream):
+    class KlassForm(FlaskForm):
+        DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
+
+    schoolyear = session['year']
+    form = KlassForm()
+    if form.validate_on_submit():
+        # POST
+        _d = form.DATE_D.data.isoformat()
+        pids=request.form.getlist('Pupil')
+        if pids:
+#TODO
+            return "GRADE REPORT class %s, {%s/%s}: %s" % (klass_stream,
+                    termn, _d, repr(pids))
+
+            pdfBytes = makeReports(schoolyear, termn, klass_stream, _d, pids)
+            return send_file(
+                io.BytesIO(pdfBytes),
+                attachment_filename='Notenzeugnis_%s.pdf' % klass_stream,
+                mimetype='application/pdf',
+                as_attachment=True
+            )
+        else:
+            flash("** Keine Schüler ... **", "Warning")
+
+    # GET
+    cal = Dates.getCalendar(schoolyear)
+    form.DATE_D.data = datetime.date.fromisoformat(cal['REPORTS_' + termn])
+    pdlist = db2grades(schoolyear, termn, klass_stream, checkonly=True)
+    return render_template(os.path.join(_BPNAME, 'klass.html'),
                             form=form,
-                            errors=errors)
+                            heading=_HEADING,
+                            termn=termn,
+                            klass_stream=klass_stream,
+                            pupils=pdlist)
+#TODO:
+# There might be a checkbox/switch for print/pdf, but print might not
+# be available on all hosts.
+# It might be helpful to a a little javascript to implement a pupil-
+# selection toggle (all/none).
+
 
 
 @bp.route('/nogrades/<klass_stream>/<termn>', methods=['GET','POST'])
@@ -146,62 +181,19 @@ def single(rtype):
 @bp.route('/upload/<termn>', methods=['GET','POST'])
 #@admin_required
 def addgrades(termn):
-#    return "%s: TODO upload for term %s" % (session['year'], termn)
-
     class UploadForm(FlaskForm):
         upload = FileField('Notentabelle:', validators=[
             FileRequired(),
-            FileAllowed(['xlsx', 'ods'], 'nur Tabellen')
+            FileAllowed(['xlsx', 'ods'], 'Notentabelle')
         ])
+
+    def readdata(f):
+        gtbl = readGradeTable(f)
+        grades2db(session['year'], gtbl, term=termn)
 
     form = UploadForm()
     if form.validate_on_submit():
-        f = form.upload.data
-        filename = secure_filename(f.filename)
-#TODO: the folder (grades) must exist!
-        fpath = os.path.join(app.instance_path, 'grades', filename)
-        f.save(fpath)
-
-#TODO: testing – read using openpyxl, save as tsv.
-        from wz_table.spreadsheet import XLS_spreadsheet, ODS_spreadsheet
-        if f.filename.endswith('.xlsx'):
-            sheets = XLS_spreadsheet(f).sheets
-        elif f.filename.endswith('.ods'):
-            sheets = ODS_spreadsheet(f).sheets
-        else:
-            return "Invalid file: %s" % f.filename
-        with open(fpath.rsplit('.', 1)[0] + '.tsv', 'w',
-                encoding='utf-8', newline='') as fh:
-            for sheet, lines in sheets.items():
-                fh.write(':::::: %s\n' % sheet)
-                for line in lines:
-                    fh.write('\t'.join([item or '' for item in line]) + '\n')
-
-        flash('Loaded %s' % f.filename, 'Info')
-        flash('Some more info', 'Warning')
-        flash('Bad news', 'Error')
-#        return redirect(url_for('bp_grades.term', termn=termn))
-
-        from wz_grades.gradedata import readGradeTable
-        def readdata(f):
-            gtbl = readGradeTable(f)
-
-#            flash("INFO: %s" % repr(gtbl.info))
-#        flash("DATA: %s" % repr(gtbl))
-
-            transl = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
-            y0, y1 = session['year'], int(gtbl.info[transl['SCHOOLYEAR']])
-            if y1 != y0:
-                REPORT.Fail("Falsches Jahr: %s in %s" % (y1, f.filename))
-#TODO: Check that the data matches year and term.
-            REPORT.Info("Datei erfasst: %s" % f.filename)
-
-        REPORT.wrap(readdata, f)
-
-#TODO: make a wrapper for run/trap/print, taking handler function?
-# Maybe pass the error message to the logfile but not the display?
-
-#TODO: signal success
+        REPORT.wrap(readdata, form.upload.data)
 
     return render_template(os.path.join(_BPNAME, 'grades_upload.html'),
                             heading=_HEADING,
@@ -222,41 +214,6 @@ class DateForm(FlaskForm):
                             default=datetime.date.fromisoformat(_date),
                             validators=[InputRequired()])
 
-
-@bp.route('/klass/<klass>', methods=['GET','POST'])
-#@admin_required
-def klassview(klass):
-    form = DateForm()
-    if form.validate_on_submit():
-        # POST
-        _d = form.DATE_D.data.isoformat()
-
-#TODO
-        pdfBytes = makeSheets (session['year'], _d, klass,
-#TODO check list not empty ...
-                pids=request.form.getlist('Pupil'))
-        return send_file(
-            io.BytesIO(pdfBytes),
-            attachment_filename='Notenzeugnis_%s.pdf' % klass,
-            mimetype='application/pdf',
-            as_attachment=True
-        )
-    # GET
-    p = Pupils(session['year'])
-    pdlist = p.classPupils(klass)
-    klasses = [k for k in p.classes() if k >= '01' and k < '13']
-    return render_template(os.path.join(_BPNAME, 'grades_klass.html'),
-                            form=form,
-                            heading=_HEADING,
-                            klass=klass,
-                            streams=p.streams(klass),
-                            klasses=klasses,
-                            pupils=[(pd['PID'], pd.name()) for pd in pdlist])
-#TODO:
-# There might be a checkbox/switch for print/pdf, but print might not
-# be available on all hosts.
-# It might be helpful to a a little javascript to implement a pupil-
-# selection toggle (all/none).
 
 #TODO: generate a zip of all classes ...
 def _allklasses(schoolyear, klasses):
@@ -295,3 +252,36 @@ def pupilview(klass, pid):
                             klass=klass,
                             pupil=pupil,
                             pupils=pupils)
+
+
+
+#TODO: remove
+"""
+Snippet, which may be useful in some context?
+
+        f = form.upload.data
+        filename = secure_filename(f.filename)
+#TODO: the folder (grades) must exist!
+        fpath = os.path.join(app.instance_path, 'grades', filename)
+        f.save(fpath)
+
+#TODO: testing – read using openpyxl, save as tsv.
+        from wz_table.spreadsheet import XLS_spreadsheet, ODS_spreadsheet
+        if f.filename.endswith('.xlsx'):
+            sheets = XLS_spreadsheet(f).sheets
+        elif f.filename.endswith('.ods'):
+            sheets = ODS_spreadsheet(f).sheets
+        else:
+            return "Invalid file: %s" % f.filename
+        with open(fpath.rsplit('.', 1)[0] + '.tsv', 'w',
+                encoding='utf-8', newline='') as fh:
+            for sheet, lines in sheets.items():
+                fh.write(':::::: %s\n' % sheet)
+                for line in lines:
+                    fh.write('\t'.join([item or '' for item in line]) + '\n')
+
+        flash('Loaded %s' % f.filename, 'Info')
+        flash('Some more info', 'Warning')
+        flash('Bad news', 'Error')
+#        return redirect(url_for('bp_grades.term', termn=termn))
+"""
