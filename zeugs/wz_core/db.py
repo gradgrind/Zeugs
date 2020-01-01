@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2019-12-30
+Last updated:  2019-12-31
 
 This module handles access to an sqlite database.
 
@@ -261,7 +261,6 @@ class DB0:
                 cmd += ' ORDER BY ' + (', '.join (order))
                 if reverse:
                     cmd += ' DESC'
-            print("???", cmd, "\n  +++", vlist)
             cur.execute (cmd, vlist)
             return cur.fetchall ()
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2019-12-23
+wz_core/pupils.py - last updated 2019-12-31
 
 Database access for reading pupil data.
 
@@ -26,10 +26,75 @@ Copyright 2019 Michael Towers
 # to mean school-class. The "k" can help to avoid confusion with
 # Python classes.
 
+from fnmatch import fnmatchcase
 from collections import OrderedDict, UserList
 
 from .db import DB
-from wz_compat.config import fromKlassStream, toKlassStream
+
+
+def fromKlassStream (klass_stream):
+    """Split a klass_stream item into klass and stream.
+    If there is no stream, set this part to <None>.
+    Return a tuple: (klass, stream).
+    """
+    try:
+        klass, stream = klass_stream.split ('.')
+        return (klass, stream)
+    except:
+        return (klass_stream, None)
+
+def toKlassStream (klass, stream, forcestream=False):
+    """Build a klass_stream name from klass and stream.
+    Stream may be <None> or other "false" value, in which case
+    just the klass is returned ...
+    However, if <forcestream> is true, stream is set to '_' if
+    there is no stream.
+    Return klass_stream as <str>.
+    """
+    return klass + '.' + stream if stream else klass
+
+
+def match_klass_stream(klass_stream, kmap):
+    """Find the first matching entry for the klass/group in the mapping list.
+    An entry in the list has the form 'klass_stream: value'.
+    "glob" (fnmatch) matching is used on the klass_stream part,
+    with one extension:
+    There may be a single '<'. The part before the '<' will be taken as
+    the minimum acceptable klass_stream. After the '<' is the part to
+    be matched.
+    Example <kmap>:
+        ['13.Gym: Abgang+Notenzeugnis/Abgang-13.html',
+         '12.Gym: Abgang+Notenzeugnis/Notenzeugnis-12_SII.html',
+         '12.*': Abgang+Notenzeugnis/Notenzeugnis-12_SI.html',
+         '05<*: Abgang+Notenzeugnis/Notenzeugnis-SI.html'
+        ]
+    Return the "stripped" value (after ':') if a match is found.
+    If the entry has no value, or if there is no matching entry,
+    return <None>.
+    """
+    for item in kmap:
+        k, v = item.split(':', 1)
+        try:
+            kmin, k = k.split('<')
+        except:
+            kmin = '00'
+        if fnmatchcase(klass_stream, k):
+            if klass_stream >= kmin:
+                return v.strip() or None
+    return None
+
+
+class KlassData:
+    def __init__(self, klass_stream):
+        self.klass, self.stream = fromKlassStream(klass_stream)
+        # Leading zero on klass names?
+        self.name = (self.klass if CONF.MISC.CLASS_LEADING_ZERO
+                else self.klass.lstrip('0'))
+#TODO: switch to klasstag (report covers!)
+#        self.klein = self.klass[-1] == 'K'      # "Kleinklasse"
+        self.klasstag = self.klass[2:]          # assumes 2-digit classes
+        self.year = self.klass[:2].lstrip('0')  # assumes 2-digit classes
+
 
 
 class PupilData (list):
@@ -83,6 +148,16 @@ class PupilData (list):
     def klassStream (self):
         return toKlassStream (self ['CLASS'], self ['STREAM'])
 
+    def toMapping(self):
+#        pmap = OrderedDict()
+#        i = 0
+#        flist = self.fields()
+#        for v in self:
+#            pmap[flist[i]] = v
+#            i += 1
+#        return pmap
+#OR?
+        return OrderedDict(map(lambda a,b: (a,b), self.fields(), self))
 
 
 class Pupils:

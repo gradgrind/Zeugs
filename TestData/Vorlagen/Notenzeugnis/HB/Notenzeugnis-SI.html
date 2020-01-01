@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-{% set schoolname = "Freie Michaelschule" %}
 <html lang="de">
   <head>
     <meta charset="utf-8">
@@ -31,8 +30,6 @@
             background: url(../Logo-Bild-grey.svg);
             background-size: 3cm auto;
             background-repeat: no-repeat;
-/* TWEAK */
-            background-position: 0 6mm;
         }
         .backpage {
             width: 17cm;
@@ -111,11 +108,15 @@
     {% set grades = pupil.grades %}
     <div class="frontpage">
         <div class="underline"
-                style="margin-left: 20mm; padding: 5mm 20mm 0 0;
+                style="margin-left: 20mm; padding-top: 5mm;
                         display: flex; justify-content: center;">
-            <h1>{{schoolname.upper()}}</h1>
-<!-- If no background logo: remove margin-left, padding -->
+            <h1>FREIE WALDORFSCHULE HANNOVER – BOTHFELD</h1>
         </div>
+<!-- Version without background logo:
+        <div class="underline"
+                style="display: flex; justify-content: center;">
+            <h1>FREIE WALDORFSCHULE HANNOVER – BOTHFELD</h1>
+        </div>-->
         <center style="font-size: 200%; margin: 15mm 0 0 0;">
             {{report_title.upper()}}
         </center>
@@ -301,7 +302,9 @@
 
     <div class="backpage">
         <div class="heading2 underline">
-            <center style="font-size: 133%">{{schoolname}}</center>
+            <center style="font-size: 133%">
+                Freie Waldorfschule Hannover-Bothfeld
+            </center>
             <div style="display: flex; width: 100%; margin: 2mm 0;
                     justify-content: space-between;">
                 <span style="width: 40mm;">
@@ -466,7 +469,7 @@
                 border: solid 0.5pt #999999;">
                 <p style="margin: 0; padding: 0.2rem;">
                     Dem Zeugnis über die Vergabe eines Abschlusses
-                    i. V. m. einer Abschlussprüfung liegt zugrunde:
+                    i. V. m. einer Abschlussprüfung liegt zugrunde:
                     „Verordnung über die Abschlüsse im Sekundarbereich I
                     der allgemein bildenden Schulen einschließlich
                     der Freien Waldorfschulen“

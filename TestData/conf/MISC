@@ -1,5 +1,5 @@
 ############## MISC
-############## Version: 2019-12-30
+############## Version: 2019-12-31
 
 ### Einstellungen, die nicht woanders gehören.
 
@@ -13,8 +13,13 @@ TERMS =& 1
 # Pro Benutzer werden maximal soviele Log-Dateien aufbewahrt
 MAXLOGFILES = 2
 
-# Für welche Klassen Notenzeugnisse normalerweise ausgegeben werden
-GRADES_FOR_CLASS = 10, 11, 12, 13
+# Wert setzen, falls leitende Nullen bei Klassennamen erscheinen sollen
+CLASS_LEADING_ZERO =
+
+# Klasse/Gruppe -> Notenskala
+GRADE_SCALE =& 13*: GRADES_A
+             & 12.Gym: GRADES_P
+             & *: GRADES
 
 # "Zwischenschnipsel" (ndl. "tussenvoegsel"), die besonderer Behandlung bei
 # der Sortierung von Namen bedürfen:
@@ -26,5 +31,10 @@ TUSSENVOEGSEL =& von
           & der
           & de
 
+#?
+# Für welche Klassen Notenzeugnisse normalerweise ausgegeben werden
+GRADES_FOR_CLASS = 10, 11, 12, 13
+
+#?
 STREAM_MAX_YEAR =& :12
                 & Gym:13

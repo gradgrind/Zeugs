@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2019-12-29
+Last updated:  2019-12-31
 
 Configuration items and the handler for the configuration files.
 
@@ -386,28 +386,6 @@ class Paths:
         return os.path.join(folder, tag + '.log')
 
 
-#This is also in wz_compat.config! Here superfluous?
-#    @classmethod
-#    def asciify (cls, string):
-#        """This converts a utf-8 string to ASCII, to ensure portable filenames
-#        are used when creating files. Also spaces are replaced by underlines.
-#        Of course that means that the result might look quite different from
-#        the input string!
-#        A few explicit conversions are given in the config file 'ASCII_SUB'.
-#        """
-#        def rsub (m):
-#            c = m.group (0)
-#            if c == ' ':
-#                return '_'
-#            try:
-#                return lookup [c]
-#            except:
-#                return '^'
-#
-#        lookup = CONF.ASCII_SUB
-#        return re.sub (cls._invalid_re, rsub, string)
-
-
 
 class Dates:
     @classmethod
@@ -445,6 +423,19 @@ class Dates:
         """Read the calendar file for the given school year.
         """
         return ConfigFile (Paths.getYearPath (schoolyear, 'FILE_CALENDAR'))
+
+
+#TODO: Is this used?
+#    @classmethod
+#    def guessTerm(cls, schoolyear):
+#        """Guess an initial value for the term field based on the current date.
+#        """
+#        today = cls.today()
+#        cal = cls.getCalendar(schoolyear)
+#        for term in CONF.MISC.TERMS:
+#            if today <= cal['REPORTS_%s' % term]:
+#                return term
+#        return CONF.MISC.TERMS[-1]
 
 
 

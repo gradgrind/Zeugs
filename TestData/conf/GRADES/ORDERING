@@ -1,22 +1,32 @@
 ############## GRADES/ORDERING
-############## Version: 2019-12-21
+############## Version: 2020-01-01
 
 ### Abitur
 A =& De
    & En
    & Fr
    & Ku
+   & _Ku
    & Mu
    
 B =& Ges
    & Ek
+   & Geo
+   & Soz
+   & Rel
 
 C =& Ma
    & Bio
    & Ch
    & Ph
    
-X =& Sp
+D =& Sp
+   & Eu
+
+X =& Kge
+   & FK
+   & Sth
+   & AWT
 
 ### Sek-I
 # Versetzungsrelevant

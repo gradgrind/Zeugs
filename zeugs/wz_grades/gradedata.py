@@ -4,13 +4,13 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2019-12-30
+Last updated:  2020-01-01
 
 Handle the data for grade reports.
 
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ Copyright 2019 Michael Towers
 # Messages
 _EXCESS_SUBJECTS = "Fachkürzel nicht in Konfigurationsdatei GRADES/ORDERING:\n  {tags}"
 _TOO_MANY_SUBJECTS = "Zu wenig Platz für Fachgruppe {group} in Vorlage:\n  {template}"
-_MISSING_GRADE = "Keine Note für Schüler {pid} im Fach {sid}"
-_UNUSED_GRADES = "Noten für Schüler {pid}, die nicht im Zeugnis erscheinen:\n  {grades}"
+_MISSING_GRADE = "Keine Note für {pname} im Fach {sid}"
+_UNUSED_GRADES = "Noten für {pname}, die nicht im Zeugnis erscheinen:\n  {grades}"
 _NO_MAPPED_GRADE = "Keine Textform für Note '{grade}'"
 _WRONG_TERM = "In Tabelle, falsches Halbjahr / Kennzeichen: {termf} (erwartet {term})"
 _INVALID_TERM = "Ungültiges Halbjahr: '{term}' (vgl. MISC.TERMS)"
@@ -50,10 +50,9 @@ from collections import OrderedDict
 
 from wz_core.configuration import Paths
 from wz_core.db import DB
-from wz_core.pupils import Pupils
+from wz_core.pupils import Pupils, toKlassStream, KlassData
 from wz_core.courses import CourseTables
-from wz_compat.config import KlassData #, getTemplateTags
-from wz_compat.config import toKlassStream
+from wz_compat.template import getTemplate, getTemplateTags
 from wz_table.dbtable import readDBTable
 #from wz_grades.makereports import makeReports
 
@@ -175,7 +174,11 @@ def db2grades(schoolyear, term, klass_stream, checkonly=False):
         else:
             gstring = None
         if gstring and not checkonly:
-            plist.append((pid, pdata.name(), grades2map(gstring)))
+            try:
+                gmap = grades2map(gstring)
+            except ValueError:
+                REPORT.Fail(_BAD_GRADE_DATA, pid=pid, term=term)
+            plist.append((pid, pdata.name(), gmap))
         else:
             plist.append((pid, pdata.name(), gstring))
     return plist
@@ -188,8 +191,10 @@ def getGradeData(schoolyear, pid, term):
     if gdata:
         # Convert the grades to a <dict>
         gmap = dict(gdata)
-        gstring = gdata['GRADES']
-        gmap['GRADES'] = grades2map(gstring) if gstring else None
+        try:
+            gmap['GRADES'] = grades2map(gdata['GRADES'])
+        except ValueError:
+            REPORT.Fail(_BAD_GRADE_DATA, pid=pid, term=term)
         return gmap
     return None
 
@@ -204,7 +209,7 @@ def grades2map(gstring):
         return grades
     except:
         if gstring:
-            REPORT.Fail(_BAD_GRADE_DATA, pid=pid, term=term)
+            raise ValueError
         # There is an entry, but no data
         return None
 
@@ -214,7 +219,8 @@ class GradeReportData:
     # <klass_stream> should probably be from the grade entry, to ensure
     # that the correct template and klass-related data is used.
     def __init__(self, schoolyear, rcat, klass_stream):
-        """<rcat> is the report category, a key to the mapping GRADE_TEMPLATES.
+        """<rcat> is the report category, a key to the mapping
+        REPORT_TEMPLATES.
         """
         self.schoolyear = schoolyear
         self.rcat = rcat
@@ -225,12 +231,8 @@ class GradeReportData:
         #### in a report template.
         self.courses = CourseTables(schoolyear)
         subjects = self.courses.filterGrades(self.klassdata.klass)
-#????:
-        self.klassdata.setTemplate(rcat)
-
-
-#        self.template = self.klassdata.template
-        alltags = getTemplateTags(self.klassdata.template)
+        self.report_type, self.template = getTemplate(rcat, klass_stream)
+        alltags = getTemplateTags(self.template)
         # Extract grade-entry tags, i.e. those matching <str>_<int>:
         gtags = {}
         for tag in alltags:
@@ -262,13 +264,13 @@ class GradeReportData:
                 except:
                     continue
         if cmap:
-            REPORT.Fail(_EXCESS_SUBJECTS, tags=repr(list(cmap)))
+            REPORT.Warn(_EXCESS_SUBJECTS, tags=repr(list(cmap)))
 
 
-    def getTagmap(self, grades, pid, grademap='GRADES'):
+    def getTagmap(self, grades, pname, grademap='GRADES'):
         """Prepare tag mapping for substitution in the report template,
-        for the pupil <pid>.
-        <grades> is a mapping {sid -> grade}
+        for the pupil <pname>.
+        <grades> is a mapping {sid -> grade}.
         <grademap> is the name of a configuration file (in 'GRADES')
         providing a grade -> text mapping.
         Expected subjects get two entries, one for the subject name and
@@ -277,7 +279,9 @@ class GradeReportData:
         "Grade" entries whose tag begins with '_' and which are not covered
         by the subject allocation are copied directly to the mapping.
         """
-        gmap = grades.copy() # keep track of unused grade entries
+        # Copy the grade mapping, because it will be modified to keep
+        # track of unused grade entries:
+        gmap = grades.copy()
         tagmap = {}
         for group, taglist in self.tags.items():
             ilist = self.indexes[group].copy()
@@ -287,7 +291,7 @@ class GradeReportData:
                     if g == _INVALID:
                         continue
                 except:
-                    REPORT.Error(_MISSING_GRADE, pid=pid, sid=tag)
+                    REPORT.Error(_MISSING_GRADE, pname=pname, sid=tag)
                     g = '?'
                 try:
                     i = ilist.pop()
@@ -313,10 +317,8 @@ class GradeReportData:
             else:
                 unused.append("%s: %s" % (sid, g))
         if unused:
-            REPORT.Error(_UNUSED_GRADES, pid=pid, grades="; ".join(unused))
+            REPORT.Error(_UNUSED_GRADES, pname=pname, grades="; ".join(unused))
         return tagmap
-
-
 
 
 

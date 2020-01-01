@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2019-12-30
+Last updated:  2019-12-31
 
 Flask Blueprint for grade reports
 
@@ -44,9 +44,8 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 #from werkzeug.utils import secure_filename
 
 from wz_core.configuration import Dates
-from wz_core.pupils import Pupils
-from wz_compat.config import toKlassStream #, sortingName
-from wz_compat.grades import GRADE_TEMPLATES, findmatching
+from wz_core.pupils import Pupils, toKlassStream, match_klass_stream
+#from wz_compat.config import sortingName
 from wz_grades.gradedata import readGradeTable, grades2db, db2grades
 from wz_grades.makereports import makeReports
 
@@ -80,14 +79,14 @@ def term(termn):
             klist = []          # klass.stream list
             for s in p.streams(c):
                 ks = toKlassStream(c, s, forcestream=True)
-                rtype_tpl = findmatching(ks, kmap)
+                rtype_tpl = match_klass_stream(ks, kmap)
                 if rtype_tpl:
                     klist.append(toKlassStream(c, s))
                     if template:
-                        if rtype_tpl[1] != template:
+                        if rtype_tpl != template:
                             allmatch = False
                     else:
-                        template = rtype_tpl[1]
+                        template = rtype_tpl
                 else:
                     allmatch = False
             if allmatch:
@@ -103,8 +102,8 @@ def term(termn):
     # Start of method
     schoolyear = session['year']
     try:
-        kmap = GRADE_TEMPLATES[termn]
-    except KeyError:
+        kmap = CONF.REPORT_TEMPLATES[termn]
+    except:
         abort(404)
     klasses = REPORT.wrap(prepare, schoolyear, termn, kmap,
             suppressok=True)

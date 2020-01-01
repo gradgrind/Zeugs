@@ -1,5 +1,5 @@
 ############## GRADES/GRADES_P
-############## Version: 2019-10-06
+############## Version: 2020-01-01
 
 ### 'Punktskala' für Noten der Abiturprüfung (12. Klasse)
 
@@ -71,6 +71,10 @@ nb = ––––––
 nt = ––––––
 #t = teilgenommen
 #* = nicht gewählt / noch nicht erteilt
-* = ––––––
 
 #ne = nicht erteilt
+
+#???
+* = ––––––
+? = ––––––
+NONE = ––––––––––

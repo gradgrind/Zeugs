@@ -3,7 +3,7 @@
 """
 wz_core/reporting.py
 
-Last updated:  2019-12-26
+Last updated:  2019-12-31
 
 Handle the basic reporting needs of the program.
 Supports various error levels and other informative output.
@@ -60,7 +60,7 @@ class Report:
         self._report = []
         return msgs
 
-    def printMessages(self, suppressok):
+    def printMessages(self, suppressok=False):
         messages = self.messages()
         try:
             outfile = self.getLogfile(messages, suppressok)

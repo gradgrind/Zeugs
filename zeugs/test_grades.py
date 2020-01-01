@@ -3,7 +3,7 @@
 """
 test_grades.py
 
-Last updated:  2019-12-22
+Last updated:  2019-12-31
 
 Run some tests on the modules in the wz_grades package.
 The final Abitur grade handling is tested separately (test_abitur).
@@ -36,3 +36,6 @@ if __name__ == '__main__':
 
     from wz_grades import gradedata
     runTests (gradedata)
+
+    from wz_grades import makereports
+    runTests (makereports)

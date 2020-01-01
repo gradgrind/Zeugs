@@ -5,7 +5,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2019-12-30
+Last updated:  2019-12-31
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -53,27 +53,27 @@ from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
-from wz_core.pupils import Pupils
-from wz_compat.config import (printSchoolYear, klassData, printStream,
-        getTemplateTags, pupilFields)
+from wz_core.pupils import Pupils, KlassData, match_klass_stream
+from wz_compat.config import printSchoolYear, printStream
+from wz_grades.gradedata import GradeReportData, db2grades
 
 
-#TODO
-def makeReports(schoolyear, termn, klass_stream, date, pids)
-#def makeReports(reportdata, date, pids=None):
-    """Build a single file containing reports for the given pupils:
-    <reportdata>: a <GradeData> instance
-    <data>: date of issue ('YYYY-MM-DD')
+def makeReports(schoolyear, term, klass_stream, date, pids=None):
+    """Build a single file containing reports for the given pupils.
+    This only works for groups with the same report type and template.
+    <term> is the term, used also as report category.
+    <date> is the date of issue ('YYYY-MM-DD').
     <pids>: a list of pids (must all be in the given klass), only
         generate reports for pupils in this list.
         If not supplied, generate reports for the whole klass/group.
     """
-    grades = db2grades(schoolyear, termn, klass_stream)
-#    reportdata.getGrades()
+    # <db2grades> -> [(pid, pname, grade map), ...]
+    grades = {pid: (pname, gmap)
+            for pid, pname, gmap in db2grades(schoolyear, term, klass_stream)
+    }
     pupils = Pupils(schoolyear)
-    plist = pupils.classPupils(klass_stream)
+    pall = pupils.classPupils(klass_stream)
     if pids:
-        pall = plist
         pset = set (pids)
         plist = []
         for pdata in pall:
@@ -85,25 +85,37 @@ def makeReports(schoolyear, termn, klass_stream, date, pids)
         if pset:
             REPORT.Bug(_PUPILS_NOT_IN_CLASS_STREAM, pids=', '.join(pset),
                     ks=klass_stream)
-
-
-
-#TODO
+    else:
+        plist = pall
+    klassData = KlassData(klass_stream)
+    reportData = GradeReportData(schoolyear, term, klass_stream)
     # Get a tag mapping for the grade data of each pupil:
+    grademap = match_klass_stream(klass_stream, CONF.MISC.GRADE_SCALE)
+
+    # Need mapping for pdata, not list!
+    pmaplist = []
     for pdata in plist:
-        pdata.grades = reportdata.getTagmap(grades, pdata['PID'])
-    source = reportdata.klassdata.template.render(
+        pmap = pdata.toMapping()
+        pname, gmap = grades[pmap['PID']]
+        pmap.grades = reportData.getTagmap(gmap, pname, grademap)
+        pmaplist.append(pmap)
+    # Generate html for the reports
+#    n = 0  # with change below, just generate nth of list
+#    print("§§§", pmaplist[n])
+    source = reportData.template.render(
+            report_type = reportData.report_type,
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
             STREAM = printStream,
-            pupils = plist,
-            klass = reportdata.klassdata
+            pupils = pmaplist,
+#            pupils = [pmaplist[n]],
+            klass = klassData
         )
-
+    # Convert to pdf
     if plist:
         html = HTML(string=source,
-                base_url=os.path.dirname(reportdata.klassdata.template.filename))
+                base_url=os.path.dirname(reportData.template.filename))
         pdfBytes = html.write_pdf(font_config=FontConfiguration())
         REPORT.Info(_MADEKREPORTS, ks=klass_stream)
         return pdfBytes
@@ -140,23 +152,42 @@ def makeOneSheet(schoolyear, date, klass_stream, report_type, pupil):
     return pdfBytes
 
 
-#deprecated:
 _year = 2016
 _date = '2016-06-22'
-_klass_stream = '10.Gym'
+_term = '1'
 def test_01():
-    classdata = klassData(_klass_stream, report_type='Zeugnis')
-    tags = getTemplateTags(classdata.template)
-    REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
+    from wz_compat.template import openTemplate, getTemplateTags, pupilFields
+    from glob import glob
+    fbase = Paths.getUserPath('DIR_TEMPLATES')
+    fx = 'Notenzeugnis/*.html'
+    fmask = os.path.join(fbase, *fx.split('/'))
+    for f in glob(fmask):
+        fname = os.path.basename(f)
+        fpath = fx.rsplit('/', 1)[0] + '/' + os.path.basename(f)
+        REPORT.Test("TEMPLATE: %s" % fpath)
+        t = openTemplate(fpath)
+        tags = getTemplateTags(t)
+        REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 
 def test_02():
-    pdfBytes = makeReports (_year, _date, _klass_stream, 'Zeugnis')
+    _klass_stream = '12.RS'
+    pdfBytes = makeReports (_year, _term, _klass_stream, _date)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-    fpath = os.path.join (folder, 'test.pdf')
+    fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
     with open(fpath, 'wb') as fh:
         fh.write(pdfBytes)
 
 def test_03():
+    _klass_stream = '12.Gym'
+    pdfBytes = makeReports (_year, _term, _klass_stream, _date)
+    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
+    fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)
+
+def test_04():
+    return
+
     pupils = Pupils(_year)
     plist = pupils.classPupils(_klass_stream)
     from types import SimpleNamespace
@@ -170,7 +201,9 @@ def test_03():
         fh.write(pdfBytes)
     REPORT.Test(" --> %s" % fpath)
 
-def test_04():
+def test_05():
+    return
+
     _klass_stream = '12.RS'
     pupils = Pupils(_year)
     plist = pupils.classPupils(_klass_stream)
