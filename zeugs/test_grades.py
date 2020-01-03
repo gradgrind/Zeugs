@@ -3,14 +3,14 @@
 """
 test_grades.py
 
-Last updated:  2019-12-31
+Last updated:  2020-01-02
 
 Run some tests on the modules in the wz_grades package.
 The final Abitur grade handling is tested separately (test_abitur).
 
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,8 +34,11 @@ from test_core import testinit, runTests
 if __name__ == '__main__':
     testinit ()
 
-    from wz_grades import gradedata
-    runTests (gradedata)
+#    from wz_grades import gradedata
+#    runTests (gradedata)
 
-    from wz_grades import makereports
-    runTests (makereports)
+#    from wz_grades import makereports
+#    runTests (makereports)
+
+    from wz_grades import gradetable
+    runTests (gradetable)

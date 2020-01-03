@@ -4,12 +4,12 @@
 """
 wz_core/courses.py
 
-Last updated:  2019-12-19
+Last updated:  2020-01-02
 
 Handler for the basic course info.
 
 =+LICENCE=============================
-Copyright 2017-2019 Michael Towers
+Copyright 2017-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -180,7 +180,7 @@ class CourseTables:
             sid = row [0]
             self._names [sid] = row [1]
             flag = row [2]
-            # Add to affected classes ({[ordered] sid -> SubjectInfo})
+            # Add to affected classes ({[ordered] sid -> teacher list})
             for klass, col in classes.items ():
                 # Handle the teacher tags
                 val = row [col]
@@ -212,7 +212,7 @@ class CourseTables:
     def filterGrades (self, klass):
         """Return the subject mapping for the given class including only
         those subjects relevant for a grade report:
-            {[ordered] sid -> namedtuple 'SubjectInfo'}
+            {[ordered] sid -> teacher list}
         """
         sids = OrderedDict ()
         for sid, tlist in self.classSubjects (klass).items ():
@@ -224,7 +224,7 @@ class CourseTables:
     def filterText (self, klass):
         """Return the subject mapping for the given class including only
         those subjects relevant for a text report:
-            {[ordered] sid -> namedtuple 'SubjectInfo'}
+            {[ordered] sid -> teacher list}
         """
         sids = OrderedDict ()
         for sid, tlist in self.classSubjects (klass).items ():

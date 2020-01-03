@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-01-01
+Last updated:  2020-01-03
 
 Handle the data for grade reports.
 
@@ -54,7 +54,6 @@ from wz_core.pupils import Pupils, toKlassStream, KlassData
 from wz_core.courses import CourseTables
 from wz_compat.template import getTemplate, getTemplateTags
 from wz_table.dbtable import readDBTable
-#from wz_grades.makereports import makeReports
 
 
 _INVALID = '/'      # Table entry for cells marked "invalid"
@@ -186,6 +185,12 @@ def db2grades(schoolyear, term, klass_stream, checkonly=False):
 
 
 def getGradeData(schoolyear, pid, term):
+    """Return all the data from the database GRADES table for the
+    given pupil as a mapping.
+    The string in field 'GRADES' is converted to a mapping. If there is
+    grade data, its validity is checked. If there is no grade data, this
+    field is <None>.
+    """
     db = DB(schoolyear)
     gdata = db.select1('GRADES', PID=pid, TERM=term)
     if gdata:
@@ -201,6 +206,9 @@ def getGradeData(schoolyear, pid, term):
 
 
 def grades2map(gstring):
+    """Convert a grade string from the database to a mapping:
+        {sid -> grade}
+    """
     try:
         grades = {}
         for item in gstring.split(';'):

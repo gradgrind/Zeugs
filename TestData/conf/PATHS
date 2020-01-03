@@ -1,5 +1,5 @@
 ############## PATHS
-############## Version: 2019-12-26
+############## Version: 2020-01-02
 
 ### Hier wird das Layout des Datenordners definiert
 
@@ -60,6 +60,10 @@ TEXT_COVER = Mantel_*.pdf
 DIR_GRADE_REPORT_TEMPLATES =& *DIR_TEMPLATES
                             & Notenzeugnis
 
+FILE_GRADE_TABLE_TEMPLATE =& *DIR_TEMPLATES
+                           & Notenzeugnis
+                           & *
+                           
 # Ordner für alle Daten, die einem Ausgabedatum entsprechen –
 # <term> ist eine Nummer für die Notenperiode (Semester o.ä).
 DIR_GRADES_BASE =& Noten_{term}
@@ -67,6 +71,11 @@ DIR_GRADES_BASE =& Noten_{term}
 # Pfad und Maske für fertige Noten-Tabellen für Gruppen
 FILE_GRADE_TABLE =& *DIR_GRADES_BASE
                   & Notentabelle_*
+
+#TEMPORARY:
+FILE_GRADE_FULL =& *DIR_GRADES_BASE
+                 & new
+                 & Notentabelle_*
 
 
 ###############################################################

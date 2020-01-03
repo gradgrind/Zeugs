@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% set schoolname = "Freie Michaelschule" %}
 <html lang="de">
   <head>
     <meta charset="utf-8">
@@ -98,6 +99,8 @@
   </head>
 
   <body>
+    {% for pupil in pupils %}
+    {% set grades = pupil.grades %}
     <div class="frontpage">
         <div class="underline"
                 style="margin-left: 20mm; padding: 0 20mm 0 0;
@@ -193,15 +196,15 @@
             </tr>
         </table>
 
-        <p style="font-size: 11pt; margin: 2mm 0 0 0">
+        <p style="margin-top: 2mm; font-size: 11pt;">
             * Diese Noten dienen nur der Orientierung und sind nicht
             einklagbar. Bei Fragen wenden Sie sich bitte an die Fachlehrkraft.
         </p>
 
-        <div style="margin: 5mm 0 0 0;
+        <div style="margin-top: 5mm;
                 display: flex; justify-content: space-between;">
             <!-- Ort, Datum -->
-            <p style="font-size: 11pt; margin: 0 0 0 0">
+            <p style="margin: 0; font-size: 11pt;">
                 Hannover, den {{todate(DATE_D)}}
             </p>
 
@@ -237,5 +240,6 @@
             </table>
         </div>
     </div>
+    {% endfor %}
   </body>
 </html>

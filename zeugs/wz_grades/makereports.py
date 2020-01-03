@@ -1,3 +1,4 @@
+# python >= 3.7
 # -*- coding: utf-8 -*-
 
 #TODO ...
@@ -5,7 +6,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2019-12-31
+Last updated:  2020-01-03
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -14,7 +15,7 @@ In the templates there are grouped and numbered slots for subject names
 and the corresponding grades.
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.

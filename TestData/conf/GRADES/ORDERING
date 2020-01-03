@@ -1,12 +1,12 @@
 ############## GRADES/ORDERING
-############## Version: 2020-01-01
+############## Version: 2020-01-03
 
 ### Abitur
 A =& De
    & En
    & Fr
    & Ku
-   & _Ku
+   & __Ku
    & Mu
    
 B =& Ges
@@ -33,7 +33,7 @@ X =& Kge
 S =& De
    & En
    & Fr
-   & _Ku
+   & __Ku
    & Mu
    & Ges
    & Soz

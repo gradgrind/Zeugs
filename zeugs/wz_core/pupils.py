@@ -1,13 +1,13 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2019-12-31
+wz_core/pupils.py - last updated 2020-01-03
 
 Database access for reading pupil data.
 
 ==============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,6 +56,8 @@ def toKlassStream (klass, stream, forcestream=False):
 
 def match_klass_stream(klass_stream, kmap):
     """Find the first matching entry for the klass/group in the mapping list.
+    The klass-stream is "normalized" so that there is always a '.'
+    between klass and stream, even if there is no stream.
     An entry in the list has the form 'klass_stream: value'.
     "glob" (fnmatch) matching is used on the klass_stream part,
     with one extension:
@@ -72,13 +74,15 @@ def match_klass_stream(klass_stream, kmap):
     If the entry has no value, or if there is no matching entry,
     return <None>.
     """
+    k, s = fromKlassStream(klass_stream)
+    ks = k + '.' + (s or '')
     for item in kmap:
         k, v = item.split(':', 1)
         try:
             kmin, k = k.split('<')
         except:
             kmin = '00'
-        if fnmatchcase(klass_stream, k):
+        if fnmatchcase(ks, k):
             if klass_stream >= kmin:
                 return v.strip() or None
     return None

@@ -1,5 +1,2 @@
 #!/bin/bash
-#../../../venv/bin/weasyprint Notenzeugnis-SI.html Notenzeugnis-SI.pdf
-#../../../venv/bin/weasyprint Notenzeugnis-12-SII.html Notenzeugnis-12-SII.pdf
-#../../../venv/bin/weasyprint test1.html test.pdf
 ../../../venv/bin/weasyprint testA.html testA.pdf
