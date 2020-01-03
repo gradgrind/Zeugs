@@ -3,12 +3,12 @@
 """
 wz_core/configuration.py
 
-Last updated:  2019-12-31
+Last updated:  2020-01-03
 
 Configuration items and the handler for the configuration files.
 
 =+LICENCE=================================
-Copyright 2017-2019 Michael Towers
+Copyright 2017-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -58,17 +58,21 @@ import builtins
 
 from .reporting import Report
 
+
 def init (userFolder, logfile=None, xlog=None):
-    if not userFolder:
-        appdir = os.path.dirname (
-                os.path.dirname (os.path.realpath (__file__)))
-        userFolder = os.path.join (os.path.dirname (appdir), 'TestData')
+    appdir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    zeugsdir = os.path.join(os.path.dirname (appdir))
+    if os.path.isfile(os.path.join(zeugsdir, 'TESTING')):
+        userFolder = os.path.join(zeugsdir, 'TestData')
+    elif not userFolder:
+        userFolder = os.path.join(zeugsdir, 'zeugs_data')
     builtins.REPORT = Report () # set up basic logging (to console)
     Paths._init (userFolder)
     if logfile:
         REPORT.logfile = logfile
     if xlog:
         REPORT.getLogfile = xlog
+    return userFolder
 
 
 def readFloat (string):

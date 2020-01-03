@@ -4,7 +4,8 @@
 ### Info-Spalten der Notentabellen, für welche Klassen/Gruppen
 ### und Halbjahre/Zeugnistypen sie relevant sind
 
-GRADE_TABLE_TEMPLATE =& 12.Gym: Notentabelle-12_SII
+GRADE_TABLE_TEMPLATE =& 13.*: Notentabelle-13
+                      & 12.Gym: Notentabelle-12_SII
 					  & *: Notentabelle
 
 ## Berechnete Felder

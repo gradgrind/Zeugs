@@ -196,7 +196,7 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
                 else:
                     table.hideCol(col, i)
         col += 1
-    print("???COLMAP:", colmap)
+#    print("???COLMAP:", colmap)
 
     ### Add pupils
     # Find first non-empty line start
@@ -212,7 +212,7 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
         table.setCell('C' + str(i), pdata['STREAM'])
         # Add existing grades
         gd = getGradeData(schoolyear, pid, term)
-        print("\n???", pid, gd)
+#        print("\n???", pid, gd)
         if gd:
             grades = gd['GRADES']
             if grades:
@@ -220,7 +220,7 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
                     try:
                         col = colmap[k]
                     except KeyError:
-                        print("!!! excess subject:", k)
+#                        print("!!! excess subject:", k)
                         continue
                     if k:
                         if k.startswith('__'):
@@ -228,7 +228,6 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
                             continue
                         table.setCell(get_column_letter(col+1) + str(i), v)
         i += 1
-
 
     ### Save file
     table.protectSheet()
@@ -242,9 +241,9 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
 ##################### Test functions
 _testyear = 2016
 def test_01():
-    for ks in '11', '12.RS', '12.Gym':
-        makeGradeTable(_testyear, '1', ks, "Noten: Eingabe bis 15.01.2016")
+    for ks in '11', '12.RS', '12.Gym', '13':
+        makeGradeTable(_testyear, '1', ks, "Noten: Einsendeschluss 15.01.2016")
 
 def test_02():
-    for ks in '10', '11', '11.Gym', '11.RS', '12.RS', '12.Gym':
-        makeGradeTable(_testyear, '2', ks, "Noten: Eingabe bis 10.06.2016")
+    for ks in '10', '11', '11.Gym', '11.RS', '12.RS', '12.Gym', '13':
+        makeGradeTable(_testyear, '2', ks, "Noten: Einsendeschluss 10.06.2016")
