@@ -1,5 +1,5 @@
 ############## GRADES/GRADE_TABLE_INFO
-############## Version: 2020-01-03
+############## Version: 2020-01-04
 
 ### Info-Spalten der Notentabellen, für welche Klassen/Gruppen
 ### und Halbjahre/Zeugnistypen sie relevant sind
@@ -7,6 +7,10 @@
 GRADE_TABLE_TEMPLATE =& 13.*: Notentabelle-13
                       & 12.Gym: Notentabelle-12_SII
 					  & *: Notentabelle
+
+GRADE_INPUT_TEMPLATE =& 13.*: Noteneingabe-SII
+                      & 12.Gym: Noteneingabe-SII
+					  & *: Noteneingabe
 
 ## Berechnete Felder
 # Notendurchschnitt (alle relevante Fächer)

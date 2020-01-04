@@ -1,5 +1,5 @@
 ############## PATHS
-############## Version: 2020-01-02
+############## Version: 2020-01-04
 
 ### Hier wird das Layout des Datenordners definiert
 
@@ -76,6 +76,10 @@ FILE_GRADE_TABLE =& *DIR_GRADES_BASE
 FILE_GRADE_FULL =& *DIR_GRADES_BASE
                  & new
                  & Notentabelle_*
+
+FILE_GRADE_INPUT =& *DIR_GRADES_BASE
+                  & new
+                  & Noten_*
 
 
 ###############################################################

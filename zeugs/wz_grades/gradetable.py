@@ -1,7 +1,7 @@
 # python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-01-03
+wz_grades/gradetable.py - last updated 2020-01-04
 
 Create attendance table for a class.
 
@@ -28,13 +28,14 @@ _UNUSED = '/'      # Subject tag for unused column
 _TOO_MANY_INFOLINES = "Zu viele Infozeilen ('#, ...'), {n} erforderlich, in:\n  {path}"
 _TOO_FEW_INFOLINES = "Zu wenige Infozeilen ('#, ...'), {n} erforderlich, in:\n  {path}"
 _MISSING_SUBJECT = "Fachkürzel {sid} fehlt in Notentabellenvorlage:\n  {path}"
-_NO_TEMPLATE = "Keine Notentabellenvorlage für Klasse/Gruppe {ks} in GRADES.GRADE_TABLE_INFO"
+_NO_TEMPLATE = "Keine Notentabelle-Vorlage für Klasse/Gruppe {ks} in GRADES.GRADE_TABLE_INFO"
+_NO_ITEMPLATE = "Keine Noteneingabe-Vorlage für Klasse/Gruppe {ks} in GRADES.GRADE_TABLE_INFO"
+_TOO_FEW_COLUMNS = "Noteneingabe-Vorlage hat zu wenige Spalten:\n  {path}"
+_TOO_FEW_COLUMNS = "Noteneingabe-Vorlage hat zu wenige Zeilen:\n  {path}"
 
 
 import datetime
-#import os
-#from collections import OrderedDict
-#from copy import copy
+from io import BytesIO
 
 from openpyxl import load_workbook
 from openpyxl.worksheet.properties import WorksheetProperties, PageSetupProperties
@@ -79,6 +80,7 @@ class Table:
         if style:
             cell.style = style
 
+
     def hideCol(self, index, clearheader=None):
         """Hide the given column (0-indexed).
         <clearheader> is the row number (1-based) of a cell to be cleared.
@@ -92,33 +94,20 @@ class Table:
             self.setCell(letter + str(clearheader+1))
 
 
-#    def getRowHeight (self, row):
-#        return self._wb.active.row_dimensions [row].height
+    def delEndCols(self, col0):
+        """Delete last columns, starting at index <col0> (0-based).
+        """
+        ndel = len(self.rows[0]) - col0
+        if ndel > 0:
+            self._wb.active.delete_cols(col0+1, ndel)
 
 
-#    def setRowHeight (self, row, height):
-#        self._wb.active.row_dimensions [row].height = height
-
-
-#    def mergeCells (self, crange):
-#        """The row and column indexes are 1-based,
-#        """
-#        self._wb.active.merge_cells (crange)
-
-
-#?
-    def page_setup (self, sheet, landscape=False, fitHeight=False, fitWidth=False):
-        ws = self._getTable (sheet)
-        ws.page_setup.orientation = (ws.ORIENTATION_LANDSCAPE if landscape
-                else ws.ORIENTATION_PORTRAIT)
-        if fitHeight or fitWidth:
-            wsprops = ws.sheet_properties
-            wsprops.pageSetUpPr = PageSetupProperties (fitToPage=True)
-#            ws.page_setup.fitToPage = True
-            if not fitHeight:
-                ws.page_setup.fitToHeight = False
-            elif not fitWidth:
-                ws.page_setup.fitToWidth = False
+    def delEndRows(self, row0):
+        """Delete last rows, starting at index <row0> (0-based).
+        """
+        ndel = len(self.rows) - row0
+        if ndel > 0:
+            self._wb.active.delete_rows(row0+1, ndel)
 
 
     def protectSheet (self, pw=None):
@@ -128,8 +117,15 @@ class Table:
             self._wb.active.protection.enable ()
 
 
-    def save (self, filepath):
-        self._wb.save (filepath + '.xlsx')
+    def save (self, filepath=None):
+        if filepath:
+            self._wb.save (filepath + '.xlsx')
+            return None
+        else:
+            virtual_workbook = BytesIO()
+            self._wb.save(virtual_workbook)
+            return virtual_workbook.getvalue()
+
 
 
 
@@ -199,17 +195,20 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
 #    print("???COLMAP:", colmap)
 
     ### Add pupils
-    # Find first non-empty line start
-    while True:
-        i += 1
-        if table.getCell('A' + str(i)):
-            break
     pupils = Pupils(schoolyear)
     for pdata in pupils.classPupils(klass_stream):
+        while True:
+            i += 1
+            try:
+                if table.rows[i][0] == 'X':
+                    break
+            except:
+                REPORT.Fail(_TOO_FEW_ROWS, path=template)
+        _row = str(i+1)
         pid = pdata['PID']
-        table.setCell('A' + str(i), pid)
-        table.setCell('B' + str(i), pdata.name())
-        table.setCell('C' + str(i), pdata['STREAM'])
+        table.setCell('A' + _row, pid)
+        table.setCell('B' + _row, pdata.name())
+        table.setCell('C' + _row, pdata['STREAM'])
         # Add existing grades
         gd = getGradeData(schoolyear, pid, term)
 #        print("\n???", pid, gd)
@@ -226,24 +225,136 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
                         if k.startswith('__'):
                             # Calculated entry
                             continue
-                        table.setCell(get_column_letter(col+1) + str(i), v)
-        i += 1
+                        table.setCell(get_column_letter(col+1) + _row, v)
+    # Delete excess rows
+    table.delEndRows(i + 1)
 
     ### Save file
     table.protectSheet()
-    filepath = Paths.getYearPath(schoolyear, 'FILE_GRADE_FULL', make=-1,
-                term=term).replace('*', klass_stream.replace('.', '-'))
-    table.save(filepath)
+#    filepath = Paths.getYearPath(schoolyear, 'FILE_GRADE_FULL', make=-1,
+#                term=term).replace('*', klass_stream.replace('.', '-'))
+#    table.save(filepath)
+    return table.save()
 
+
+def stripTable(schoolyear, term, klass_stream, title):
+    """Build a basic pupil/subject table for entering grades.
+    """
+    # Info concerning grade tables:
+    gtinfo = CONF.GRADES.GRADE_TABLE_INFO
+
+    ### Determine table template (output)
+    t = match_klass_stream(klass_stream, gtinfo.GRADE_INPUT_TEMPLATE)
+    if not t:
+        REPORT.Fail(_NO_ITEMPLATE, ks=klass_stream)
+    template = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
+    table = Table(template)
+    table.setCell('B1', title)
+    klass, stream = fromKlassStream(klass_stream)
+
+    ### Read input table template (for determining subjects and order)
+    # Determine table template (input)
+    t = match_klass_stream(klass_stream, gtinfo.GRADE_TABLE_TEMPLATE)
+    if not t:
+        REPORT.Fail(_NO_TEMPLATE, ks=klass_stream)
+    template0 = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
+    table0 = Table(template0)
+    i, x = 0, 0
+    for row0 in table0.rows:
+        i += 1
+        if row0[0] and row0[0] != '#':
+            # The subject key line
+            break
+    # <row0> is the title row.
+
+    ### Manage subjects
+    courses = CourseTables(schoolyear)
+    sid2tlist = courses.classSubjects(klass)
+#    print ("???1", list(sid2tlist))
+    # Find subject line in new file
+    i = 0
+    for row in table.rows:
+        i += 1
+        if row[0]:
+            # The subject key line
+            break
+    # <row> is a list of cell values
+    istr = str(i)   # row tag
+    # Set klass cell
+    table.setCell('A' + istr, row[0].replace('*', klass))
+    # Go through the template columns and check if they are needed:
+    col = 0
+    for sid in row0:
+        if sid and sid[0] != '_' and sid in sid2tlist:
+            sname = courses.subjectName(sid)
+            # Add subject
+            while True:
+                col += 1
+                try:
+                    if row[col] == 'X':
+                        break
+                except:
+                    REPORT.Fail(_TOO_FEW_COLUMNS, path=template)
+            table.setCell(get_column_letter(col+1) + istr, sname)
+    # Delete excess columns
+    table.delEndCols(col + 1)
+
+    ### Add pupils
+    pupils = Pupils(schoolyear)
+    for pdata in pupils.classPupils(klass_stream):
+        while True:
+            i += 1
+            try:
+                if table.rows[i][0] == 'X':
+                    break
+            except:
+                REPORT.Fail(_TOO_FEW_ROWS, path=template)
+        _row = str(i+1)
+        table.setCell('A' + _row, pdata.name())
+        table.setCell('B' + _row, pdata['STREAM'])
+    # Delete excess rows
+    table.delEndRows(i + 1)
+
+    ### Save file
+    table.protectSheet()
+#    filepath = Paths.getYearPath(schoolyear, 'FILE_GRADE_INPUT', make=-1,
+#                term=term).replace('*', klass_stream.replace('.', '-'))
+#    table.save(filepath)
+    return table.save()
 
 
 
 ##################### Test functions
 _testyear = 2016
 def test_01():
-    for ks in '11', '12.RS', '12.Gym', '13':
-        makeGradeTable(_testyear, '1', ks, "Noten: Einsendeschluss 15.01.2016")
+    _term = '1'
+    for ks in '11.RS', '11.Gym','12.RS', '12.Gym', '13':
+        bytefile = makeGradeTable(_testyear, _term, ks, "Noten: 1. Halbjahr")
+        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_FULL', make=-1,
+                term=_term).replace('*', ks.replace('.', '-')) + '.xlsx'
+        with open(filepath, 'wb') as fh:
+            fh.write(bytefile)
+        REPORT.Test(" --> %s" % filepath)
+        bytefile = stripTable(_testyear, _term, ks, "Noten: 1. Halbjahr")
+        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make=-1,
+                term=_term).replace('*', ks.replace('.', '-')) + '.xlsx'
+        with open(filepath, 'wb') as fh:
+            fh.write(bytefile)
+        REPORT.Test(" --> %s" % filepath)
+
 
 def test_02():
-    for ks in '10', '11', '11.Gym', '11.RS', '12.RS', '12.Gym', '13':
-        makeGradeTable(_testyear, '2', ks, "Noten: Einsendeschluss 10.06.2016")
+    _term = '2'
+    for ks in '10', '11.Gym', '11.RS', '12.RS', '12.Gym', '13':
+        bytefile = makeGradeTable(_testyear, _term, ks, "Noten: 1. Halbjahr")
+        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_FULL', make=-1,
+                term=_term).replace('*', ks.replace('.', '-')) + '.xlsx'
+        with open(filepath, 'wb') as fh:
+            fh.write(bytefile)
+        REPORT.Test(" --> %s" % filepath)
+        bytefile = stripTable(_testyear, _term, ks, "Noten: 1. Halbjahr")
+        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make=-1,
+                term=_term).replace('*', ks.replace('.', '-')) + '.xlsx'
+        with open(filepath, 'wb') as fh:
+            fh.write(bytefile)
+        REPORT.Test(" --> %s" % filepath)
