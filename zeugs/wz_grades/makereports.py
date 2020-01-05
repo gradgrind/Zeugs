@@ -6,7 +6,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-01-03
+Last updated:  2020-01-05
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -68,12 +68,15 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
         generate reports for pupils in this list.
         If not supplied, generate reports for the whole klass/group.
     """
-    # <db2grades> -> [(pid, pname, grade map), ...]
+    # <db2grades> returns a list: [(pid, pname, grade map), ...]
+    # <grades>: {pid -> (pname, grade map)}
     grades = {pid: (pname, gmap)
             for pid, pname, gmap in db2grades(schoolyear, term, klass_stream)
     }
     pupils = Pupils(schoolyear)
-    pall = pupils.classPupils(klass_stream)
+    pall = pupils.classPupils(klass_stream) # list of data for all pupils
+    # If a pupil list is supplied, select the required pupil data.
+    # Otherwise use the full list.
     if pids:
         pset = set (pids)
         plist = []
@@ -88,19 +91,26 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
                     ks=klass_stream)
     else:
         plist = pall
-    klassData = KlassData(klass_stream)
-    reportData = GradeReportData(schoolyear, term, klass_stream)
-    # Get a tag mapping for the grade data of each pupil:
-    grademap = match_klass_stream(klass_stream, CONF.MISC.GRADE_SCALE)
 
-    # Need mapping for pdata, not list!
+    ### Get a tag mapping for the grade data of each pupil
+    # Get the name of the relevant configuration file in folder GRADES:
+    grademap = match_klass_stream(klass_stream, CONF.MISC.GRADE_SCALE)
+    # <GradeReportData> manages the report template, etc.:
+    reportData = GradeReportData(schoolyear, term, klass_stream)
+    # General info on the klass/stream:
+    klassData = KlassData(klass_stream)
     pmaplist = []
     for pdata in plist:
+        # The pupil data needs to be a "proper" mapping, not a list,
+        # which is the default:
         pmap = pdata.toMapping()
-        pname, gmap = grades[pmap['PID']]
+        pname, gmap = grades[pmap['PID']]   # get pupil name and grade map
+        # Build a grade mapping for the tags of the template:
         pmap.grades = reportData.getTagmap(gmap, pname, grademap)
         pmaplist.append(pmap)
-    # Generate html for the reports
+
+    ### Generate html for the reports
+# Testing:
 #    n = 0  # with change below, just generate nth of list
 #    print("§§§", pmaplist[n])
     source = reportData.template.render(
@@ -153,8 +163,10 @@ def makeOneSheet(schoolyear, date, klass_stream, report_type, pupil):
     return pdfBytes
 
 
+
+##################### Test functions
 _year = 2016
-_date = '2016-06-22'
+_date = '2016-01-29'
 _term = '1'
 def test_01():
     from wz_compat.template import openTemplate, getTemplateTags, pupilFields
@@ -171,7 +183,7 @@ def test_01():
         REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 
 def test_02():
-    _klass_stream = '12.RS'
+    _klass_stream = '13'
     pdfBytes = makeReports (_year, _term, _klass_stream, _date)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
@@ -179,7 +191,7 @@ def test_02():
         fh.write(pdfBytes)
 
 def test_03():
-    _klass_stream = '12.Gym'
+    _klass_stream = '12.RS'
     pdfBytes = makeReports (_year, _term, _klass_stream, _date)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
@@ -187,6 +199,23 @@ def test_03():
         fh.write(pdfBytes)
 
 def test_04():
+    _klass_stream = '12.Gym'
+    pdfBytes = makeReports (_year, _term, _klass_stream, _date)
+    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
+    fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)
+
+def test_05():
+    _klass_stream = '11'
+    pdfBytes = makeReports (_year, _term, _klass_stream, _date)
+    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
+    fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
+    with open(fpath, 'wb') as fh:
+        fh.write(pdfBytes)
+
+
+def test_06():
     return
 
     pupils = Pupils(_year)
@@ -202,7 +231,7 @@ def test_04():
         fh.write(pdfBytes)
     REPORT.Test(" --> %s" % fpath)
 
-def test_05():
+def test_06():
     return
 
     _klass_stream = '12.RS'

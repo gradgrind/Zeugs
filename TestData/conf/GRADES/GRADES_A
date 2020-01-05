@@ -1,5 +1,5 @@
 ############## GRADES/GRADES_A
-############## Version: 2020-01-01
+############## Version: 2020-01-05
 
 ### 'Punktskala' für Noten der Abiturprüfung (13. Klasse)
 
@@ -66,5 +66,5 @@ VALID =& 15
 
 #???
 * = ––––––
-? = ––––––
+? = ???
 NONE = ––––––––––

@@ -1,5 +1,5 @@
 ############## REPORT_TEMPLATES
-############## Version: 2020-01-01
+############## Version: 2020-01-04
 
 ### Zuordnung der Zeugnisvorlagen zu den Klassen/Gruppen.
 
@@ -11,18 +11,18 @@ textcover =& 13*:
 
 ## Für Notenzeugnisse:
 
-1 =& 13.Gym: Halbjahr+Notenzeugnis/Notenzeugnis-13.html
+1 =& 13*: Halbjahr+Notenzeugnis/Notenzeugnis-13.html
    & 12.Gym: Halbjahr+Notenzeugnis/Notenzeugnis-12_SII.html
    & 12.*: Halbjahr+Notenzeugnis/Notenzeugnis-SI.html
    & 11.*: Halbjahr+Notenzeugnis/Notenzeugnis-SI.html
 
-2 =& 13.Gym: Abschluss+Notenzeugnis/Abitur.html
+2 =& 13*: Abschluss+Notenzeugnis/Abitur.html
    & 12.Gym: Zeugnis+Notenzeugnis/Notenzeugnis-12_SII.html
    & 12.*: Abschluss+Notenzeugnis/Notenzeugnis-SI.html
    & 11.*: Zeugnis+Notenzeugnis/Notenzeugnis-SI.html
    & 10.*: Orientierung+Notenzeugnis/Orientierung.html
 
-leaving =& 13.Gym: Abgang+Notenzeugnis/Abgang-13.html
+leaving =& 13*: Abgang+Notenzeugnis/Abgang-13.html
          & 12.Gym: Abgang+Notenzeugnis/Notenzeugnis-12_SII.html
          & 05<*: Abgang+Notenzeugnis/Notenzeugnis-SI.html
 

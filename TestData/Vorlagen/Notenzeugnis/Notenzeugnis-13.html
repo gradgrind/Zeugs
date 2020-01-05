@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+{% set schoolname = "Freie Michaelschule" %}
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <title>Notenzeugnis SII {{klass.name}}</title>
+    <style>
+        @font-face {
+            font-family: ZeugsFont;
+            src: url(../fonts/DroidSans.ttf);
+            font-weight: normal;
+            font-style: normal;
+        }
+        body {
+            margin: 0;
+            font-family: ZeugsFont;
+            font-size: 12pt;
+/*            color: #0019E6; */
+        }
+        @page {
+            size: A4;
+            margin: 15mm 20mm 10mm 20mm;
+        }
+
+        .frontpage {
+            width: 17cm;
+            height: 27cm;
+/*            border-style: solid;
+            border-color: red; ... for testing */
+
+            background: url(../Logo-Bild-grey.svg);
+            background-size: 3cm auto;
+            background-repeat: no-repeat;
+/* TWEAK */
+            background-position: 0 6mm;
+        }
+        .backpage {
+            width: 17cm;
+            height: 25cm;
+/*            border-style: solid;
+            border-color: green; ... for testing */
+        }
+
+        h1 {
+            font-size: 18pt;
+            font-weight: normal;
+            width: inherit;
+            margin: 0;
+            text-align: center;
+        }
+
+        .underline {
+            border-bottom: 0.5pt solid;
+        }
+        .table-title {
+            font-size: 11pt;
+            font-weight: bold;
+        }
+        .subjects {
+            margin: 2mm auto 0 auto;
+            border-collapse: collapse;
+            border-top: 1pt solid black;
+            border-bottom: 1pt solid black;
+        }
+        .subjects th {
+            font-size: 10pt;
+            height: 5mm;
+        }
+        .subjects .fach {
+            width: 90mm;
+            text-align: left;
+            padding: 0 1mm;
+        }
+        .subjects .fach span {
+            padding-left: 5mm;
+        }
+        .subjects .punkte {
+            width: 40mm;
+            text-align: center;
+        }
+        .subjects td {
+            font-size: 11pt;
+            height: 7mm;
+            border-top: 0.5pt solid black;
+        }
+        .subjects td.title2 {
+            font-size: 8pt;
+            height: 8mm;
+            text-align: left;
+            padding: 5mm 1mm 0 1mm;
+            vertical-align: middle;
+            /* border: none !important; */
+        }
+        .doubletable {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5mm;
+            border-top: 1pt solid black;
+            border-bottom: 1pt solid black;
+        }
+
+        .signbox {
+            display: inline-block;
+            width: 54mm;
+        }
+        .signbox p {
+            font-size: 80%;
+            font-style: italic;
+            text-align: center;
+            margin: 27mm 0 0 0;
+            padding: 1mm 1mm;
+            border-top: 0.5pt solid;
+        }
+         /* die Zellen der Tabelle der Notenstufen */
+        .noten {
+            width: 6mm;
+            font-size: 8pt;
+            border: 0.5pt solid #999999;
+        }
+        .leftcol { text-align: left; }
+    </style>
+  </head>
+
+  <body>
+    {% set report_title = "Halbjahreszeugnis" %}
+    {% set qphase = "Qualifikationsphase 13. Klasse" %}
+    {% set halbjahr = "1. Halbjahr" %}
+<!-- Repeat for each pupil in list -->
+    {% for pupil in pupils %}
+    {% set grades = pupil.grades %}
+    <div class="frontpage">
+<!-- If no background logo, remove margin and padding: -->
+        <div class="underline"
+                style="margin: 0 20mm; padding-top: 7mm;
+                        display: flex; justify-content: center;">
+            <h1>{{schoolname.upper()}}</h1>
+        </div>
+        <center style="font-size: 18pt; margin-top: 8mm;">
+            {{report_title.upper()}}
+        </center>
+        <center style="margin-top: 2mm;">{{qphase}}</center>
+
+        <!-- Block für Klasse und Schülerdaten -->
+        <div style="margin-top: 8mm; padding: 0 10mm">
+            <!-- Klasse und Schuljahr -->
+            <div style="margin: 0; display: flex;
+                    justify-content: center;
+                    {% if report_type in ('Abschluss', 'Abgang') %}
+                        visibility: hidden;
+                    {% endif %}">
+                <div style="width: 75mm;">
+                    <span style="display: inline-block; width: 25mm;">Schuljahr:</span>
+                    <span style="">{{SCHOOLYEAR}}</span>
+                </div>
+                <div style="width: 75mm;">
+                    <span style="display: inline-block; width: 25mm;"></span>
+                    <span style="">{{halbjahr}}</span>
+                </div>
+            </div>
+
+            <!-- Schülerdaten -->
+            <div style="margin-top: 12mm; display: flex;
+                    justify-content: center;">
+                <div style="display: flex; width: 150mm;">
+                    <span style="width: 25mm;">
+                        Name:
+                    </span>
+                    <span class="underline"
+                            style="padding: 0 1rem 0.2rem 1rem; flex-grow: 1;
+                                text-align: center;">
+                        <strong>{{pupil.FIRSTNAMES}} {{pupil.LASTNAME}}</strong>
+                    </span>
+                </div>
+            </div>
+
+            <div style="margin-top: 5mm; display: flex;
+                    justify-content: center;">
+                <div style="display: flex; width: 150mm;">
+                    <span style="width: 25mm;">
+                        geboren am
+                    </span>
+                    <span class="underline"
+                            style="width: 35mm;
+                                padding: 0 0 0.2rem 0.2rem;
+                                text-align: center;">
+                        {{todate(pupil.DOB_D)}}
+                    </span>
+                    <span style="width: 8mm;
+                            text-align: center;">
+                        in
+                    </span>
+                    <span class="underline"
+                            style="padding: 0 0 0.2rem 0; flex-grow: 1;
+                            text-align: center;">
+                        {{pupil.POB}}
+                    </span>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: flex-start;
+                    width: 150mm; margin-top: 5mm;">
+<!-- TODO: Are the date variables correct? -->
+                <span style="">
+                    ist am {{todate(pupil.QUALI_D)}} in die
+                    Qualifikationsphase eingetreten.
+                </span>
+            </div>
+        </div>
+
+<!--        <div style="margin: 0 auto; width: max-content;
+                border: 1pt solid red;"> -->
+            <div style="margin-top: 10mm;" class="table-title">
+                Fächer mit erhöhtem Anforderungsniveau
+            </div>
+            <!-- Fächer-Tabelle (Punkte): eA -->
+            <table class="subjects">
+                <tr>
+                    <th class="fach"><span>Fach</span></th>
+                    <th class="punkte">Punkte</th>
+                </tr>
+                <tr>
+                    <td class="fach">{{grades['E_1_N']}}</td>
+                    <td class="punkte">{{grades['E_1']}}</td>
+                </tr>
+                <tr>
+                    <td class="fach">{{grades['E_2_N']}}</td>
+                    <td class="punkte">{{grades['E_2']}}</td>
+                </tr>
+                <tr>
+                    <td class="fach">{{grades['E_3_N']}}</td>
+                    <td class="punkte">{{grades['E_3']}}</td>
+                </tr>
+            </table>
+
+            <div style="margin-top: 8mm;" class="table-title">
+                Fächer mit grundlegendem Anforderungsniveau
+            </div>
+            <!-- Fächer-Tabelle (Punkte): gA -->
+            <table class="subjects">
+                <tr>
+                    <th class="fach"><span>Fach</span></th>
+                    <th class="punkte">Punkte</th>
+                </tr>
+                <tr>
+                    <td class="fach">{{grades['G_1_N']}}</td>
+                    <td class="punkte">{{grades['G_1']}}</td>
+                </tr>
+                <tr>
+                    <td class="fach">{{grades['G_2_N']}}</td>
+                    <td class="punkte">{{grades['G_2']}}</td>
+                </tr>
+                <tr>
+                    <td class="fach">{{grades['G_3_N']}}</td>
+                    <td class="punkte">{{grades['G_3']}}</td>
+                </tr>
+                <tr>
+                    <td class="fach">{{grades['G_4_N']}}</td>
+                    <td class="punkte">{{grades['G_4']}}</td>
+                </tr>
+                <tr>
+                    <td class="fach">{{grades['G_5_N']}}</td>
+                    <td class="punkte">{{grades['G_5']}}</td>
+                </tr>
+            </table>
+<!--         </div> -->
+
+        <!-- Ort, Datum -->
+        <p style="margin-top: 8mm">
+            Hannover, den {{todate(DATE_D)}}
+        </p>
+
+        <!-- Unterschriften -->
+        <div style="display: flex; justify-content: space-between;
+                margin-top: 1mm;">
+            <div class="signbox">
+                <p>Klassenlehrer/in</p>
+            </div>
+
+            <!--Siegel -->
+            <div style="
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                width: 42mm;
+                height: 36mm;
+                border: solid 0.5pt #999999;">
+                <p style="font-size: 9pt; color: #999999;">Siegel</p>
+            </div>
+
+            <div class="signbox">
+                <p>Schulleiter/in</p>
+            </div>
+        </div>
+
+        <!-- Notenstufen -->
+        <div style="width: 100%; padding-top: 2mm;">
+            <table style="border-collapse: collapse; width:100%; text-align: center;">
+                <tr>
+                    <td colspan="17" class="noten leftcol"
+                            style="font-size: 10pt;">
+                        Für die Umrechnung der 6-Noten-Skala in das
+                        Punktesystem gilt folgender Schlüssel:
+                    </td>
+                </tr>
+                <tr>
+                    <td class="noten leftcol">Notenstufe</td>
+                    <td class="noten" colspan="3">sehr gut</td>
+                    <td class="noten" colspan="3">gut</td>
+                    <td class="noten" colspan="3">befriedigend</td>
+                    <td class="noten" colspan="3">ausreichend</td>
+                    <td class="noten" colspan="3">mangelhaft</td>
+                    <td class="noten" style="width: 18mm">ungenügend</td>
+                </tr>
+                <tr>
+                    <td class="noten leftcol">Note</td>
+                    <td class="noten">1+</td>
+                    <td class="noten">1</td>
+                    <td class="noten">1-</td>
+                    <td class="noten">2+</td>
+                    <td class="noten">2</td>
+                    <td class="noten">2-</td>
+                    <td class="noten">3+</td>
+                    <td class="noten">3</td>
+                    <td class="noten">3-</td>
+                    <td class="noten">4+</td>
+                    <td class="noten">4</td>
+                    <td class="noten">4-</td>
+                    <td class="noten">5+</td>
+                    <td class="noten">5</td>
+                    <td class="noten">5-</td>
+                    <td class="noten">6</td>
+                </tr>
+                <tr>
+                    <td class="noten leftcol">Punktzahl</td>
+                    <td class="noten">15</td>
+                    <td class="noten">14</td>
+                    <td class="noten">13</td>
+                    <td class="noten">12</td>
+                    <td class="noten">11</td>
+                    <td class="noten">10</td>
+                    <td class="noten">09</td>
+                    <td class="noten">08</td>
+                    <td class="noten">07</td>
+                    <td class="noten">06</td>
+                    <td class="noten">05</td>
+                    <td class="noten">04</td>
+                    <td class="noten">03</td>
+                    <td class="noten">02</td>
+                    <td class="noten">01</td>
+                    <td class="noten">00</td>
+                </tr>
+            </table>
+        </div>
+    {% endfor %}
+  </body>
+</html>

@@ -34,11 +34,11 @@ from test_core import testinit, runTests
 if __name__ == '__main__':
     testinit ()
 
-#    from wz_grades import gradedata
-#    runTests (gradedata)
+    from wz_grades import gradedata
+    runTests (gradedata)
 
-#    from wz_grades import makereports
-#    runTests (makereports)
+    from wz_grades import makereports
+    runTests (makereports)
 
-    from wz_grades import gradetable
-    runTests (gradetable)
+#    from wz_grades import gradetable
+#    runTests (gradetable)

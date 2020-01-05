@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-01-03
+Last updated:  2020-01-05
 
 Handle the data for grade reports.
 
@@ -28,8 +28,8 @@ Copyright 2019-2020 Michael Towers
 """
 
 # Messages
-_EXCESS_SUBJECTS = "Fachkürzel nicht in Konfigurationsdatei GRADES/ORDERING:\n  {tags}"
-_TOO_MANY_SUBJECTS = "Zu wenig Platz für Fachgruppe {group} in Vorlage:\n  {template}"
+_TOO_MANY_SUBJECTS = ("Zu wenig Platz für Fachgruppe {group} in Vorlage:"
+        "\n  {template}\n  {pname}: {sids}")
 _MISSING_GRADE = "Keine Note für {pname} im Fach {sid}"
 _UNUSED_GRADES = "Noten für {pname}, die nicht im Zeugnis erscheinen:\n  {grades}"
 _NO_MAPPED_GRADE = "Keine Textform für Note '{grade}'"
@@ -43,6 +43,8 @@ _UNKNOWN_PUPIL = "In Notentabelle: unbekannte Schüler-ID – {pid}"
 _NOPUPILS = "Keine (gültigen) Schüler in Notentabelle"
 _NEWGRADES = "Noten für {n} Schüler aktualisiert ({year}/{term}: {klass})"
 _BAD_GRADE_DATA = "Fehlerhafte Notendaten für Schüler PID={pid}, TERM={term}"
+_UNGROUPED_SID = ("Fach fehlt in Fachgruppen (in GRADES.ORDERING): {sid}"
+        "\n  Vorlage: {tfile}")
 
 
 import os
@@ -128,6 +130,9 @@ def grades2db(schoolyear, gtable, term=None):
             # The table may include just a subset of the pupils
             continue
         p2_ks[pid] = toKlassStream(klass, pdata['STREAM'])
+
+#TODO: Sanitize input ... only valid grades?
+
     for pid in gtable:
         REPORT.Error(_UNKNOWN_PUPIL, pid=pid)
     # Now enter to database
@@ -235,14 +240,12 @@ class GradeReportData:
         self.klass_stream = klass_stream
         self.klassdata = KlassData(klass_stream)
 
-        #### Set up categorized, ordered lists of grade fields for insertion
-        #### in a report template.
-        self.courses = CourseTables(schoolyear)
-        subjects = self.courses.filterGrades(self.klassdata.klass)
+        ### Set up categorized, ordered lists of grade fields for insertion
+        ### in a report template.
         self.report_type, self.template = getTemplate(rcat, klass_stream)
         alltags = getTemplateTags(self.template)
         # Extract grade-entry tags, i.e. those matching <str>_<int>:
-        gtags = {}
+        gtags = {}      # {subject group -> [(unsorted) index<int>, ...]}
         for tag in alltags:
             try:
                 group, index = tag.split('_')
@@ -253,69 +256,87 @@ class GradeReportData:
                 gtags[group].append(i)
             except:
                 gtags[group] = [i]
+        # Build a sorted mapping of index lists:
+        #   {subject group -> [(reverse sorted) index<int>, ...]}
+        # The reversal is for popping in correct order.
+        self.sgroup2indexes = {group: sorted(gtags[group], reverse=True)
+                for group in gtags}
+#        print("\n??? alltags", alltags)
+#        print("\n??? self.sgroup2indexes", self.sgroup2indexes)
 
-        # Check courses and tags against ordering data
-        cmap = {tag.split('.')[0]: tag for tag in subjects}
-        self.tags = {}       # ordered subject tags for subject groups
-        self.indexes = {}    # ordered index lists for subject groups
-        for group, otags in CONF.GRADES.ORDERING.items():
-            try:
-                self.indexes[group] = sorted(gtags[group], reverse=True)
-            except KeyError:
-                continue
-            tlist = []
-            self.tags[group] = tlist
-            for tag in otags:
-                # Pick out the subject tags which are relevant for the klass
+        ### Sort the subject tags into ordered groups
+        self.courses = CourseTables(schoolyear)
+        subjects = self.courses.filterGrades(self.klassdata.klass)
+        # Build a mapping: {subject group -> [(ordered) sid, ...]}
+        self.sgroup2sids = {}
+        for group in self.sgroup2indexes:
+            sidlist = []
+            self.sgroup2sids[group] = sidlist
+            # CONF.GRADES.ORDERING: {subject group -> [(ordered) sid, ...]}
+            for sid in CONF.GRADES.ORDERING[group]:
+                # Include only sids relevant for the klass.
                 try:
-                    tlist.append(cmap.pop(tag))
+                    del(subjects[sid])
+                    sidlist.append(sid)
                 except:
-                    continue
-        if cmap:
-            REPORT.Warn(_EXCESS_SUBJECTS, tags=repr(list(cmap)))
+                    pass
+        # Entries remaining in <subjects> are not covered in ORDERING.
+        # Report those not starting with '_':
+        for sid in subjects:
+            if sid[0] != '_':
+                REPORT.Error(_UNGROUPED_SID, sid=sid, tfile=self.template.filename)
 
 
     def getTagmap(self, grades, pname, grademap='GRADES'):
         """Prepare tag mapping for substitution in the report template,
         for the pupil <pname>.
-        <grades> is a mapping {sid -> grade}.
+        <grades> is a mapping {sid -> grade}, or something similar which
+        can be handled by <dict(grades)>.
         <grademap> is the name of a configuration file (in 'GRADES')
         providing a grade -> text mapping.
-        Expected subjects get two entries, one for the subject name and
-        one for the grade. They are allocated according to the numbered
-        slots according to the predefined ordering (config: GRADES/ORDERING).
+        Grouped subjects expected by the template get two entries:
+        one for the subject name and one for the grade. They are allocated
+        according to the numbered slots defined for the predefined ordering
+        (config: GRADES/ORDERING).
         "Grade" entries whose tag begins with '_' and which are not covered
-        by the subject allocation are copied directly to the mapping.
+        by the data in GRADES/ORDERING are copied directly to the output
+        mapping.
+        Return a mapping {template tag -> replacement text}.
         """
+        tagmap = {}                     # for the result
+        g2text = CONF.GRADES[grademap]  # grade -> text representation
         # Copy the grade mapping, because it will be modified to keep
         # track of unused grade entries:
-        gmap = grades.copy()
-        tagmap = {}
-        for group, taglist in self.tags.items():
-            ilist = self.indexes[group].copy()
-            for tag in taglist:
+        gmap = dict(grades)     # this accepts a variety of input types
+        for group, sidlist in self.sgroup2sids.items():
+            # Copy the indexes because the list is modified here (<pop()>)
+            indexes = self.sgroup2indexes[group].copy()
+            for sid in sidlist:
                 try:
-                    g = gmap.pop(tag)
-                    if g == _INVALID:
-                        continue
+                    g = gmap.pop(sid)
                 except:
-                    REPORT.Error(_MISSING_GRADE, pname=pname, sid=tag)
+                    REPORT.Error(_MISSING_GRADE, pname=pname, sid=sid)
                     g = '?'
+                if g == _INVALID:
+                    continue
                 try:
-                    i = ilist.pop()
+                    i = indexes.pop()
                 except:
                     REPORT.Fail(_TOO_MANY_SUBJECTS, group=group,
+                            pname=pname, sids=repr(sidlist),
                             template=self.template.filename)
-                tagmap["%s_%d_N" % (group, i)] = self.courses.subjectName(tag)
-                try:
-                    tagmap["%s_%d" % (group, i)] = CONF.GRADES[grademap][g]
-                except:
-                    REPORT.Fail(_NO_MAPPED_GRADE, grade=g)
+                sname = self.courses.subjectName(sid).split('|')[0].rstrip()
+                tagmap["%s_%d_N" % (group, i)] = sname
+                g1 = g2text.get(g)
+                if not g1:
+                    REPORT.Error(_NO_MAPPED_GRADE, grade=g)
+                    g1 = '?'
+                tagmap["%s_%d" % (group, i)] = g1
             # Process superfluous indexes
-            NONE = CONF.GRADES[grademap].NONE
-            for i in ilist:
-                tagmap["%s_%d_N" % (group, i)] = NONE
-                tagmap["%s_%d" % (group, i)] = NONE
+            for i in indexes:
+                tagmap["%s_%d_N" % (group, i)] = g2text.NONE
+                tagmap["%s_%d" % (group, i)] = g2text.NONE
+        # Report unused grade entries
         unused = []
         for sid, g in gmap.items():
             if g == _INVALID:
@@ -333,11 +354,14 @@ class GradeReportData:
 
 ##################### Test functions
 _testyear = 2016
-_klass = '12.RS'
-_term = 1
-_pid = '200403'
-_date = '2016-06-22'
+#_klass = '12.RS'
+_klass = '13'
+_term = '1'
+#_pid = '200403'
+_pid = '200301'
+_date = '2016-01-29'
 def test_01 ():
+    from wz_core.pupils import match_klass_stream
     REPORT.Test("Reading basic grade data for class %s" % _klass)
 #TODO: This might not be the optimal location for this file.
     filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_TABLE',
@@ -345,15 +369,17 @@ def test_01 ():
     pgrades = readGradeTable(filepath)
     REPORT.Test(" ++ INFO: %s" % repr(pgrades.info))
     for pid, grades in pgrades.items():
-        REPORT.Test("\n  -- %s: %s" % (pid, repr(grades)))
-    return
+        REPORT.Test("\n  -- %s: %s\n" % (pid, repr(grades)))
 
     REPORT.Test("\nReading template data for class %s" % _klass)
-    REPORT.Test("  Grade tags:\n  %s" % repr(gradedata.tags))
-    REPORT.Test("  Indexes:\n  %s" % repr(gradedata.indexes))
+    gradedata = GradeReportData(_testyear, _term, _klass)
+    REPORT.Test("  Indexes:\n  %s" % repr(gradedata.sgroup2indexes))
+    REPORT.Test("  Grade tags:\n  %s" % repr(gradedata.sgroup2sids))
 
-    REPORT.Test("\nTemplate grade map for pupil %s, class %s" % (_pid, _klass))
-    tagmap = gradedata.getTagmap(pgrades, _pid)
+    grademap = match_klass_stream(_klass, CONF.MISC.GRADE_SCALE)
+    REPORT.Test("\nTemplate grade map for pupil %s (using %s)" %
+            (_pid, grademap))
+    tagmap = gradedata.getTagmap(pgrades[_pid], "Pupil_%s" % _pid, grademap)
     REPORT.Test("  Grade tags:\n  %s" % repr(tagmap))
 
 def test_02():
@@ -363,26 +389,3 @@ def test_02():
     for filepath in files:
         pgrades = readGradeTable(filepath)
         grades2db(_testyear, pgrades)
-
-def test_03():
-    return
-
-    from wz_table.dbtable import dbTable
-    fmap = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
-    filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_TABLE',
-                term=_term).replace('*', _klass.replace('.', '-'))
-    pgrades = dbTable(filepath, fmap)
-# This contains empty entries (None)
-    REPORT.Test(" ++ INFO: %s" % repr(pgrades.info))
-    for pid, grades in pgrades.items():
-        REPORT.Test("\n  -- %s: %s" % (pid, repr(grades)))
-    return
-
-    REPORT.Test("Build reports for class %s" % _klass)
-    gradedata = GradeData(_testyear, _term, _klass, 'Zeugnis')
-    pdfBytes = makeReports(gradedata, _date)
-    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-    fpath = os.path.join (folder, 'test.pdf')
-    with open(fpath, 'wb') as fh:
-        fh.write(pdfBytes)
-    REPORT.Test("  -> %s" % fpath)

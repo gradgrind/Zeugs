@@ -1,7 +1,7 @@
 ############## GRADES/ORDERING
-############## Version: 2020-01-03
+############## Version: 2020-01-05
 
-### Abitur
+### Abitur (12. Kl.)
 A =& De
    & En
    & Fr
@@ -28,6 +28,22 @@ X =& Kge
    & Sth
    & AWT
 
+### Abitur (13. Kl.)
+# eA
+E =& De.e
+   & En.e
+   & Ges.e
+   & Bio.e
+   
+# gA
+G =& Ma.g
+   & En.m
+   & Fr.m
+   & Bio.m
+   & Ku.m
+   & Mu.m
+   & Sp.m
+
 ### Sek-I
 # Versetzungsrelevant
 S =& De
@@ -48,6 +64,7 @@ S =& De
    
 # Künstlerisch-praktisch
 K =& Eu
+   & Bb
    & FK
    & Kge
    & Ktr

@@ -42,7 +42,7 @@
         }
 
         h1 {
-            font-size: 150%;
+            font-size: 18pt;
             font-weight: normal;
             width: inherit;
             margin: 0;
@@ -110,11 +110,11 @@
     {% for pupil in pupils %}
     {% set grades = pupil.grades %}
     <div class="frontpage">
+<!-- If no background logo, remove margin and padding: -->
         <div class="underline"
-                style="margin-left: 20mm; padding: 5mm 20mm 0 0;
+                style="margin: 0 20mm; padding-top: 7mm;
                         display: flex; justify-content: center;">
             <h1>{{schoolname.upper()}}</h1>
-<!-- If no background logo: remove margin-left, padding -->
         </div>
         <center style="font-size: 200%; margin: 15mm 0 0 0;">
             {{report_title.upper()}}
