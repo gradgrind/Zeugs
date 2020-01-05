@@ -417,7 +417,6 @@ class Dates:
         except:
             if trap:
                 REPORT.Error (_INVALIDDATE, date=repr (date))
-                raise
                 return "00.00.0000"
             else:
                 return None
