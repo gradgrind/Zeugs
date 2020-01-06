@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-03
+wz_core/pupils.py - last updated 2020-01-06
 
 Database access for reading pupil data.
 
@@ -65,10 +65,10 @@ def match_klass_stream(klass_stream, kmap):
     the minimum acceptable klass_stream. After the '<' is the part to
     be matched.
     Example <kmap>:
-        ['13.Gym: Abgang+Notenzeugnis/Abgang-13.html',
-         '12.Gym: Abgang+Notenzeugnis/Notenzeugnis-12_SII.html',
-         '12.*': Abgang+Notenzeugnis/Notenzeugnis-12_SI.html',
-         '05<*: Abgang+Notenzeugnis/Notenzeugnis-SI.html'
+        ['13.Gym: Notenzeugnis/Abgang-13.html',
+         '12.Gym: Notenzeugnis/Notenzeugnis-12_SII.html',
+         '12.*': Notenzeugnis/Notenzeugnis-12_SI.html',
+         '05<*: Notenzeugnis/Notenzeugnis-SI.html'
         ]
     Return the "stripped" value (after ':') if a match is found.
     If the entry has no value, or if there is no matching entry,
@@ -153,14 +153,6 @@ class PupilData (list):
         return toKlassStream (self ['CLASS'], self ['STREAM'])
 
     def toMapping(self):
-#        pmap = OrderedDict()
-#        i = 0
-#        flist = self.fields()
-#        for v in self:
-#            pmap[flist[i]] = v
-#            i += 1
-#        return pmap
-#OR?
         return OrderedDict(map(lambda a,b: (a,b), self.fields(), self))
 
 

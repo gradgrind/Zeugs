@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-01-05
+Last updated:  2020-01-06
 
 Handle the data for grade reports.
 
@@ -34,7 +34,6 @@ _MISSING_GRADE = "Keine Note für {pname} im Fach {sid}"
 _UNUSED_GRADES = "Noten für {pname}, die nicht im Zeugnis erscheinen:\n  {grades}"
 _NO_MAPPED_GRADE = "Keine Textform für Note '{grade}'"
 _WRONG_TERM = "In Tabelle, falsches Halbjahr / Kennzeichen: {termf} (erwartet {term})"
-_INVALID_TERM = "Ungültiges Halbjahr: '{term}' (vgl. MISC.TERMS)"
 _INVALID_YEAR = "Ungültiges Schuljahr: '{val}'"
 _WRONG_YEAR = "Falsches Schuljahr: '{year}'"
 _INVALID_KLASS = "Ungültige Klasse: {ks}"
@@ -46,16 +45,69 @@ _BAD_GRADE_DATA = "Fehlerhafte Notendaten für Schüler PID={pid}, TERM={term}"
 _UNGROUPED_SID = ("Fach fehlt in Fachgruppen (in GRADES.ORDERING): {sid}"
         "\n  Vorlage: {tfile}")
 
+"""
+#??? for checking report types
+_TERM_NO_REPORT_TYPE = "Zeugnistyp-Liste für _{term} fehlt in REPORT_TEMPLATES"
+_NO_REPORT_TYPE = "Notentabelle enthält keinen Zeugnistyp (info)"
+_REPORT_KLASS_MISMATCH = ("Zeugnistyp-Konflikte (Gruppen) in Notentabelle"
+        " für Halbjahr {term}")
+_NO_REPORT_KLASS_MATCH = ("Kein Zeugnistyp in REPORT_TEMPLATES für Klasse {ks},"
+        " Halbjahr {term}")
+
+#???? Rather in report generation!
+    # Determine report type
+    try:
+        rtype = gtable.info['REPORT_TYPE']
+        if not rtype:
+            REPORT.Fail(_NO_REPORT_TYPE)
+    except KeyError:
+        try:
+            kmap = CONF.REPORT_TEMPLATES['_' + rtag]
+        except KeyError:
+            if rtag in CONF.MISC.TERMS:
+                REPORT.Fail(_TERM_NO_REPORT_TYPE, term=rtag)
+            else:
+                REPORT.Fail(_NO_REPORT_TYPE)
+        # Get report type from term & klass_stream(s)
+        rtype = None
+        for ks in set(p2_ks.values()):
+            m = match_klass_stream(ks, kmap)
+            if m:
+                if rtype:
+                    if m != rtype:
+                        REPORT.Fail(_REPORT_KLASS_MISMATCH, term=rtag)
+                else:
+                    rtype = m
+            else:
+                REPORT.Fail(_NO_REPORT_KLASS_MATCH, ks=ks, term=rtag)
+"""
+
 
 import os
 from collections import OrderedDict
 
 from wz_core.configuration import Paths
-from wz_core.db import DB
-from wz_core.pupils import Pupils, toKlassStream, KlassData
+from wz_core.db import DB, UpdateError
+from wz_core.pupils import Pupils, toKlassStream, KlassData, match_klass_stream
 from wz_core.courses import CourseTables
-from wz_compat.template import getTemplate, getTemplateTags
+from wz_compat.template import openTemplate, getTemplateTags
 from wz_table.dbtable import readDBTable
+
+
+def getTemplate(rtype, klass_stream):
+    """Return the matching template for the given klass/group and
+    report type.
+    """
+    tlist = CONF.REPORT_TEMPLATES[rtype]
+    tfile = match_klass_stream(klass_stream, tlist)
+    if tfile:
+#        print ("???", tfile)
+        return openTemplate(tfile)
+    else:
+        REPORT.Bug("Invalid grade report category for class {ks}: {rtype}",
+                ks=klass_stream,
+                rtype=rtype)
+
 
 
 _INVALID = '/'      # Table entry for cells marked "invalid"
@@ -95,22 +147,25 @@ def readGradeTable(filepath):
 
 def grades2db(schoolyear, gtable, term=None):
     """Enter the grades from the given table into the database.
+    <schoolyear> is checked against the value in the info part of the
+    table (gtable.info['SCHOOLYEAR']).
+    <term>, if given, is only used as a check against the value in the
+    info part of the table (gtable.info['TERM']).
     """
-    t = gtable.info.get('TERM', '–––')
-    if term:
-        if term != t:
-            REPORT.Fail(_WRONG_TERM, term=term, termf=t)
-    else:
-        term = t
-        if term not in CONF.MISC.TERMS:
-            REPORT.Fail(_INVALID_TERM, term=term)
+    # Check school-year
     try:
         y = gtable.info.get('SCHOOLYEAR', '–––')
         yn = int(y)
-    except:
+    except ValueError:
         REPORT.Fail(_INVALID_YEAR, val=y)
     if yn != schoolyear:
         REPORT.Fail(_WRONG_YEAR, year=y)
+    # Check term
+    rtag = gtable.info.get('TERM', '–––')
+    if term:
+        if term != rtag:
+            REPORT.Fail(_WRONG_TERM, term=term, termf=rtag)
+    # Check klass
     klass = gtable.info.get('CLASS', '–––')
     # Check validity
     pupils = Pupils(schoolyear)
@@ -120,6 +175,7 @@ def grades2db(schoolyear, gtable, term=None):
             raise ValueError
     except:
         REPORT.Fail(_INVALID_KLASS, ks=klass)
+    # Filter the relevant pids
     p2grades = {}
     p2_ks = {}
     for pdata in plist:
@@ -130,32 +186,50 @@ def grades2db(schoolyear, gtable, term=None):
             # The table may include just a subset of the pupils
             continue
         p2_ks[pid] = toKlassStream(klass, pdata['STREAM'])
+    # Anything left unhandled in <gtable>?
+    for pid in gtable:
+        REPORT.Error(_UNKNOWN_PUPIL, pid=pid)
 
 #TODO: Sanitize input ... only valid grades?
 
-    for pid in gtable:
-        REPORT.Error(_UNKNOWN_PUPIL, pid=pid)
     # Now enter to database
     if p2grades:
         db = DB(schoolyear)
         for pid, grades in p2grades.items():
             gstring = ';'.join([g + '=' + v for g, v in grades.items()])
             db.updateOrAdd('GRADES',
-                    {   'CLASS_STREAM': p2_ks[pid], 'PID': pid, 'TERM': term,
+                    {   'CLASS_STREAM': p2_ks[pid], 'PID': pid, 'TERM': rtag,
                         'REPORT_TYPE': None, 'DATE_D': None, 'GRADES': gstring
                     },
-                    TERM=term,
+                    TERM=rtag,
                     PID=pid
             )
         REPORT.Info(_NEWGRADES, n=len(p2grades),
-                klass=klass, year=schoolyear, term=term)
+                klass=klass, year=schoolyear, term=rtag)
     else:
         REPORT.Warn(_NOPUPILS)
 
 
 
+def updateGradeReport(schoolyear, pid, term, date, rtype):
+    """Update grade database when building reports.
+    Update only DATE_D and REPORT_TYPE fields.
+    """
+    db = DB(schoolyear)
+    try:
+        db.updateOrAdd ('GRADES',
+                {'DATE_D': date, 'REPORT_TYPE': rtype},
+                update_only=True,
+                PID=pid, TERM=term
+        )
+    except UpdateError:
+        REPORT.Bug("No entry in db, table GRADES for: PID={pid}, TERM={term}",
+                pid=pid, term=term)
+
+
+
 def db2grades(schoolyear, term, klass_stream, checkonly=False):
-    """Fetch the grades for the given klass, term, schoolyear.
+    """Fetch the grades for the given klass, term/tag, schoolyear.
     Return a list [(pid, pname, {subject -> grade}), ...]
     """
     plist = []
@@ -192,6 +266,7 @@ def db2grades(schoolyear, term, klass_stream, checkonly=False):
 def getGradeData(schoolyear, pid, term):
     """Return all the data from the database GRADES table for the
     given pupil as a mapping.
+    <term> is the report category, e.g. a term.
     The string in field 'GRADES' is converted to a mapping. If there is
     grade data, its validity is checked. If there is no grade data, this
     field is <None>.
@@ -231,18 +306,17 @@ def grades2map(gstring):
 class GradeReportData:
     # <klass_stream> should probably be from the grade entry, to ensure
     # that the correct template and klass-related data is used.
-    def __init__(self, schoolyear, rcat, klass_stream):
-        """<rcat> is the report category, a key to the mapping
+    def __init__(self, schoolyear, rtype, klass_stream):
+        """<rtype> is the report type, a key to the mapping
         REPORT_TEMPLATES.
         """
         self.schoolyear = schoolyear
-        self.rcat = rcat
         self.klass_stream = klass_stream
         self.klassdata = KlassData(klass_stream)
 
         ### Set up categorized, ordered lists of grade fields for insertion
         ### in a report template.
-        self.report_type, self.template = getTemplate(rcat, klass_stream)
+        self.template = getTemplate(rtype, klass_stream)
         alltags = getTemplateTags(self.template)
         # Extract grade-entry tags, i.e. those matching <str>_<int>:
         gtags = {}      # {subject group -> [(unsorted) index<int>, ...]}
@@ -354,13 +428,14 @@ class GradeReportData:
 
 ##################### Test functions
 _testyear = 2016
-#_klass = '12.RS'
-_klass = '13'
-_term = '1'
-#_pid = '200403'
-_pid = '200301'
-_date = '2016-01-29'
 def test_01 ():
+    #_klass = '12.RS'
+    _klass = '13'
+    _term = '1'
+    #_pid = '200403'
+    _pid = '200301'
+    _date = '2016-01-29'
+
     from wz_core.pupils import match_klass_stream
     REPORT.Test("Reading basic grade data for class %s" % _klass)
 #TODO: This might not be the optimal location for this file.
@@ -372,7 +447,10 @@ def test_01 ():
         REPORT.Test("\n  -- %s: %s\n" % (pid, repr(grades)))
 
     REPORT.Test("\nReading template data for class %s" % _klass)
-    gradedata = GradeReportData(_testyear, _term, _klass)
+
+    # Get the report type from the term and klass/stream
+    _rtype = match_klass_stream(_klass, CONF.REPORT_TEMPLATES['_' + _term])
+    gradedata = GradeReportData(_testyear, _rtype, _klass)
     REPORT.Test("  Indexes:\n  %s" % repr(gradedata.sgroup2indexes))
     REPORT.Test("  Grade tags:\n  %s" % repr(gradedata.sgroup2sids))
 

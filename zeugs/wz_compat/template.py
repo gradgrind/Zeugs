@@ -4,13 +4,13 @@
 """
 wz_compat/template.py
 
-Last updated:  2019-12-31
+Last updated:  2020-01-06
 
 Functions for template handling.
 
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -83,21 +83,6 @@ def pupilFields(tags):
         if b == 'pupil':
             fields.append((f, name[f]))
     return fields
-
-
-def getTemplate(rcat, klass_stream):
-#TODO: self.final is deprecated – use self.report_type ('Abgang')
-#            self.final = self.klass.startswith('12') # highest class (text reports)
-    # Get report templates
-    tlist = CONF.REPORT_TEMPLATES[rcat]
-    val = match_klass_stream(klass_stream, tlist)
-    if val:
-        report_type, tfile = val.split('+')
-        return (report_type, openTemplate(tfile))
-    else:
-        REPORT.Bug("Invalid grade report category for class {ks}: {rcat}",
-                ks=klass_stream,
-                rcat=rcat)
 
 
 

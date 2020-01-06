@@ -1,15 +1,15 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_core/db.py
 
-Last updated:  2019-12-31
+Last updated:  2020-01-06
 
 This module handles access to an sqlite database.
 
 =+LICENCE=============================
-Copyright 2017-2019 Michael Towers
+Copyright 2017-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -292,11 +292,13 @@ class DB0:
                     ' AND '.join (clist)), vlist)
 
 
-    def updateOrAdd (self, table, data, **criteria):
+    def updateOrAdd (self, table, data, update_only=False, **criteria):
         """If an entry matching the criteria exists, update it with the
         given data (ignoring unsupplied fields).
         If there is no matching entry, add it, leaving unsupplied fields
         empty.
+        <data> is a mapping {field name -> new value}.
+        If <update_only> is true, check that an update occurred.
         In order for this to work as desired, there must be at least one
         constraint (e.g. UNIQUE) to ensure that the INSERT fails if the
         UPDATE has succeeded.
@@ -320,6 +322,14 @@ class DB0:
                     ', '.join(ufields),
                     ' AND '.join(clist)),
                     vlist + cvlist)
+            if cur.rowcount > 1:
+                REPORT.Bug("More than one line updated in db, table {table}:\n"
+                        "  {criteria} -> {data}", table=table,
+                        criteria=repr(criteria),
+                        data=repr(data)
+                )
+            if update_only and cur.rowcount < 1:
+                raise UpdateError
             cmd = 'INSERT OR IGNORE INTO {}({}) VALUES({})'.format(table,
                             ','.join(fields),
                             ','.join(['?']*len(fields)))
@@ -447,55 +457,13 @@ class DB (DB0):
 
 
 
+class UpdateError(IndexError):
+    pass
+
+
+
 #def namedtuple_factory(cursor, row):
 #    """Returns sqlite rows as named tuples."""
 #    fields = [col [0] for col in cursor.description]
 #    Row = namedtuple ("Row", fields)
 #    return Row (*row)
-
-
-#deprecated?
-#class PupilsFieldnames (OrderedDict):
-    """Ordered field name mapping for the PUPILS database table.
-    In addition, a non-ordered reversed mapping is produced at
-    <self.rfieldmap>.
-    It can also contain information for reading and transforming data
-    from an external source, if <extended=True>. In this case the
-    keys of the reversed mapping are set to upper case (to be more
-    tolerant of dodgy input), and the transformation data is at
-    <self.fieldmods>.
-    """
-
-    """
-    def __init__ (self, extended=False):
-        super ().__init__ ()
-        # Get ordered field name mapping for the raw table.
-        # The config file has: internal name -> table name.
-        self.rfieldnames = {}
-        self.fieldmods = {}
-        for f, val in CONFIG.TABLES.PUPILDB_FIELDNAMES.items ():
-            if f [0] == '*':
-                # A transformation specification
-                if extended:
-                    tlist = []
-                    f0 = f [1:]
-                    self.fieldmods [f0] = tlist
-
-                    for tspec in val:
-                        try:
-                            tparms = tspec.split (tspec [0])
-                            method = tparms [1]
-                            tlist.append ((method, tparms [2:]))
-                        except:
-                            REPORT.Fail (_BADTRANSFORM, key=f, val=tspec)
-                            assert False
-                continue
-
-            val = val.string ()
-            self [f] = val
-            # Reverse the mapping. If <extended>, ensure raw headers
-            # are upper case.
-            if extended:
-                val = val.upper ()
-            self.rfieldnames [val] = f
-    """
