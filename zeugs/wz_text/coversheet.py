@@ -4,13 +4,13 @@
 """
 wz_text/coversheet.py
 
-Last updated:  2019-12-15
+Last updated:  2020-01-08
 
 Build the outer sheets (cover sheets) for the text reports.
 User fields in template files are replaced by the report information.
 
 =+LICENCE=============================
-Copyright 2017-2019 Michael Towers
+Copyright 2017-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ Copyright 2017-2019 Michael Towers
 
 _PUPILSNOTINCLASS   = "Schüler {pids} nicht in Klasse {klass}"
 _NOPUPILS           = "Mantelbogen: keine Schüler"
-#_NOTEMPLATE         = "Vorlagedatei (Mantelbogen) fehlt für Klasse {klass}:\n  {path} "
 _MADEKCOVERS        = "Mantelbögen für Klasse {klass} wurden erstellt"
 _MADEPCOVER         = "Mantelbogen für {pupil} wurde erstellt"
 _BADPID             = "Schüler {pid} nicht in Klasse {klass}"
@@ -40,9 +39,9 @@ from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
-from wz_core.pupils import Pupils
-from wz_compat.config import (printSchoolYear, klassData,
-        getTemplateTags, pupilFields)
+from wz_core.pupils import Pupils, KlassData
+from wz_compat.config import printSchoolYear
+from wz_compat.template import getTemplate, getTemplateTags, pupilFields
 
 
 def makeSheets (schoolyear, date, klass, pids=None):
@@ -68,18 +67,20 @@ def makeSheets (schoolyear, date, klass, pids=None):
             plist.append(pdata)
         if pset:
             REPORT.Bug(_PUPILSNOTINCLASS, pids=', '.join(pset), klass=klass)
-    classdata = klassData(klass)
-    source = classdata.template.render(
+
+    template = getTemplate('Mantelbogen', klass)
+    klassdata = KlassData(klass)
+    source = template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
             pupils = plist,
-            klass = classdata
+            klass = klassdata
         )
 
     if plist:
         html = HTML (string=source,
-                base_url=os.path.dirname (classdata.template.filename))
+                base_url=os.path.dirname (template.filename))
         pdfBytes = html.write_pdf(font_config=FontConfiguration())
         REPORT.Info(_MADEKCOVERS, klass=klass)
         return pdfBytes
@@ -92,31 +93,30 @@ def makeOneSheet(schoolyear, date, klass, pupil):
     <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
     <klass>: name of the school-class
-    <pupil>: An object (e.g. <SimpleNamespace>) with the pupil data as
-    attributes (pupil.field = val)
+    <pupil>: a <PupilData> instance for the pupil whose report is to be built
     """
-    classdata = klassData(klass)
-    source = classdata.template.render(
+    template = getTemplate('Mantelbogen', klass)
+    klassdata = KlassData(klass)
+    source = template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
             pupils = [pupil],
-            klass = classdata
+            klass = klassdata
         )
     html = HTML (string=source,
-            base_url=os.path.dirname (classdata.template.filename))
+            base_url=os.path.dirname (template.filename))
     pdfBytes = html.write_pdf(font_config=FontConfiguration())
-    REPORT.Info(_MADEPCOVER, pupil=pupil.FIRSTNAMES + ' ' + pupil.LASTNAME)
+    REPORT.Info(_MADEPCOVER, pupil=pupil.name())
     return pdfBytes
-
 
 
 _year = 2016
 _date = '2016-06-22'
-_klass = '10'
+_klass = '09'
 def test_01():
-    classdata = klassData(_klass, report_type='text')
-    tags = getTemplateTags(classdata.template)
+    template = getTemplate('Mantelbogen', _klass)
+    tags = getTemplateTags(template)
     REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 
 def test_02():
@@ -128,12 +128,11 @@ def test_02():
     REPORT.Test(" --> %s" % fpath)
 
 def test_03():
+    _klass = '12K'
     pupils = Pupils(_year)
     plist = pupils.classPupils(_klass)
-    from types import SimpleNamespace
-    p = plist[0]
-    pmap = {f: p[f] for f in p.fields()}
-    pdfBytes = makeOneSheet(_year, _date, _klass, SimpleNamespace(**pmap))
+    pdata = plist[0]
+    pdfBytes = makeOneSheet(_year, _date, _klass, pdata)
     folder = Paths.getUserPath ('DIR_TEXT_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test1.pdf')
     with open(fpath, 'wb') as fh:

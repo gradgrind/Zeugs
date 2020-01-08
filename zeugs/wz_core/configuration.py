@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_core/configuration.py
 
-Last updated:  2020-01-03
+Last updated:  2020-01-08
 
 Configuration items and the handler for the configuration files.
 
@@ -201,7 +201,6 @@ class ConfigFile (OrderedDict):
         if name in self:
             return self.get (name)
         REPORT.Fail (_CONFIGITEMFAIL, name=name, path=self._path)
-        assert False
 
     def __init__ (self, fpath):
         """Read in a configuration text and add its contents to the
@@ -209,12 +208,17 @@ class ConfigFile (OrderedDict):
         """
         def firstLine (_line):
             _l = _line.lstrip ()
-            if _l == '':
-                return None
-            if _l [0] == '|':
-                return _l [1:]
-            if _l [0] in ('+', '/'):
-                REPORT.Fail (_APPENDNONE, path=fpath, line=line)
+            try:
+                l0 = _l [0]
+                if _l [0] == '|':
+                    return _l [1:]
+            except IndexError:
+                pass
+            else:
+                if l0 == '|':
+                    return _l [1:]
+                if l0 in ('+', '/'):
+                    REPORT.Fail (_APPENDNONE, path=fpath, line=line)
             return _l
 
         def clearkey ():
@@ -429,7 +433,7 @@ class Dates:
         return ConfigFile (Paths.getYearPath (schoolyear, 'FILE_CALENDAR'))
 
 
-#TODO: Is this used?
+#TODO: Is this useful?
 #    @classmethod
 #    def guessTerm(cls, schoolyear):
 #        """Guess an initial value for the term field based on the current date.

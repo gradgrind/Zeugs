@@ -4,7 +4,7 @@
 """
 wz_compat/template.py
 
-Last updated:  2020-01-06
+Last updated:  2020-01-08
 
 Functions for template handling.
 
@@ -33,6 +33,21 @@ import jinja2
 
 from wz_core.configuration import Paths, Dates
 from wz_core.pupils import fromKlassStream, match_klass_stream
+
+
+def getTemplate(rtype, klass_stream):
+    """Return the matching template for the given klass/group and
+    report type.
+    """
+    tlist = CONF.REPORT_TEMPLATES[rtype]
+    tfile = match_klass_stream(klass_stream, tlist)
+    if tfile:
+#        print ("???", tfile)
+        return openTemplate(tfile)
+    else:
+        REPORT.Bug("Invalid report category for class {ks}: {rtype}",
+                ks=klass_stream,
+                rtype=rtype)
 
 
 ##### Jinja template handling #####

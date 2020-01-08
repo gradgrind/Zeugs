@@ -4,13 +4,13 @@
 """
 wz_compat/config.py
 
-Last updated:  2019-12-31
+Last updated:  2020-01-08
 
 Functions for handling configuration for a particular location.
 
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -44,18 +44,6 @@ def printStream(stream):
         'RS': 'Realschule'
     }.get(stream, '–––––')
 
-
-class KlassData:
-    def __init__(self, klass_stream):
-        self.klass_stream = klass_stream
-        self.klass, self.stream = fromKlassStream(klass_stream)
-        # Leading zero on klass names?
-        self.name = (self.klass if CONF.MISC.CLASS_LEADING_ZERO
-                else self.klass.lstrip('0'))
-#TODO: switch to klasstag (report covers!)
-#        self.klein = self.klass[-1] == 'K'      # "Kleinklasse"
-        self.klasstag = self.klass[2:]          # assumes 2-digit classes
-        self.year = self.klass[:2].lstrip('0')  # assumes 2-digit classes
 
 
 ####### Name Sorting #######

@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-01-06
+Last updated:  2020-01-08
 
 Handle the data for grade reports.
 
@@ -45,43 +45,6 @@ _BAD_GRADE_DATA = "Fehlerhafte Notendaten für Schüler PID={pid}, TERM={term}"
 _UNGROUPED_SID = ("Fach fehlt in Fachgruppen (in GRADES.ORDERING): {sid}"
         "\n  Vorlage: {tfile}")
 
-"""
-#??? for checking report types
-_TERM_NO_REPORT_TYPE = "Zeugnistyp-Liste für _{term} fehlt in REPORT_TEMPLATES"
-_NO_REPORT_TYPE = "Notentabelle enthält keinen Zeugnistyp (info)"
-_REPORT_KLASS_MISMATCH = ("Zeugnistyp-Konflikte (Gruppen) in Notentabelle"
-        " für Halbjahr {term}")
-_NO_REPORT_KLASS_MATCH = ("Kein Zeugnistyp in REPORT_TEMPLATES für Klasse {ks},"
-        " Halbjahr {term}")
-
-#???? Rather in report generation!
-    # Determine report type
-    try:
-        rtype = gtable.info['REPORT_TYPE']
-        if not rtype:
-            REPORT.Fail(_NO_REPORT_TYPE)
-    except KeyError:
-        try:
-            kmap = CONF.REPORT_TEMPLATES['_' + rtag]
-        except KeyError:
-            if rtag in CONF.MISC.TERMS:
-                REPORT.Fail(_TERM_NO_REPORT_TYPE, term=rtag)
-            else:
-                REPORT.Fail(_NO_REPORT_TYPE)
-        # Get report type from term & klass_stream(s)
-        rtype = None
-        for ks in set(p2_ks.values()):
-            m = match_klass_stream(ks, kmap)
-            if m:
-                if rtype:
-                    if m != rtype:
-                        REPORT.Fail(_REPORT_KLASS_MISMATCH, term=rtag)
-                else:
-                    rtype = m
-            else:
-                REPORT.Fail(_NO_REPORT_KLASS_MATCH, ks=ks, term=rtag)
-"""
-
 
 import os
 from collections import OrderedDict
@@ -90,24 +53,8 @@ from wz_core.configuration import Paths
 from wz_core.db import DB, UpdateError
 from wz_core.pupils import Pupils, toKlassStream, KlassData, match_klass_stream
 from wz_core.courses import CourseTables
-from wz_compat.template import openTemplate, getTemplateTags
+from wz_compat.template import getTemplate, getTemplateTags
 from wz_table.dbtable import readDBTable
-
-
-def getTemplate(rtype, klass_stream):
-    """Return the matching template for the given klass/group and
-    report type.
-    """
-    tlist = CONF.REPORT_TEMPLATES[rtype]
-    tfile = match_klass_stream(klass_stream, tlist)
-    if tfile:
-#        print ("???", tfile)
-        return openTemplate(tfile)
-    else:
-        REPORT.Bug("Invalid grade report category for class {ks}: {rtype}",
-                ks=klass_stream,
-                rtype=rtype)
-
 
 
 _INVALID = '/'      # Table entry for cells marked "invalid"

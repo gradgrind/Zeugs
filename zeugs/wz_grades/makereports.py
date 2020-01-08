@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-01-06
+Last updated:  2020-01-08
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -102,14 +102,11 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
     klassData = KlassData(klass_stream)
     pmaplist = []
     for pdata in plist:
-        # The pupil data needs to be a "proper" mapping, not a list,
-        # which is the default:
-        pmap = pdata.toMapping()
-        pid = pmap['PID']
+        pid = pdata['PID']
         pname, gmap = grades[pid]   # get pupil name and grade map
         # Build a grade mapping for the tags of the template:
-        pmap.grades = reportData.getTagmap(gmap, pname, grademap)
-        pmaplist.append(pmap)
+        pdata.grades = reportData.getTagmap(gmap, pname, grademap)
+        pmaplist.append(pdata)
         # Update grade database
         updateGradeReport(schoolyear, pid, term,
                 date=date,
@@ -141,22 +138,15 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
 
 
 
-def makeOneSheet(schoolyear, date, klass_stream, pid, term, rtype):
+def makeOneSheet(schoolyear, date, pdata, term, rtype):
     """
     <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
-    <klass_stream>: name of the school-class and stream ("klass.stream")
-    <pid>: id of the pupil for whom a report is to be built
+    <pdata>: a <PupilData> instance for the pupil whose report is to be built
     <term>: keys the grades in the database
     <rtype>: report category, determines template
     """
-    pupils = Pupils(schoolyear)
-    pall = pupils.classPupils(klass_stream) # list of data for all pupils
-    pdata = pall.pidmap[pid]
-    # The pupil data must be a "proper" mapping, not a list (the default):
-    pmap = pdata.toMapping()
-    pid = pmap['PID']
-
+    pid = pdata['PID']
     # Read database entry for the grades
     gradedata = getGradeData(schoolyear, pid, term)
     gmap = gradedata['GRADES']  # grade mapping
@@ -170,7 +160,7 @@ def makeOneSheet(schoolyear, date, klass_stream, pid, term, rtype):
     # Get the name of the relevant configuration file in folder GRADES:
     grademap = match_klass_stream(klass_stream, CONF.MISC.GRADE_SCALE)
     # Build a grade mapping for the tags of the template:
-    pmap.grades = reportData.getTagmap(gmap, pname, grademap)
+    pdata.grades = reportData.getTagmap(gmap, pname, grademap)
     # Update grade database
     updateGradeReport(schoolyear, pid, term,
             date=date,
@@ -179,12 +169,12 @@ def makeOneSheet(schoolyear, date, klass_stream, pid, term, rtype):
 
     ### Generate html for the reports
     source = reportData.template.render(
-            report_type = report_type,
+            report_type = rtype,
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
             STREAM = printStream,
-            pupils = [pmap],
+            pupils = [pdata],
             klass = klassData
         )
     # Convert to pdf
@@ -248,17 +238,16 @@ def test_05():
 
 
 def test_06():
-    return
-
+#TODO: Perhaps if _GS is set, the type should be overriden?
+    _klass = '12'
+    _pid = '200407'
     pupils = Pupils(_year)
-    plist = pupils.classPupils(_klass_stream)
-    from types import SimpleNamespace
-    p = plist[0]
-    pmap = {f: p[f] for f in p.fields()}
-    pdfBytes = makeOneSheet(_year, _date, _klass_stream, 'Abgang',
-            SimpleNamespace(**pmap))
+    pall = pupils.classPupils(_klass) # list of data for all pupils
+    pdata = pall.pidmap[_pid]
+    pdfBytes = makeOneSheet(_year, '2016-02-03', pdata, _term, 'Abgang')
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-    fpath = os.path.join (folder, 'test1.pdf')
+    ptag = pdata['PSORT'].replace(' ', '_')
+    fpath = os.path.join (folder, 'test_%s_Abgang.pdf' % ptag)
     with open(fpath, 'wb') as fh:
         fh.write(pdfBytes)
     REPORT.Test(" --> %s" % fpath)

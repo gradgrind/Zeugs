@@ -1,43 +1,22 @@
 ############## REPORT_TEMPLATES
-############## Version: 2020-01-06
+############## Version: 2020-01-08
 
 ### Zuordnung der Zeugnisvorlagen zu den Klassen/Gruppen.
 
 ## Für Textzeugnisse:
 
-#TODO:
-textcover =& 13*:
-           & 12*: Abgang+Textzeugnis/CoverSheet.html
-           & *: Zeugnis+Textzeugnis/CoverSheet.html
+Mantelbogen =& 13*:
+             & 12*: Textzeugnis/CoverSheet.html
+             & *: Textzeugnis/CoverSheet.html
+
 
 ## Für Notenzeugnisse:
-
-#1 =& 13*: Halbjahr+Notenzeugnis/Notenzeugnis-13.html
-#   & 12.Gym: Halbjahr+Notenzeugnis/Notenzeugnis-12_SII.html
-#   & 12.*: Halbjahr+Notenzeugnis/Notenzeugnis-SI.html
-#   & 11.*: Halbjahr+Notenzeugnis/Notenzeugnis-SI.html
-
-#2 =& 13*: Abschluss+Notenzeugnis/Abitur.html
-#   & 12.Gym: Zeugnis+Notenzeugnis/Notenzeugnis-12_SII.html
-#   & 12.*: Abschluss+Notenzeugnis/Notenzeugnis-SI.html
-#   & 11.*: Zeugnis+Notenzeugnis/Notenzeugnis-SI.html
-#   & 10.*: Orientierung+Notenzeugnis/Orientierung.html
-
-#leaving =& 13*: Abgang+Notenzeugnis/Abgang-13.html
-#         & 12.Gym: Abgang+Notenzeugnis/Notenzeugnis-12_SII.html
-#         & 05<*: Abgang+Notenzeugnis/Notenzeugnis-SI.html
-
-#normal =& 11<*:
-#        & 05<*: Zwischenzeugnis+Notenzeugnis/Notenzeugnis-SI.html
-
-
-###################### Better?:
 
 #TODO: 11. Kl. term 1: Orientierung? (at least RS?)
 
 ## Halbjahr -> entsprechende Zeugnistypen
 # Setze '_' vor dem Halbjahr, um den Schlüssel zu bilden:
-_1 =& 11.<*: Halbjahr
+_1 =& 11<??.*: Halbjahr
 
 _2 =& 13*: Abschluss
     & 12.Gym: Zeugnis
@@ -52,7 +31,7 @@ Halbjahr =& 13*: Notenzeugnis/Notenzeugnis-13.html
 
 Zeugnis =& 13*: Notenzeugnis/Notenzeugnis-13.html
          & 12.Gym: Notenzeugnis/Notenzeugnis-12_SII.html
-         & 11.<*: Notenzeugnis/Notenzeugnis-SI.html
+         & 11<??.*: Notenzeugnis/Notenzeugnis-SI.html
 
 Abschluss =& 13*: Notenzeugnis/Abitur.html
            & 12.Gym:
@@ -60,9 +39,14 @@ Abschluss =& 13*: Notenzeugnis/Abitur.html
 
 Orientierung =& 10.*: Notenzeugnis/Orientierung.html
 
-Abgang =& 13*: Notenzeugnis/Abgang-13.html
-        & 12.Gym: Notenzeugnis/Notenzeugnis-12_SII.html
-        & 05<*: Notenzeugnis/Notenzeugnis-SI.html
+# Abgang aus der Qualifikationsphase (mit Punkten)
+AbgangQ =& 13*: Notenzeugnis/Abgang-Q.html
+        & 12.Gym: Notenzeugnis/Abgang-Q.html
 
-Zwischenzeugnis =& 11<*:
-                 & 05<*: Notenzeugnis/Notenzeugnis-SI.html
+# Abgang SekI oder 12.Gym mit Noten aus der 11. Klasse:
+Abgang =& 13*:
+        & 12.Gym: Notenzeugnis/Notenzeugnis-SI.html
+        & 05<??.*: Notenzeugnis/Notenzeugnis-SI.html
+
+Zwischenzeugnis =& 11<??.*:
+                 & 05<??.*: Notenzeugnis/Notenzeugnis-SI.html

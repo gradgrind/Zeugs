@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-06
+wz_core/pupils.py - last updated 2020-01-08
 
 Database access for reading pupil data.
 
@@ -83,7 +83,7 @@ def match_klass_stream(klass_stream, kmap):
         except:
             kmin = '00'
         if fnmatchcase(ks, k):
-            if klass_stream >= kmin:
+            if ks >= kmin:
                 return v.strip() or None
     return None
 
