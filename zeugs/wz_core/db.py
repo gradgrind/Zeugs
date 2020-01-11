@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-01-06
+Last updated:  2020-01-11
 
 This module handles access to an sqlite database.
 
@@ -89,6 +89,8 @@ class DB0:
     def _checkDB (self):
         """Check that all necessary tables are present.
         """
+        if not self.tableExists ('INFO'):
+            self.makeTable2 ('INFO', ('K', 'V'), index=['K'])
         if not self.tableExists ('GRADES'):
             self.makeTable2 ('GRADES', GRADE_FIELDS, index=GRADE_UNIQUE)
 #TODO ...
@@ -277,7 +279,6 @@ class DB0:
             return None
         REPORT.Fail (_DBMULTIPLERECORDS, path=self.filepath,
                 table=table, select=repr (criteria))
-        assert False
 
 
     def update (self, table, key, val, **criteria):
@@ -443,6 +444,23 @@ class DB0:
             cmd = 'DELETE FROM {} WHERE {}'.format (table,
                     ' AND '.join (clist))
             cur.execute (cmd, vlist)
+
+
+    def getInfo(self, key):
+        """Return a value from the INFO table (key -> value).
+        """
+        return self.select1('INFO', K=key)['V']
+
+
+    def setInfo(self, key, value):
+        """Update (or add) an entry in the INFO table (key -> value).
+        The INFO table must have 'UNIQUE' K field.
+        """
+        with self._dbcon as con:
+            cur = con.cursor()
+            cur.execute('UPDATE INFO SET V=? WHERE K=?', [value, key])
+            cur.execute('INSERT OR IGNORE INTO INFO(K, V) VALUES(?, ?)',
+                    [key, value])
 
 
 

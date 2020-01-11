@@ -4,7 +4,7 @@
 """
 wz_compat/template.py
 
-Last updated:  2020-01-08
+Last updated:  2020-01-11
 
 Functions for template handling.
 
@@ -84,7 +84,8 @@ def getTemplateTags(template):
 
 
 def pupilFields(tags):
-    """Find the pupil data fields needed for a grade report.
+    """Find the pupil data fields needed for a report by inspecting the
+    template.
     <tags> is a set of possible elements from '{{ ... }}' blocks.
     Return a list of pairs: [(internal tag, display name), ...].
     """

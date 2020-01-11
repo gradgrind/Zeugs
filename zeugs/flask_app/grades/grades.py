@@ -4,12 +4,12 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2019-12-31
+Last updated:  2020-01-10
 
 Flask Blueprint for grade reports
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ def term(termn):
     # Start of method
     schoolyear = session['year']
     try:
-        kmap = CONF.REPORT_TEMPLATES[termn]
+        kmap = CONF.REPORT_TEMPLATES['_' + termn]
     except:
         abort(404)
     klasses = REPORT.wrap(prepare, schoolyear, termn, kmap,
@@ -143,8 +143,7 @@ def klassview(termn, klass_stream):
             flash("** Keine Schüler ... **", "Warning")
 
     # GET
-    cal = Dates.getCalendar(schoolyear)
-    form.DATE_D.data = datetime.date.fromisoformat(cal['REPORTS_' + termn])
+    form.DATE_D.data = datetime.date.today ()
     pdlist = db2grades(schoolyear, termn, klass_stream, checkonly=True)
     return render_template(os.path.join(_BPNAME, 'klass.html'),
                             form=form,

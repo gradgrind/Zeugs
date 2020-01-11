@@ -4,12 +4,12 @@
 """
 flask_app/text_cover/text_cover.py
 
-Last updated:  2019-12-10
+Last updated:  2020-01-11
 
 Flask Blueprint for text report cover sheets
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ Copyright 2019 Michael Towers
 """
 
 from flask import (Blueprint, render_template, request, session,
-        send_file, url_for)
+        send_file, url_for, flash, abort)
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
@@ -39,18 +39,32 @@ import datetime, io, os
 from types import SimpleNamespace
 
 from wz_core.configuration import Dates
-from wz_core.pupils import Pupils
+from wz_core.db import DB
+from wz_core.pupils import Pupils, match_klass_stream
 from wz_compat.config import sortingName
-from wz_text.coversheet import makeSheets, pupilFields, makeOneSheet
+from wz_compat.template import getTemplate, getTemplateTags, pupilFields
+from wz_text.coversheet import makeSheets, makeOneSheet
 
 _HEADING = "Textzeugnis"
 
-#TODO: the date should be saved with the year ...
-_date = '2020-07-15'
 class DateForm(FlaskForm):
     DATE_D = DateField('Ausgabedatum',
-                            default=datetime.date.fromisoformat(_date),
                             validators=[InputRequired()])
+
+    def getDate(self):
+        return self.DATE_D.data.isoformat()
+
+    def defaultIssueDate(self, schoolyear):
+        db = DB(schoolyear)
+        _date = db.getInfo('TEXT_DATE_OF_ISSUE')
+        if not _date:
+            _date = Dates.getCalendar(schoolyear).get('END')
+            if not _date:
+                flash("Schuljahresende ('END') fehlt im Kalender für %d"
+                        % schoolyear, 'Error')
+                _date = Dates.today()
+        self.DATE_D.data = datetime.date.fromisoformat(_date)
+
 
 # Set up Blueprint
 _BPNAME = 'bp_text_cover'
@@ -61,13 +75,23 @@ bp = Blueprint(_BPNAME,             # internal name of the Blueprint
 @bp.route('/', methods=['GET','POST'])
 #@admin_required
 def index():
-    p = Pupils(session['year'])
-    klasses = [k for k in p.classes() if k >= '01' and k < '13']
-#TODO: Maybe a validity test for text report classes?
-#TODO: DATE_D
+    schoolyear = session['year']
+    form = DateForm()
+    if form.validate_on_submit():
+        # POST
+        # Store date of issue
+        _date = form.getDate()
+        db = DB(schoolyear)
+        db.setInfo('TEXT_DATE_OF_ISSUE', _date)
+
+    # GET
+    form.defaultIssueDate(schoolyear)
+    p = Pupils(schoolyear)
+    _kmap = CONF.REPORT_TEMPLATES['Mantelbogen']
+    klasses = [k for k in p.classes() if match_klass_stream(k, _kmap)]
     return render_template(os.path.join(_BPNAME, 'index.html'),
+                            form=form,
                             heading=_HEADING,
-                            DATE_D=Dates.dateConv(_date),
                             klasses=klasses) #['01', '01K', '02', '02K', '03', '03K']
 
 
@@ -75,10 +99,12 @@ def index():
 #@admin_required
 def klassview(klass):
     form = DateForm()
+    # Set date
+    schoolyear = session['year']
     if form.validate_on_submit():
         # POST
-        _d = form.DATE_D.data.isoformat()
-        pdfBytes = makeSheets (session['year'], _d, klass,
+        _d = form.getDate()
+        pdfBytes = makeSheets (schoolyear, _d, klass,
 #TODO check list not empty ...
                 pids=request.form.getlist('Pupil'))
         return send_file(
@@ -88,14 +114,13 @@ def klassview(klass):
             as_attachment=True
         )
     # GET
-    p = Pupils(session['year'])
+    form.defaultIssueDate(schoolyear)
+    p = Pupils(schoolyear)
     pdlist = p.classPupils(klass)
-    klasses = [k for k in p.classes() if k >= '01' and k < '13']
     return render_template(os.path.join(_BPNAME, 'text_cover_klass.html'),
                             form=form,
                             heading=_HEADING,
                             klass=klass,
-                            klasses=klasses,
                             pupils=[(pd['PID'], pd.name()) for pd in pdlist])
 #TODO:
 # There might be a checkbox/switch for print/pdf, but print might not
@@ -111,13 +136,18 @@ def _allklasses(schoolyear, klasses):
 @bp.route('/pupil/<klass>/<pid>', methods=['GET','POST'])
 #@admin_required
 def pupilview(klass, pid):
-    fields = pupilFields(klass)
+    schoolyear = session['year']
+    template = getTemplate('Mantelbogen', klass)
+    tags = getTemplateTags(template)
+    _fields = dict(pupilFields(tags))
+    fields = [(f0, f1) for f0, f1 in CONF.TABLES.PUPILS_FIELDNAMES.items()
+            if f0 in _fields]
     form = DateForm()
     if form.validate_on_submit():
         # POST
-        _d = form.DATE_D.data.isoformat()
+        _d = form.getDate()
         pupil = SimpleNamespace (**{f: request.form[f] for f, _ in fields})
-        pdfBytes = makeOneSheet(session['year'], _d, klass, pupil)
+        pdfBytes = makeOneSheet(schoolyear, _d, klass, pupil)
         return send_file(
             io.BytesIO(pdfBytes),
             attachment_filename='Mantel_%s.pdf' % sortingName(
@@ -126,17 +156,16 @@ def pupilview(klass, pid):
             as_attachment=True
         )
     # GET
-    p = Pupils(session['year'])
-    pdlist = p.classPupils(klass)
-    pupils = []
-    for pdata in pdlist:
-        _pid = pdata['PID']
-        pupils.append((_pid, pdata.name()))
-        if _pid == pid:
-            pupil = {f: (fname, pdata[f]) for f, fname in fields}
+    form.defaultIssueDate(schoolyear)
+    p = Pupils(schoolyear)
+    try:
+        pdlist = p.classPupils(klass)
+        pdata = pdlist.pidmap[pid]
+        pupil = {f: (fname, pdata[f]) for f, fname in fields}
+    except:
+        abort(404)
     return render_template(os.path.join(_BPNAME, 'text_cover_pupil.html'),
                             form=form,
                             heading=_HEADING,
                             klass=klass,
-                            pupil=pupil,
-                            pupils=pupils)
+                            pupil=pupil)

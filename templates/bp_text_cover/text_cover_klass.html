@@ -4,17 +4,6 @@
 
 {% block title %}Mantelbogen{% endblock %}
 
-{% block sidepanel %}
-  <div class="pure-menu-heading sidemenu-heading">Klasse:</div>
-  <div class="pure-menu sidemenu">
-    <ul class="pure-menu-list">
-      {% for k in klasses %}
-      <li class="pure-menu-item"><a href="{{url_for('bp_text_cover.klassview', klass=k)}}" class="pure-menu-link">{{k}}</a></li>
-      {% endfor %}
-    </ul>
-  </div>
-{% endblock %}
-
 {% block content %}
     <h3>Klasse {{klass}}</h3>
     <p>Mantelbögen werden für alle markierten Schüler erstellt. Klicken Sie
@@ -34,17 +23,12 @@
 
     <form id="dataform" class="pure-form" method="POST">
         {{ form.csrf_token }}
-
-        <div class="pure-control-group form-group">
-            {{ form.DATE_D.label }}{{ form.DATE_D }}
-                {% for error in form.DATE_D.errors %}
-                <span>[{{ error }}]</span>
-                {% endfor %}
-        </div>
-
-        <div class="formsubmit">
+        <fieldset>
+            <legend>{{ form.DATE_D.label }}</legend>
+            {{ form.DATE_D }}
             <button type="submit" class="pure-button pure-button-primary">Erstellen</button>
-        </div>
+        </fieldset>
+
         <hr />
 
         {% for pid, pname in pupils %}

@@ -4,26 +4,33 @@
 
 {% block title %}Mantelbogen{% endblock %}
 
-{% block sidepanel %}
-  <div class="pure-menu-heading sidemenu-heading"">Klasse:</div>
-  <div class="pure-menu sidemenu">
-    <ul class="pure-menu-list">
-      {% for k in klasses %}
-      <li class="pure-menu-item"><a href="{{url_for('bp_text_cover.klassview', klass=k)}}" class="pure-menu-link">{{k}}</a></li>
-      {% endfor %}
-    </ul>
-  </div>
-{% endblock %}
-
 {% block content %}
-    <p> Ausgabedatum: {{ DATE_D }}
-    </p>
     <p>Mantelbögen können für einzelne Schüler oder für ganze Klassen
-    erstellt werden. Das voreingestellte Ausgabedatum kann in den
-    <!--<a href="{x{url_for('bp_settings.section', section=text_cover)}}">Einstellungen</a>-->
-    <strong>TODO: Einstellungen</strong>
-    geändert werden. Auch bei der Erstellung eines Bogens
-    oder eines Bogensatzes kann das Datum (vorübergehend) geändert werden.
-    <p>Wählen Sie zuerst eine Klasse.
+    erstellt werden. Das voreingestellte Ausgabedatum kann hier geändert
+    werden. Für Einzelbögen oder einzelne Bogensätze kann das Datum
+    auch bei der Erstellung (aber nur vorübergehend) geändert werden.
     </p>
+
+    <form class="pure-form" method="POST">
+        {{ form.csrf_token }}
+        <fieldset>
+            <legend>{{ form.DATE_D.label }}</legend>
+            {{ form.DATE_D }}
+            <button type="submit" class="pure-button pure-button-primary">Übernehmen</button>
+        </fieldset>
+    </form>
+
+    <hr />
+    <p>Wählen Sie unten eine Klasse, für die Zeugnisbögen zu erstellen sind.
+    </p>
+    <ul class="pure-menu-list">
+        {% for k in klasses %}
+        <li class="pure-menu-item">
+            <a class="pure-menu-link"
+                    href="{{url_for('bp_text_cover.klassview', klass=k)}}">
+                {{k}}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
 {% endblock %}

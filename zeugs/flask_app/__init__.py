@@ -4,12 +4,12 @@
 """
 flask_app/__init__.py
 
-Last updated:  2019-12-29
+Last updated:  2020-01-10
 
 The Flask application: zeugs front-end.
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,15 +34,12 @@ from flask_wtf import FlaskForm
 from wtforms import StringField
 from wtforms.fields.html5 import DateField
 from wtforms.validators import InputRequired, Length
-
-ZEUGS_BASE = os.environ['ZEUGS_BASE']
-#ZEUGS_DATA = os.path.join (ZEUGS_BASE, 'zeugs_data')
-ZEUGS_DATA = os.path.join (ZEUGS_BASE, 'TestData')
-from wz_core.configuration import init, Paths
-
 from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
 
+from wz_core.configuration import init, Paths
+
+ZEUGS_BASE = os.environ['ZEUGS_BASE']
 
 ERROR_TYPES = {
     -1: "Test",     # Test
@@ -87,7 +84,7 @@ def logger(messages, suppressok):
         flash("+++ Aktion erfolgreich abgeschlossen ...", "Info")
     return Paths.logfile(l)
 
-init(ZEUGS_DATA, xlog=logger)
+ZEUGS_DATA = init(None, xlog=logger)
 
 
 def create_app(test_config=None):
