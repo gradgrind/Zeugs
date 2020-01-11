@@ -4,7 +4,7 @@
 """
 wz_text/coversheet.py
 
-Last updated:  2020-01-08
+Last updated:  2020-01-11
 
 Build the outer sheets (cover sheets) for the text reports.
 User fields in template files are replaced by the report information.
@@ -29,8 +29,6 @@ Copyright 2017-2020 Michael Towers
 
 _PUPILSNOTINCLASS   = "Schüler {pids} nicht in Klasse {klass}"
 _NOPUPILS           = "Mantelbogen: keine Schüler"
-_MADEKCOVERS        = "Mantelbögen für Klasse {klass} wurden erstellt"
-_MADEPCOVER         = "Mantelbogen für {pupil} wurde erstellt"
 _BADPID             = "Schüler {pid} nicht in Klasse {klass}"
 
 import os
@@ -82,7 +80,6 @@ def makeSheets (schoolyear, date, klass, pids=None):
         html = HTML (string=source,
                 base_url=os.path.dirname (template.filename))
         pdfBytes = html.write_pdf(font_config=FontConfiguration())
-        REPORT.Info(_MADEKCOVERS, klass=klass)
         return pdfBytes
     else:
         REPORT.Fail(_NOPUPILS)
@@ -93,7 +90,8 @@ def makeOneSheet(schoolyear, date, klass, pupil):
     <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
     <klass>: name of the school-class
-    <pupil>: a <PupilData> instance for the pupil whose report is to be built
+    <pupil>: a mapping with the necessary pupil information (at least a
+    subset of <PupilData>).
     """
     template = getTemplate('Mantelbogen', klass)
     klassdata = KlassData(klass)
@@ -107,7 +105,6 @@ def makeOneSheet(schoolyear, date, klass, pupil):
     html = HTML (string=source,
             base_url=os.path.dirname (template.filename))
     pdfBytes = html.write_pdf(font_config=FontConfiguration())
-    REPORT.Info(_MADEPCOVER, pupil=pupil.name())
     return pdfBytes
 
 

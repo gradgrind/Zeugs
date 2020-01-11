@@ -449,7 +449,8 @@ class DB0:
     def getInfo(self, key):
         """Return a value from the INFO table (key -> value).
         """
-        return self.select1('INFO', K=key)['V']
+        row = self.select1('INFO', K=key)
+        return row['V'] if row else None
 
 
     def setInfo(self, key, value):

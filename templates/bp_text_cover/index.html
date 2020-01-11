@@ -14,9 +14,12 @@
     <form class="pure-form" method="POST">
         {{ form.csrf_token }}
         <fieldset>
-            <legend>{{ form.DATE_D.label }}</legend>
+            <legend>{{ form.DATE_D.label }} (Voreinstellung)</legend>
             {{ form.DATE_D }}
-            <button type="submit" class="pure-button pure-button-primary">Übernehmen</button>
+            <button type="submit" class="pure-button submit-button"
+                    style="margin: 0;">
+                Übernehmen
+            </button>
         </fieldset>
     </form>
 

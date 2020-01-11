@@ -25,14 +25,15 @@
     <form id="dataform" class="pure-form" method="POST">
         {{ form.csrf_token }}
 
-        <div class="pure-control-group form-group">
-             {{ form.DATE_D.label }}{{ form.DATE_D }}
-        </div>
-        <div class="formsubmit">
-            <button type="submit" class="pure-button pure-button-primary">
+        <fieldset>
+            <legend>{{ form.DATE_D.label }}</legend>
+            {{ form.DATE_D }}
+            <button type="submit" class="pure-button submit-button"
+                    style="margin: 0;">
                 Erstellen
             </button>
-        </div>
+        </fieldset>
+
         <hr />
 
         {% for pid, pname, ok in pupils %}

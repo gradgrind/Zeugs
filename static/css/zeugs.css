@@ -202,6 +202,12 @@ input[type="file"] {
     font-style: italic;
 }
 
+.submit-button {
+    background-color: #00e;
+    color: #ffc0e0;
+    border-radius: 4px;
+}
+
 /* The sidepanel menu */
 .sidepanel {
     display: none;

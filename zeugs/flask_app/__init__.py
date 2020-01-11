@@ -4,7 +4,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-01-10
+Last updated:  2020-01-11
 
 The Flask application: zeugs front-end.
 
@@ -30,10 +30,6 @@ import os, sys, datetime
 
 from flask import (Flask, render_template, request, redirect, session,
         send_from_directory, url_for, flash)
-from flask_wtf import FlaskForm
-from wtforms import StringField
-from wtforms.fields.html5 import DateField
-from wtforms.validators import InputRequired, Length
 from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
 
@@ -203,6 +199,9 @@ def create_app(test_config=None):
                 *CONF.PATHS.DIR_TEMPLATES),
                                filename)
 
+
+    from .settings import settings
+    app.register_blueprint(settings.bp, url_prefix='/settings')
 
     from .text import text
     app.register_blueprint(text.bp, url_prefix='/text_report')

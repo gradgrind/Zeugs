@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Einstellungen{% endblock %}
+
+{% block content %}
+    <p>Sie können ein anderes Schuljahr wählen, um Zugang zu alten Zeugnisdaten
+    zu erlangen.
+    </p>
+    <form class="pure-form" method="POST">
+        {{ form.csrf_token }}
+        <fieldset>
+            <legend>Schuljahr wählen</legend>{{ form.YEAR }}
+            <button type="submit" class="pure-button submit-button"
+                    style="margin: 0;">
+                Übernehmen
+            </button>
+        </fieldset>
+    </form>
+
+    <hr />
+    <p>Wählen Sie unten eine Einstellungsseite.
+    </p>
+
+    <ul class="pure-menu-list">
+        <li class="pure-menu-item">
+            <a class="pure-menu-link"
+                href="{{url_for('bp_settings.newyear')}}">
+                Neues Schuljahr anlegen
+            </a>
+        </li>
+    </ul>
+
+
+{% endblock %}

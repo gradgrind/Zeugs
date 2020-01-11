@@ -1,27 +1,12 @@
 {% extends "base.html" %}
-{% set uplink = url_for('bp_text_cover.klassview', klass=klass) %}
+{% set uplink = url_for('bp_grades.klassview', klass=klass) %}
 {% set uplink_help = "Klasse " + klass %}
 
-{% block title %}Mantelbogen{% endblock %}
-
-{% block sidepanel %}
-  <div class="pure-menu-heading sidemenu-heading">Schüler:</div>
-  <div class="pure-menu sidemenu">
-    <ul class="pure-menu-list">
-      {% for p in pupils %}
-      <li class="pure-menu-item">
-        <a href="{{url_for('bp_text_cover.pupilview', klass=klass, pid=p[0])}}"
-                class="pure-menu-link">{{p[1]}}
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-{% endblock %}
+{% block title %}Einzelschüler{% endblock %}
 
 {% block content %}
     <h3>Schüler in Klasse {{klass}}</h3>
-    <p>Ein Mantelbogen wird für die hier dargestellten Daten erstellt.
+    <p>Ein Notenzeugnis wird für die hier dargestellten Daten erstellt.
     Die Inhalte aller Felder können angepasst werden. Um den
     Bogen dann zu erstellen, klicken Sie auf die Schaltfläche „Erstellen“.
     </p>
@@ -31,9 +16,17 @@
 
     <form id="dataform" class="pure-form" method="POST">
         {{ form.csrf_token }}
-        <div class="form2">
-            {{ form.DATE_D.label }}{{ form.DATE_D }}
 
+        <fieldset>
+            <legend>{{ form.DATE_D.label }}</legend>
+            {{ form.DATE_D }}
+            <button type="submit" class="pure-button submit-button"
+                    style="margin: 0;">
+                Erstellen
+            </button>
+        </fieldset>
+
+        <div class="form2">
             {% for f, fdata in pupil.items() %}
             <label for="{{f}}">{{fdata[0]}}</label>
                 {% if f.endswith('_D') %}
@@ -44,8 +37,5 @@
             {% endfor %}
         </div>
         <hr />
-        <div class="formsubmit">
-            <button type="submit" class="pure-button pure-button-primary">Erstellen</button>
-        </div>
     </form>
 {% endblock %}
