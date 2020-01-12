@@ -5,6 +5,15 @@
 {% block title %}{{termn}}. Halbjahr{% endblock %}
 
 {% block content %}
+    {% if dfile %}
+    <p>Hier können Sie die Zeugnisdatei herunterladen:</p>
+
+    <a href="{{url_for('bp_grades.download', tfile=tfile, dfile=dfile)}}">{{dfile}}</a>
+
+    <hr />
+    {% endif %}
+
+
     <p>Wählen Sie hier die Klasse/Gruppe, für die die Zeugnisse zu
     erstellen sind. Das Ausgabedatum können Sie ggf. bei der
     Erstellung anpassen.

@@ -51,7 +51,7 @@ from collections import OrderedDict
 
 from wz_core.configuration import Paths
 from wz_core.db import DB, UpdateError
-from wz_core.pupils import Pupils, toKlassStream, KlassData, match_klass_stream
+from wz_core.pupils import Pupils, fromKlassStream, KlassData, match_klass_stream
 from wz_core.courses import CourseTables
 from wz_compat.template import getTemplate, getTemplateTags
 from wz_table.dbtable import readDBTable
@@ -132,7 +132,7 @@ def grades2db(schoolyear, gtable, term=None):
         except KeyError:
             # The table may include just a subset of the pupils
             continue
-        p2_ks[pid] = toKlassStream(klass, pdata['STREAM'])
+        p2_ks[pid] = pdata.klassStream()
     # Anything left unhandled in <gtable>?
     for pid in gtable:
         REPORT.Error(_UNKNOWN_PUPIL, pid=pid)
@@ -185,17 +185,15 @@ def db2grades(schoolyear, term, klass_stream, checkonly=False):
     db = DB(schoolyear)
     for pdata in pupils.classPupils(klass_stream):
         pid = pdata['PID']
-        pk = pdata['CLASS']
-        ps = pdata['STREAM']
-        if pk != klass_stream:
-            pks = toKlassStream(pk, ps)
-            if pks != klass_stream:
-                # Pupil has switched klass and/or stream.
-                # This can only be handled via individual view.
-                continue
         gdata = db.select1('GRADES', PID=pid, TERM=term)
         if gdata:
             gstring = gdata['GRADES'] or None
+            if gstring:
+                k, s = fromKlassStream(klass_stream)
+                if klass_stream != k and gdata['CLASS_STREAM'] != klass_stream:
+                    # Pupil has switched klass and/or stream.
+                    # This can only be handled via individual view.
+                    gstring = None
         else:
             gstring = None
         if gstring and not checkonly:

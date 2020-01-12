@@ -87,7 +87,7 @@ if __name__ == "__main__":
     import sys
     sstring = sys.argv [-1]
     print ("Seek '%s'" % sstring)
-    search_appdir (sstring, '*.py')
+    search_dir (thisdir, sstring, '*.py')
     quit (0)
 
     search_appdir ('#TODO', '*.py')

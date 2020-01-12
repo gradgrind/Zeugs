@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-08
+wz_core/pupils.py - last updated 2020-01-12
 
 Database access for reading pupil data.
 
@@ -43,12 +43,10 @@ def fromKlassStream (klass_stream):
     except:
         return (klass_stream, None)
 
-def toKlassStream (klass, stream, forcestream=False):
+def toKlassStream (klass, stream):
     """Build a klass_stream name from klass and stream.
     Stream may be <None> or other "false" value, in which case
     just the klass is returned ...
-    However, if <forcestream> is true, stream is set to '_' if
-    there is no stream.
     Return klass_stream as <str>.
     """
     return klass + '.' + stream if stream else klass
@@ -150,7 +148,7 @@ class PupilData (list):
         return self ['FIRSTNAME'] + ' ' + self ['LASTNAME']
 
     def klassStream (self):
-        return toKlassStream (self ['CLASS'], self ['STREAM'])
+        return toKlassStream (self ['CLASS'], self ['STREAM'] or '_')
 
     def toMapping(self):
         return OrderedDict(map(lambda a,b: (a,b), self.fields(), self))
@@ -170,7 +168,7 @@ class Pupils:
     def streams (self, klass):
         """Return a sorted list of stream names for the given klass.
         """
-        return sorted ([s or ''
+        return sorted ([s or '_'
                 for s in self.db.selectDistinct ('PUPILS', 'STREAM',
                         CLASS=klass)])
 
@@ -198,7 +196,7 @@ class Pupils:
                 if exd and exd < date:
                     continue
             # Check stream
-            if (not stream) or (stream == pdata ['STREAM']):
+            if (stream == None) or (stream == (pdata ['STREAM'] or '_')):
                 rows.append (pdata)
                 rows.pidmap [pdata ['PID']] = pdata
         return rows

@@ -17,6 +17,11 @@
     <form id="dataform" class="pure-form" method="POST">
         {{ form.csrf_token }}
 
+        <div class="form2">
+        {{ form.TAG.label }}{{ form.TAG }}  <!-- select/enter tag/term -->
+        {{ form.RTYPE.label }}{{ form.RTYPE }}  <!-- select report type -->
+        </div>
+
         <fieldset>
             <legend>{{ form.DATE_D.label }}</legend>
             {{ form.DATE_D }}
@@ -25,6 +30,8 @@
                 Erstellen
             </button>
         </fieldset>
+
+        <hr />
 
         <div class="form2">
             {% for f, fdata in pupil.items() %}
@@ -36,6 +43,9 @@
                 {% endif %}
             {% endfor %}
         </div>
-        <hr />
+
+<!-- Need all grade subjects for this klass ... what about averages, etc? -->
+<!-- Use select rather than input or input with restricted values? -->
+
     </form>
 {% endblock %}

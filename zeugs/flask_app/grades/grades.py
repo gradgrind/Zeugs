@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-01-10
+Last updated:  2020-01-12
 
 Flask Blueprint for grade reports
 
@@ -34,7 +34,7 @@ import datetime, io, os
 
 from flask import (Blueprint, render_template, request, session,
         send_file, url_for, abort, redirect, flash)
-#from flask import current_app as app
+from flask import current_app as app
 
 from flask_wtf import FlaskForm
 #from wtforms import SelectField
@@ -63,7 +63,7 @@ def index():
                             heading=_HEADING)
 
 
-@bp.route('/term/<termn>', methods=['GET','POST'])
+@bp.route('/term/<termn>', methods=['GET'])
 #@admin_required
 def term(termn):
     def prepare(schoolyear, termn, kmap):
@@ -71,24 +71,27 @@ def term(termn):
         """
         p = Pupils(schoolyear)
         klasses = []
-        # Only if all groups have the same template
+        # Only if all streams have the same report type and template
         # can the whole klass be done together.
+        # Pupils with no stream will be handled separately, with stream '_'.
         for c in p.classes():
             allmatch = True     # whole klass possible
             template = None     # for template matching
             klist = []          # klass.stream list
             for s in p.streams(c):
-                ks = toKlassStream(c, s, forcestream=True)
-                rtype_tpl = match_klass_stream(ks, kmap)
-                if rtype_tpl:
-                    klist.append(toKlassStream(c, s))
-                    if template:
-                        if rtype_tpl != template:
-                            allmatch = False
-                    else:
-                        template = rtype_tpl
-                else:
-                    allmatch = False
+                ks = toKlassStream(c, s)
+                rtype = match_klass_stream(ks, kmap)
+                if rtype:
+                    rtype_tpl = match_klass_stream(ks, CONF.REPORT_TEMPLATES[rtype])
+                    if rtype_tpl:
+                        klist.append(ks)
+                        if template:
+                            if rtype_tpl == template:
+                                continue
+                        else:
+                            template = rtype_tpl
+                            continue
+                allmatch = False
             if allmatch:
                 # Add the whole class as an option
                 klasses.append (c)
@@ -100,6 +103,14 @@ def term(termn):
         return klasses
 
     # Start of method
+    try:
+        dfile = session.pop('download')
+        tfile = session.pop('tfile')
+# It might be better to have the file data in the session? That could ease
+# clearing up. But it would require server-sessions (flask-session).
+    except:
+        dfile = None
+        tfile = None
     schoolyear = session['year']
     try:
         kmap = CONF.REPORT_TEMPLATES['_' + termn]
@@ -112,7 +123,9 @@ def term(termn):
     return render_template(os.path.join(_BPNAME, 'term.html'),
                             heading=_HEADING,
                             termn=termn,
-                            klasses=klasses)
+                            klasses=klasses,
+                            tfile=tfile,
+                            dfile=dfile)
 
 
 @bp.route('/klass/<termn>/<klass_stream>', methods=['GET','POST'])
@@ -128,17 +141,25 @@ def klassview(termn, klass_stream):
         _d = form.DATE_D.data.isoformat()
         pids=request.form.getlist('Pupil')
         if pids:
-#TODO
-            return "GRADE REPORT class %s, {%s/%s}: %s" % (klass_stream,
-                    termn, _d, repr(pids))
-
             pdfBytes = makeReports(schoolyear, termn, klass_stream, _d, pids)
-            return send_file(
-                io.BytesIO(pdfBytes),
-                attachment_filename='Notenzeugnis_%s.pdf' % klass_stream,
-                mimetype='application/pdf',
-                as_attachment=True
-            )
+            REPORT.printMessages()
+
+
+            _file = 'test.pdf'
+            fpath = os.path.join (app.instance_path, 'tmp', _file)
+            with open(fpath, 'wb') as fh:
+                fh.write(pdfBytes)
+            session['tfile'] = _file
+            session['download'] = 'Notenzeugnis_%s.pdf' % klass_stream
+            return redirect(url_for('bp_grades.term', termn=termn))
+
+
+#            return send_file(
+#                io.BytesIO(pdfBytes),
+#                attachment_filename='Notenzeugnis_%s.pdf' % klass_stream,
+#                mimetype='application/pdf',
+#                as_attachment=True
+#            )
         else:
             flash("** Keine Schüler ... **", "Warning")
 
@@ -156,6 +177,17 @@ def klassview(termn, klass_stream):
 # be available on all hosts.
 # It might be helpful to a a little javascript to implement a pupil-
 # selection toggle (all/none).
+
+@bp.route('/download/<tfile>/<dfile>', methods=['GET'])
+#@admin_required
+def download(tfile, dfile):
+# Remove file? By reading to buffer before returning?
+    return send_file(
+        os.path.join(app.instance_path, 'tmp', tfile),
+        attachment_filename=dfile,
+        mimetype='application/pdf',
+        as_attachment=True
+    )
 
 
 
