@@ -30,6 +30,7 @@ import os, sys, datetime
 
 from flask import (Flask, render_template, request, redirect, session,
         send_from_directory, url_for, flash)
+from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
 
@@ -105,7 +106,11 @@ def create_app(test_config=None):
     else:
         # load the test config if passed in
         app.config.from_mapping(test_config)
-
+    # Set up Flask-Session
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_session')
+    app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(minutes=20)
+    Session(app)
 #    for k,v in app.config.items():
 #        print ("§§§ %s:" % k, v)
 
@@ -122,6 +127,7 @@ def create_app(test_config=None):
     def check_access():
         """Handle access to pages which require authentication.
         """
+        session.modified = True     # to hinder session expiry
         request_endpoint = request.endpoint
         request_path = request.path
         print ("--->", request_endpoint)

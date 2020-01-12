@@ -4,12 +4,12 @@
 """
 flask_app/auth/auth.py
 
-Last updated:  2019-12-24
+Last updated:  2020-01-12
 
 Flask Blueprint for user authentication (login).
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -102,6 +102,7 @@ def login():
         session['logger'] = None
         # Set the school-year to the latest one:
         session['year'] = Paths.getYears()[0]
+        session.permanent = True
 #TODO: remove:
         print("LOGGED IN:", tid, permission)
         #return redirect(url_for('bp_text_cover.textCover'))

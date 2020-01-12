@@ -105,12 +105,8 @@ def term(termn):
     # Start of method
     try:
         dfile = session.pop('download')
-        tfile = session.pop('tfile')
-# It might be better to have the file data in the session? That could ease
-# clearing up. But it would require server-sessions (flask-session).
     except:
         dfile = None
-        tfile = None
     schoolyear = session['year']
     try:
         kmap = CONF.REPORT_TEMPLATES['_' + termn]
@@ -124,7 +120,6 @@ def term(termn):
                             heading=_HEADING,
                             termn=termn,
                             klasses=klasses,
-                            tfile=tfile,
                             dfile=dfile)
 
 
@@ -143,23 +138,9 @@ def klassview(termn, klass_stream):
         if pids:
             pdfBytes = makeReports(schoolyear, termn, klass_stream, _d, pids)
             REPORT.printMessages()
-
-
-            _file = 'test.pdf'
-            fpath = os.path.join (app.instance_path, 'tmp', _file)
-            with open(fpath, 'wb') as fh:
-                fh.write(pdfBytes)
-            session['tfile'] = _file
+            session['filebytes'] = pdfBytes
             session['download'] = 'Notenzeugnis_%s.pdf' % klass_stream
             return redirect(url_for('bp_grades.term', termn=termn))
-
-
-#            return send_file(
-#                io.BytesIO(pdfBytes),
-#                attachment_filename='Notenzeugnis_%s.pdf' % klass_stream,
-#                mimetype='application/pdf',
-#                as_attachment=True
-#            )
         else:
             flash("** Keine Schüler ... **", "Warning")
 
@@ -178,12 +159,12 @@ def klassview(termn, klass_stream):
 # It might be helpful to a a little javascript to implement a pupil-
 # selection toggle (all/none).
 
-@bp.route('/download/<tfile>/<dfile>', methods=['GET'])
+@bp.route('/download/<dfile>', methods=['GET'])
 #@admin_required
-def download(tfile, dfile):
-# Remove file? By reading to buffer before returning?
+def download(dfile):
+    pdfBytes = session.pop('filebytes')
     return send_file(
-        os.path.join(app.instance_path, 'tmp', tfile),
+        io.BytesIO(pdfBytes),
         attachment_filename=dfile,
         mimetype='application/pdf',
         as_attachment=True

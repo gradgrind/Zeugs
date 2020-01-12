@@ -18,3 +18,4 @@ weasyprint
 
 flask
 Flask-WTF
+Flask-Session

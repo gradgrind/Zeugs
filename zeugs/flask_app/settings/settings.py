@@ -4,7 +4,7 @@
 """
 flask_app/settings/settings.py
 
-Last updated:  2020-01-11
+Last updated:  2020-01-12
 
 Flask Blueprint for application settings.
 
@@ -68,6 +68,7 @@ def index():
         if y != schoolyear:
             schoolyear = y
             session['year'] = y
+            flash("Schuljahr auf %d gesetzt." % y)
 
     # GET
     form.YEAR.default = schoolyear
