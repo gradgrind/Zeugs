@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-01-12
+Last updated:  2020-01-15
 
 Flask Blueprint for grade reports
 
@@ -37,14 +37,14 @@ from flask import (Blueprint, render_template, request, session,
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
-#from wtforms import SelectField
+from wtforms import SelectField
 from wtforms.fields.html5 import DateField
 from wtforms.validators import InputRequired #, Length
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 #from werkzeug.utils import secure_filename
 
 from wz_core.configuration import Dates
-from wz_core.pupils import Pupils, toKlassStream, match_klass_stream
+from wz_core.pupils import Pupils, toKlassStream, fromKlassStream, match_klass_stream
 #from wz_compat.config import sortingName
 from wz_grades.gradedata import readGradeTable, grades2db, db2grades
 from wz_grades.makereports import makeReports
@@ -69,22 +69,23 @@ def term(termn):
     def prepare(schoolyear, termn, kmap):
         """Gather the possible klasses/streams.
         """
+#TODO: Maybe rather from config list(s)?
         p = Pupils(schoolyear)
         klasses = []
         # Only if all streams have the same report type and template
         # can the whole klass be done together.
         # Pupils with no stream will be handled separately, with stream '_'.
-        for c in p.classes():
+        for klass in p.classes():
             allmatch = True     # whole klass possible
             template = None     # for template matching
             klist = []          # klass.stream list
-            for s in p.streams(c):
-                ks = toKlassStream(c, s)
-                rtype = match_klass_stream(ks, kmap)
+            for stream in p.streams(klass):
+                rtype = match_klass_stream(klass, kmap, stream)
                 if rtype:
-                    rtype_tpl = match_klass_stream(ks, CONF.REPORT_TEMPLATES[rtype])
+                    rtype_tpl = match_klass_stream(klass,
+                            CONF.REPORT_TEMPLATES[rtype], stream)
                     if rtype_tpl:
-                        klist.append(ks)
+                        klist.append(toKlassStream(klass, stream))
                         if template:
                             if rtype_tpl == template:
                                 continue
@@ -94,7 +95,7 @@ def term(termn):
                 allmatch = False
             if allmatch:
                 # Add the whole class as an option
-                klasses.append (c)
+                klasses.append (klass)
                 if len(klist) > 1:
                     # Only add the individual groups if there are more than one
                     klasses += klist
@@ -136,8 +137,8 @@ def klassview(termn, klass_stream):
         _d = form.DATE_D.data.isoformat()
         pids=request.form.getlist('Pupil')
         if pids:
-            pdfBytes = makeReports(schoolyear, termn, klass_stream, _d, pids)
-            REPORT.printMessages()
+            pdfBytes = REPORT.wrap(makeReports,
+                    schoolyear, termn, klass_stream, _d, pids)
             session['filebytes'] = pdfBytes
             session['download'] = 'Notenzeugnis_%s.pdf' % klass_stream
             return redirect(url_for('bp_grades.term', termn=termn))
@@ -146,7 +147,8 @@ def klassview(termn, klass_stream):
 
     # GET
     form.DATE_D.data = datetime.date.today ()
-    pdlist = db2grades(schoolyear, termn, klass_stream, checkonly=True)
+    klass, stream = fromKlassStream(klass_stream)
+    pdlist = db2grades(schoolyear, termn, klass, stream, checkonly=True)
     return render_template(os.path.join(_BPNAME, 'klass.html'),
                             form=form,
                             heading=_HEADING,
@@ -181,12 +183,67 @@ def nogrades(klass_stream, termn):
             session['year'], klass_stream, termn)
 
 
-
-
-@bp.route('/single/<rtype>', methods=['GET','POST'])
+#TODO
+@bp.route('/single', methods=['GET'])
 #@admin_required
-def single(rtype):
-    return "TODO report type %s" % rtype
+def single_klass():
+    return "Klass selection NYI"
+
+
+#TODO
+@bp.route('/klass/<klass>', methods=['GET'])
+#@admin_required
+def klass(klass):
+    return "Pupil selection NYI (klass %s)" % klass
+
+#???
+    rtype = session['rtype']
+    kmap = CONF.REPORT_TEMPLATES[rtype]
+    for klass in pupils.classes():
+        tfile = match_klass_stream(klass, kmap)
+
+#TODO: Actually, considering changes of klass/stream, don't I need to
+# get the data first??? If it exists already ...
+# 1) select pupil and rtag.
+# 2) if rtag exists, use klass/stream from that
+# Allow editing klass/stream?
+# _GS (Gleichstellungsvermerk) distinguishes between extra report
+# (Zwischenzeugnis) and leaving report (Abgang).
+# But are Halbjahr/Zeugnis/Orientierung/Abschluss also possible here?
+# Allow editing of existing report (including deletion?) – as separate
+# function from adding a new report?
+# EDIT EXISTING: choose klass -> choose pupil -> display editable fields
+# (+ delete?)
+# NEW: Enter tag (or date?)
+
+
+
+#TODO
+@bp.route('/single/<klass>/<pid>', methods=['GET','POST'])
+#@admin_required
+def pupil(klass, pid):
+    """Construct a grade report for a single pupil.
+    """
+    return "TODO report for pid %s (klass %s)" % (pid, klass)
+    class PupilForm(FlaskForm):
+        RTAG = SelectField()
+        RTYPE = SelectField()
+#TODO: grades
+        DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
+
+    courses = CourseTables(schoolyear)
+    subjects = courses.filterGrades(klass)
+#TODO: Possible filtering for stream/pupil?
+
+#TODO: Set up the select fields for this klass (& stream?)
+
+    if form.validate_on_submit():
+        # POST
+        pass
+
+    # GET
+    pass
+
 
 
 @bp.route('/upload/<termn>', methods=['GET','POST'])

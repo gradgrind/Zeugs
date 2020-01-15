@@ -52,7 +52,7 @@ from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
-from wz_core.pupils import Pupils, KlassData, match_klass_stream
+from wz_core.pupils import Pupils, fromKlassStream, KlassData, match_klass_stream
 from wz_compat.config import printSchoolYear, printStream
 from wz_grades.gradedata import (GradeReportData,
         db2grades, getGradeData, updateGradeReport)
@@ -69,11 +69,12 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
     """
     # <db2grades> returns a list: [(pid, pname, grade map), ...]
     # <grades>: {pid -> (pname, grade map)}
+    klass, stream = fromKlassStream(klass_stream)
     grades = {pid: (pname, gmap)
-            for pid, pname, gmap in db2grades(schoolyear, term, klass_stream)
+            for pid, pname, gmap in db2grades(schoolyear, term, klass, stream)
     }
     pupils = Pupils(schoolyear)
-    pall = pupils.classPupils(klass_stream) # list of data for all pupils
+    pall = pupils.classPupils(klass, stream) # list of data for all pupils
     # If a pupil list is supplied, select the required pupil data.
     # Otherwise use the full list.
     if pids:
@@ -93,13 +94,13 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
 
     ### Get a tag mapping for the grade data of each pupil
     # Get the name of the relevant configuration file in folder GRADES:
-    grademap = match_klass_stream(klass_stream, CONF.MISC.GRADE_SCALE)
+    grademap = match_klass_stream(klass, CONF.MISC.GRADE_SCALE, stream)
     # <GradeReportData> manages the report template, etc.:
     # Get the report type from the term and klass/stream
-    rtype = match_klass_stream(klass_stream, CONF.REPORT_TEMPLATES['_' + term])
-    reportData = GradeReportData(schoolyear, rtype, klass_stream)
+    rtype = match_klass_stream(klass, CONF.REPORT_TEMPLATES['_' + term], stream)
+    reportData = GradeReportData(schoolyear, rtype, klass, stream)
     # General info on the klass/stream:
-    klassData = KlassData(klass_stream)
+    klassData = KlassData(klass, stream)
     pmaplist = []
     for pdata in plist:
         pid = pdata['PID']
@@ -153,12 +154,13 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
     pname = pdata.name()
     # <GradeReportData> manages the report template, etc.:
     # From here on use klass_stream from <gradedata>
-    klass_stream = gradedata['CLASS_STREAM']
-    reportData = GradeReportData(schoolyear, rtype, klass_stream)
+    klass = gradedata['KLASS']
+    stream = gradedata['STREAM']
+    reportData = GradeReportData(schoolyear, rtype, klass, stream)
     # General info on the klass/stream:
-    klassData = KlassData(klass_stream)
+    klassData = KlassData(klass, stream)
     # Get the name of the relevant configuration file in folder GRADES:
-    grademap = match_klass_stream(klass_stream, CONF.MISC.GRADE_SCALE)
+    grademap = match_klass_stream(klass, CONF.MISC.GRADE_SCALE, stream)
     # Build a grade mapping for the tags of the template:
     pdata.grades = reportData.getTagmap(gmap, pname, grademap)
     # Update grade database
@@ -248,23 +250,6 @@ def test_06():
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
     ptag = pdata['PSORT'].replace(' ', '_')
     fpath = os.path.join (folder, 'test_%s_Abgang.pdf' % ptag)
-    with open(fpath, 'wb') as fh:
-        fh.write(pdfBytes)
-    REPORT.Test(" --> %s" % fpath)
-
-def test_07():
-    return
-
-    _klass_stream = '12.RS'
-    pupils = Pupils(_year)
-    plist = pupils.classPupils(_klass_stream)
-    from types import SimpleNamespace
-    p = plist[0]
-    pmap = {f: p[f] for f in p.fields()}
-    pdfBytes = makeOneSheet(_year, _date, _klass_stream, 'Abschluss',
-            SimpleNamespace(**pmap))
-    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-    fpath = os.path.join (folder, 'test2.pdf')
     with open(fpath, 'wb') as fh:
         fh.write(pdfBytes)
     REPORT.Test(" --> %s" % fpath)

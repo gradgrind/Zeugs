@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-12
+wz_core/pupils.py - last updated 2020-01-15
 
 Database access for reading pupil data.
 
@@ -52,7 +52,7 @@ def toKlassStream (klass, stream):
     return klass + '.' + stream if stream else klass
 
 
-def match_klass_stream(klass_stream, kmap):
+def match_klass_stream(klass, kmap, stream=None):
     """Find the first matching entry for the klass/group in the mapping list.
     The klass-stream is "normalized" so that there is always a '.'
     between klass and stream, even if there is no stream.
@@ -72,8 +72,7 @@ def match_klass_stream(klass_stream, kmap):
     If the entry has no value, or if there is no matching entry,
     return <None>.
     """
-    k, s = fromKlassStream(klass_stream)
-    ks = k + '.' + (s or '')
+    ks = klass + '.' + (stream or '')
     for item in kmap:
         k, v = item.split(':', 1)
         try:
@@ -87,13 +86,12 @@ def match_klass_stream(klass_stream, kmap):
 
 
 class KlassData:
-    def __init__(self, klass_stream):
-        self.klass, self.stream = fromKlassStream(klass_stream)
+    def __init__(self, klass, stream=None):
+        self.klass = klass
+        self.stream = stream
         # Leading zero on klass names?
         self.name = (self.klass if CONF.MISC.CLASS_LEADING_ZERO
                 else self.klass.lstrip('0'))
-#TODO: switch to klasstag (report covers!)
-#        self.klein = self.klass[-1] == 'K'      # "Kleinklasse"
         self.klasstag = self.klass[2:]          # assumes 2-digit classes
         self.year = self.klass[:2].lstrip('0')  # assumes 2-digit classes
 
@@ -172,19 +170,16 @@ class Pupils:
                 for s in self.db.selectDistinct ('PUPILS', 'STREAM',
                         CLASS=klass)])
 
-    def classPupils (self, klass_stream, date=None):
+    def classPupils (self, klass, stream=None, date=None):
         """Read the pupil data for the given klass (and stream).
         Return an ordered list of <PupilData> named tuples.
         If a <date> is supplied, pupils who left the school before that
         date will not be included.
-        <klass_stream> may be just the klass name, in which case all
-        pupils are returned. It may, however, also include a stream name,
-        as <klass>.<stream>, restricting the result to those pupils in
-        the given stream.
+        If <stream> is not supplied, all pupils are returned. If a value
+        is supplied, only those pupils in the given stream are returned.
         To enable indexing on pupil-id, the result has an extra
         attribute, <pidmap>: {pid-> <PupilData> instance}
         """
-        klass, stream = fromKlassStream (klass_stream)
         fetched = self.db.select ('PUPILS', CLASS=klass)
         rows = UserList()
         rows.pidmap = {}

@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-01-08
+Last updated:  2020-01-15
 
 Handle the data for grade reports.
 
@@ -36,7 +36,7 @@ _NO_MAPPED_GRADE = "Keine Textform für Note '{grade}'"
 _WRONG_TERM = "In Tabelle, falsches Halbjahr / Kennzeichen: {termf} (erwartet {term})"
 _INVALID_YEAR = "Ungültiges Schuljahr: '{val}'"
 _WRONG_YEAR = "Falsches Schuljahr: '{year}'"
-_INVALID_KLASS = "Ungültige Klasse: {ks}"
+_INVALID_KLASS = "Ungültige Klasse: {klass}"
 #_MISSING_PUPIL = "In Notentabelle: keine Noten für {pname}"
 _UNKNOWN_PUPIL = "In Notentabelle: unbekannte Schüler-ID – {pid}"
 _NOPUPILS = "Keine (gültigen) Schüler in Notentabelle"
@@ -51,7 +51,7 @@ from collections import OrderedDict
 
 from wz_core.configuration import Paths
 from wz_core.db import DB, UpdateError
-from wz_core.pupils import Pupils, fromKlassStream, KlassData, match_klass_stream
+from wz_core.pupils import Pupils, KlassData, match_klass_stream
 from wz_core.courses import CourseTables
 from wz_compat.template import getTemplate, getTemplateTags
 from wz_table.dbtable import readDBTable
@@ -121,10 +121,10 @@ def grades2db(schoolyear, gtable, term=None):
         if not plist:
             raise ValueError
     except:
-        REPORT.Fail(_INVALID_KLASS, ks=klass)
+        REPORT.Fail(_INVALID_KLASS, klass=klass)
     # Filter the relevant pids
     p2grades = {}
-    p2_ks = {}
+    p2stream = {}
     for pdata in plist:
         pid = pdata['PID']
         try:
@@ -132,7 +132,7 @@ def grades2db(schoolyear, gtable, term=None):
         except KeyError:
             # The table may include just a subset of the pupils
             continue
-        p2_ks[pid] = pdata.klassStream()
+        p2stream[pid] = pdata['STREAM']
     # Anything left unhandled in <gtable>?
     for pid in gtable:
         REPORT.Error(_UNKNOWN_PUPIL, pid=pid)
@@ -145,8 +145,9 @@ def grades2db(schoolyear, gtable, term=None):
         for pid, grades in p2grades.items():
             gstring = ';'.join([g + '=' + v for g, v in grades.items()])
             db.updateOrAdd('GRADES',
-                    {   'CLASS_STREAM': p2_ks[pid], 'PID': pid, 'TERM': rtag,
-                        'REPORT_TYPE': None, 'DATE_D': None, 'GRADES': gstring
+                    {   'KLASS': klass, 'STREAM': p2stream[pid],
+                        'PID': pid, 'TERM': rtag, 'REPORT_TYPE': None,
+                        'DATE_D': None, 'GRADES': gstring
                     },
                     TERM=rtag,
                     PID=pid
@@ -175,7 +176,7 @@ def updateGradeReport(schoolyear, pid, term, date, rtype):
 
 
 
-def db2grades(schoolyear, term, klass_stream, checkonly=False):
+def db2grades(schoolyear, term, klass, stream=None, checkonly=False):
     """Fetch the grades for the given klass, term/tag, schoolyear.
     Return a list [(pid, pname, {subject -> grade}), ...]
     """
@@ -183,14 +184,14 @@ def db2grades(schoolyear, term, klass_stream, checkonly=False):
     # Get the pupils from the pupils db and search for grades for these.
     pupils = Pupils(schoolyear)
     db = DB(schoolyear)
-    for pdata in pupils.classPupils(klass_stream):
+    for pdata in pupils.classPupils(klass, stream):
         pid = pdata['PID']
         gdata = db.select1('GRADES', PID=pid, TERM=term)
         if gdata:
             gstring = gdata['GRADES'] or None
             if gstring:
-                k, s = fromKlassStream(klass_stream)
-                if klass_stream != k and gdata['CLASS_STREAM'] != klass_stream:
+                if gdata['KLASS'] != klass or (stream
+                        and gdata['STREAM'] != stream):
                     # Pupil has switched klass and/or stream.
                     # This can only be handled via individual view.
                     gstring = None
@@ -249,25 +250,25 @@ def grades2map(gstring):
 
 
 class GradeReportData:
-    # <klass_stream> should probably be from the grade entry, to ensure
-    # that the correct template and klass-related data is used.
-    def __init__(self, schoolyear, rtype, klass_stream):
+    # <klass> and <stream> should probably be from the grade entry, to
+    # ensure that the correct template and klass-related data is used.
+    def __init__(self, schoolyear, rtype, klass, stream=None):
         """<rtype> is the report type, a key to the mapping
         REPORT_TEMPLATES.
         """
         self.schoolyear = schoolyear
-        self.klass_stream = klass_stream
-        self.klassdata = KlassData(klass_stream)
+        self.klassdata = KlassData(klass, stream)
 
         ### Set up categorized, ordered lists of grade fields for insertion
         ### in a report template.
-        self.template = getTemplate(rtype, klass_stream)
+        self.template = getTemplate(rtype, klass, stream)
         alltags = getTemplateTags(self.template)
         # Extract grade-entry tags, i.e. those matching <str>_<int>:
         gtags = {}      # {subject group -> [(unsorted) index<int>, ...]}
         for tag in alltags:
             try:
-                group, index = tag.split('_')
+                _group, index = tag.split('_')
+                group = _group.split('.')[-1]
                 i = int(index)
             except:
                 continue
@@ -374,32 +375,35 @@ class GradeReportData:
 ##################### Test functions
 _testyear = 2016
 def test_01 ():
-    #_klass = '12.RS'
+    #_klass = '12.RS' ### _klass = '12' &&& _stream = 'RS'
     _klass = '13'
+    _stream = None
     _term = '1'
     #_pid = '200403'
     _pid = '200301'
     _date = '2016-01-29'
 
-    from wz_core.pupils import match_klass_stream
-    REPORT.Test("Reading basic grade data for class %s" % _klass)
+    from wz_core.pupils import match_klass_stream, toKlassStream
+    _ks = toKlassStream(_klass, _stream)
+    REPORT.Test("Reading basic grade data for class %s" % _ks)
 #TODO: This might not be the optimal location for this file.
     filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_TABLE',
-                term=_term).replace('*', _klass.replace('.', '-'))
+                term=_term).replace('*', _ks.replace('.', '-'))
     pgrades = readGradeTable(filepath)
     REPORT.Test(" ++ INFO: %s" % repr(pgrades.info))
     for pid, grades in pgrades.items():
         REPORT.Test("\n  -- %s: %s\n" % (pid, repr(grades)))
 
-    REPORT.Test("\nReading template data for class %s" % _klass)
+    REPORT.Test("\nReading template data for class %s" % _ks)
 
     # Get the report type from the term and klass/stream
-    _rtype = match_klass_stream(_klass, CONF.REPORT_TEMPLATES['_' + _term])
-    gradedata = GradeReportData(_testyear, _rtype, _klass)
+    _rtype = match_klass_stream(_klass, CONF.REPORT_TEMPLATES['_' + _term],
+            _stream)
+    gradedata = GradeReportData(_testyear, _rtype, _klass, _stream)
     REPORT.Test("  Indexes:\n  %s" % repr(gradedata.sgroup2indexes))
     REPORT.Test("  Grade tags:\n  %s" % repr(gradedata.sgroup2sids))
 
-    grademap = match_klass_stream(_klass, CONF.MISC.GRADE_SCALE)
+    grademap = match_klass_stream(_klass, CONF.MISC.GRADE_SCALE, _stream)
     REPORT.Test("\nTemplate grade map for pupil %s (using %s)" %
             (_pid, grademap))
     tagmap = gradedata.getTagmap(pgrades[_pid], "Pupil_%s" % _pid, grademap)

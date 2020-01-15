@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-01-11
+Last updated:  2020-01-15
 
 This module handles access to an sqlite database.
 
@@ -45,7 +45,7 @@ _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
 # them as superseded.
 #TODO: There should be only one report for a given date, regardless of
 # the TERM?
-GRADE_FIELDS = ('CLASS_STREAM', 'PID', 'TERM', 'REPORT_TYPE',
+GRADE_FIELDS = ('KLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
         'DATE_D', 'GRADES')
 GRADE_UNIQUE = [('PID', 'TERM')]
 

@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2020-01-08
+Last updated:  2020-01-13
 
 Configuration items and the handler for the configuration files.
 
@@ -200,7 +200,9 @@ class ConfigFile (OrderedDict):
     def __getitem__ (self, name):
         if name in self:
             return self.get (name)
-        REPORT.Fail (_CONFIGITEMFAIL, name=name, path=self._path)
+#TODO: change back to Fail?
+        REPORT.Error (_CONFIGITEMFAIL, name=name, path=self._path)
+        raise KeyError
 
     def __init__ (self, fpath):
         """Read in a configuration text and add its contents to the
