@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-01-15
+Last updated:  2020-01-18
 
 Flask Blueprint for grade reports
 
@@ -28,6 +28,8 @@ Copyright 2019-2020 Michael Towers
 
 _HEADING = "Notenzeugnis"
 
+_NEWDATE = "*** neu ***"
+_DEFAULT_RTYPE = "Abgang"
 
 import datetime, io, os
 #from types import SimpleNamespace
@@ -45,6 +47,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, toKlassStream, fromKlassStream, match_klass_stream
+from wz_core.db import DB
 #from wz_compat.config import sortingName
 from wz_grades.gradedata import readGradeTable, grades2db, db2grades
 from wz_grades.makereports import makeReports
@@ -69,7 +72,7 @@ def term(termn):
     def prepare(schoolyear, termn, kmap):
         """Gather the possible klasses/streams.
         """
-#TODO: Maybe rather from config list(s)?
+#TODO: Maybe rather get permissible classes/streams from config list(s)?
         p = Pupils(schoolyear)
         klasses = []
         # Only if all streams have the same report type and template
@@ -83,7 +86,7 @@ def term(termn):
                 rtype = match_klass_stream(klass, kmap, stream)
                 if rtype:
                     rtype_tpl = match_klass_stream(klass,
-                            CONF.REPORT_TEMPLATES[rtype], stream)
+                            CONF.GRADES.REPORT_TEMPLATES[rtype], stream)
                     if rtype_tpl:
                         klist.append(toKlassStream(klass, stream))
                         if template:
@@ -110,7 +113,7 @@ def term(termn):
         dfile = None
     schoolyear = session['year']
     try:
-        kmap = CONF.REPORT_TEMPLATES['_' + termn]
+        kmap = CONF.GRADES.REPORT_TEMPLATES['_' + termn]
     except:
         abort(404)
     klasses = REPORT.wrap(prepare, schoolyear, termn, kmap,
@@ -122,6 +125,139 @@ def term(termn):
                             termn=termn,
                             klasses=klasses,
                             dfile=dfile)
+
+
+@bp.route('/klasses', methods=['GET'])
+def klasses():
+    """View: select school-class (single report generation).
+    """
+    schoolyear = session['year']
+    # Collect list of school-classes.
+    # Accept all classes here, then – when it turns out that the class
+    # has no possible templates – show a message indicating this state
+    # of affairs.
+    pupils = Pupils(schoolyear)
+    # List the classes with the oldest pupils first, as these are more
+    # likely to need grades.
+    klasslist = sorted(pupils.classes(), reverse=True)
+    return render_template(os.path.join(_BPNAME, 'klasses.html'),
+            heading = _HEADING,
+            klasses = klasslist
+    )
+
+
+@bp.route('/pupils/<klass>', methods=['GET'])
+def pupils(klass):
+    """View: select pupil from given school-class (single report generation).
+    """
+    schoolyear = session['year']
+    # Collect list of pupils for this school-class.
+    pupils = Pupils(schoolyear)
+    # List the classes with the oldest pupils first, as these are more
+    # likely to need grades.
+    plist = pupils.classPupils(klass)
+    return render_template(os.path.join(_BPNAME, 'pupils.html'),
+            heading = _HEADING,
+            klass = klass,
+            pupils = plist
+    )
+
+
+@bp.route('/pupil/<pid>', methods=['GET','POST'])
+#@admin_required
+def pupil(pid):
+    """View: select report type and edit-existing / new for single report.
+
+    All existing report dates for this pupil will be presented for
+    selection.
+    If there are no existing dates for this pupil, the only option is to
+    construct a new one.
+    Also a report type can be selected. The list might include invalid
+    types as it is difficult at this stage (considering potential changes
+    of stream or even school-class) to determine exactly which ones are
+    valid.
+    """
+    class _Form(FlaskForm):
+        KLASS = SelectField("Klasse")
+        STREAM = SelectField("Maßstab")
+        EDITNEW = SelectField("Ausgabedatum")
+        RTYPE = SelectField("Zeugnistyp")
+
+    schoolyear = session['year']
+    # Get pupil data
+    pupils = Pupils(schoolyear)
+    pdata = pupils.pupil(pid)
+    pname = pdata.name()
+    klass, stream = pdata['CLASS'], pdata['STREAM']
+    # Get existing dates.
+    db = DB(schoolyear)
+    rows = db.select('GRADES', PID=pid)
+#TODO: It is possible that the date field is empty – if the grades for a
+# term have been entered, but no reports generated.
+# Is it reasonable to use the TERM in such a case? Not in a date field ...
+# Would it be ok to just have the REPORT_TYPE field of a pending term
+# report empty? There would need to be a default date ...
+# At present I am including undated term reports as _1 or _2 ...
+    dates = [_NEWDATE]
+    for row in db.select('GRADES', PID=pid):
+        dates.append(row['DATE_D'] or '_' + row['TERM'])
+    # If the stream, or even school-class have changed since an
+    # existing report, the templates and available report types may be
+    # different. To keep it simple, a list of all report types from the
+    # configuration file GRADES.REPORT_TEMPLATES is presented for selection.
+    # An invalid choice can be flagged at the next step.
+    # If there is a mismatch between school-class/stream of the pupil as
+    # selected on this page and that of the existing GRADES entry, a
+    # warning can be shown at the next step.
+    rtypes = [rtype for rtype in CONF.GRADES.REPORT_TEMPLATES if rtype[0] != '_']
+
+    form = _Form(KLASS = klass, STREAM = stream, RTYPE = _DEFAULT_RTYPE)
+    form.KLASS.choices = [(k, k) for k in reversed(pupils.classes())]
+    form.STREAM.choices = [(s, s) for s in CONF.GROUPS.STREAMS]
+    form.EDITNEW.choices = [(d, d) for d in dates]
+    form.RTYPE.choices = [(t, t) for t in rtypes]
+
+    if form.validate_on_submit():
+        # POST
+        klass = form.KLASS.data
+        stream = form.STREAM.data
+        date = form.EDITNEW.data
+        rtype = form.RTYPE.data
+        kmap = CONF.GRADES.REPORT_TEMPLATES[rtype]
+        tfile = match_klass_stream(klass, kmap, stream)
+        if tfile:
+            return redirect(url_for('bp_grades.make1',
+                    pid = pid,
+                    klass = klass,
+                    stream = stream,
+                    date = date,
+                    rtype = rtype
+            ))
+        else:
+            flash("Zeugnistyp '%s' nicht möglich für Gruppe %s" % (
+                    rtype, toKlassStream(klass, stream)), "Error")
+
+    # GET
+    return render_template(os.path.join(_BPNAME, 'pupil.html'),
+                            form = form,
+                            heading = _HEADING,
+                            klass = klass,
+                            pname = pname)
+
+
+#TODO
+@bp.route('/make1/<pid>/<rtype>/<date>/<klass>/<stream>', methods=['GET','POST'])
+#@admin_required
+def make1(pid, rtype, date, klass, stream):
+    """View: Edit data for the report to be created, submit to build it.
+    """
+    return "PID: %s, RTYPE: %s, DATE: %s, CLASS: %s, STREAM: %s" %(
+            pid, rtype, date, klass, stream)
+
+
+
+
+
 
 
 @bp.route('/klass/<termn>/<klass_stream>', methods=['GET','POST'])
@@ -173,79 +309,6 @@ def download(dfile):
     )
 
 
-
-@bp.route('/nogrades/<klass_stream>/<termn>', methods=['GET','POST'])
-#@admin_required
-def nogrades(klass_stream, termn):
-#TODO
-#TODO: Get from file? ... upload?
-    return "%s: Keine Noten für  %s im Halbjahr %s" % (
-            session['year'], klass_stream, termn)
-
-
-#TODO
-@bp.route('/single', methods=['GET'])
-#@admin_required
-def single_klass():
-    return "Klass selection NYI"
-
-
-#TODO
-@bp.route('/klass/<klass>', methods=['GET'])
-#@admin_required
-def klass(klass):
-    return "Pupil selection NYI (klass %s)" % klass
-
-#???
-    rtype = session['rtype']
-    kmap = CONF.REPORT_TEMPLATES[rtype]
-    for klass in pupils.classes():
-        tfile = match_klass_stream(klass, kmap)
-
-#TODO: Actually, considering changes of klass/stream, don't I need to
-# get the data first??? If it exists already ...
-# 1) select pupil and rtag.
-# 2) if rtag exists, use klass/stream from that
-# Allow editing klass/stream?
-# _GS (Gleichstellungsvermerk) distinguishes between extra report
-# (Zwischenzeugnis) and leaving report (Abgang).
-# But are Halbjahr/Zeugnis/Orientierung/Abschluss also possible here?
-# Allow editing of existing report (including deletion?) – as separate
-# function from adding a new report?
-# EDIT EXISTING: choose klass -> choose pupil -> display editable fields
-# (+ delete?)
-# NEW: Enter tag (or date?)
-
-
-
-#TODO
-@bp.route('/single/<klass>/<pid>', methods=['GET','POST'])
-#@admin_required
-def pupil(klass, pid):
-    """Construct a grade report for a single pupil.
-    """
-    return "TODO report for pid %s (klass %s)" % (pid, klass)
-    class PupilForm(FlaskForm):
-        RTAG = SelectField()
-        RTYPE = SelectField()
-#TODO: grades
-        DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
-
-    courses = CourseTables(schoolyear)
-    subjects = courses.filterGrades(klass)
-#TODO: Possible filtering for stream/pupil?
-
-#TODO: Set up the select fields for this klass (& stream?)
-
-    if form.validate_on_submit():
-        # POST
-        pass
-
-    # GET
-    pass
-
-
-
 @bp.route('/upload/<termn>', methods=['GET','POST'])
 #@admin_required
 def addgrades(termn):
@@ -267,60 +330,6 @@ def addgrades(termn):
                             heading=_HEADING,
                             termn=termn,
                             form=form)
-
-
-
-
-
-
-###### old ############################################################
-
-#TODO: the date should be saved with the year ...
-_date = '2020-07-15'
-class DateForm(FlaskForm):
-    DATE_D = DateField('Ausgabedatum',
-                            default=datetime.date.fromisoformat(_date),
-                            validators=[InputRequired()])
-
-
-#TODO: generate a zip of all classes ...
-def _allklasses(schoolyear, klasses):
-    pass
-
-
-@bp.route('/pupil/<klass>/<pid>', methods=['GET','POST'])
-#@admin_required
-def pupilview(klass, pid):
-    fields = pupilFields(klass)
-    form = DateForm()
-    if form.validate_on_submit():
-        # POST
-        _d = form.DATE_D.data.isoformat()
-        pupil = SimpleNamespace (**{f: request.form[f] for f, _ in fields})
-        pdfBytes = makeOneSheet(session['year'], _d, klass, pupil)
-        return send_file(
-            io.BytesIO(pdfBytes),
-            attachment_filename='Mantel_%s.pdf' % sortingName(
-                    pupil.FIRSTNAMES, pupil.LASTNAME),
-            mimetype='application/pdf',
-            as_attachment=True
-        )
-    # GET
-    p = Pupils(session['year'])
-    pdlist = p.classPupils(klass)
-    pupils = []
-    for pdata in pdlist:
-        _pid = pdata['PID']
-        pupils.append((_pid, pdata.name()))
-        if _pid == pid:
-            pupil = {f: (fname, pdata[f]) for f, fname in fields}
-    return render_template(os.path.join(_BPNAME, 'text_cover_pupil.html'),
-                            form=form,
-                            heading=_HEADING,
-                            klass=klass,
-                            pupil=pupil,
-                            pupils=pupils)
-
 
 
 #TODO: remove

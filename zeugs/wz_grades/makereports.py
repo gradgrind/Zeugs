@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-01-08
+Last updated:  2020-01-18
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -97,7 +97,7 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
     grademap = match_klass_stream(klass, CONF.MISC.GRADE_SCALE, stream)
     # <GradeReportData> manages the report template, etc.:
     # Get the report type from the term and klass/stream
-    rtype = match_klass_stream(klass, CONF.REPORT_TEMPLATES['_' + term], stream)
+    rtype = match_klass_stream(klass, CONF.GRADES.REPORT_TEMPLATES['_' + term], stream)
     reportData = GradeReportData(schoolyear, rtype, klass, stream)
     # General info on the klass/stream:
     klassData = KlassData(klass, stream)

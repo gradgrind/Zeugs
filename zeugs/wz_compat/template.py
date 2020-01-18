@@ -4,7 +4,7 @@
 """
 wz_compat/template.py
 
-Last updated:  2020-01-15
+Last updated:  2020-01-18
 
 Functions for template handling.
 
@@ -32,21 +32,36 @@ import os, re
 import jinja2
 
 from wz_core.configuration import Paths, Dates
-from wz_core.pupils import match_klass_stream
+from wz_core.pupils import match_klass_stream, toKlassStream
 
 
-def getTemplate(rtype, klass, stream=None):
-    """Return the matching template for the given klass/group and
-    report type.
+def getGradeTemplate(rtype, klass, stream=None):
+    """Return the matching template for the given school-class/stream
+    and report type.
     """
-    tlist = CONF.REPORT_TEMPLATES[rtype]
+    tlist = CONF.GRADES.REPORT_TEMPLATES[rtype]
     tfile = match_klass_stream(klass, tlist, stream)
     if tfile:
 #        print ("???", tfile)
         return openTemplate(tfile)
     else:
         REPORT.Bug("Invalid report category for class {ks}: {rtype}",
-                ks=klass_stream,
+                ks=toKlassStream(klass, stream),
+                rtype=rtype)
+
+
+def getTextTemplate(rtype, klass):
+    """Return the matching template for the given school-class and
+    report type.
+    """
+    tlist = CONF.TEXT.REPORT_TEMPLATES[rtype]
+    tfile = match_klass_stream(klass, tlist)
+    if tfile:
+#        print ("???", tfile)
+        return openTemplate(tfile)
+    else:
+        REPORT.Bug("Invalid report category for class {ks}: {rtype}",
+                ks=klass,
                 rtype=rtype)
 
 

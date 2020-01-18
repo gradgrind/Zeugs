@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-15
+wz_core/pupils.py - last updated 2020-01-18
 
 Database access for reading pupil data.
 
@@ -169,6 +169,14 @@ class Pupils:
         return sorted ([s or '_'
                 for s in self.db.selectDistinct ('PUPILS', 'STREAM',
                         CLASS=klass)])
+
+    def pupil(self, pid):
+        """Return a <PupilData> named tuple for the given pupil-id.
+        """
+        pdata = self.db.select1('PUPILS', PID=pid)
+        if pdata:
+            return PupilData(pdata)
+        return None
 
     def classPupils (self, klass, stream=None, date=None):
         """Read the pupil data for the given klass (and stream).

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.pupils', klass=klass) %}
+{% set uplink_help = "Klasse " + klass %}
+
+{% block title %}Einzelzeugnis{% endblock %}
+
+{% block content %}
+    <h3>für {{pname}}</h3>
+    <p>Hier können Sie den Zeugnistyp festlegen und entscheiden, ob
+    ein altes Zeugnis zu ändern ist oder ein neues zu erstellen.
+    Das genaue Ausgabedatum kann später – bei der Erstellung – festgelegt
+    werden.
+    </p>
+    <p>Gegebenfalls können Sie die Klasse/Maßstab des Schülers (nur für
+    dieses Zeugnis) ändern. Diese Möglichkeit wird nur selten sinnvoll
+    sein!
+    </p>
+
+    <form id="dataform" class="pure-form" method="POST">
+        {{ form.csrf_token }}
+
+        <div class="form2">
+        {{ form.KLASS.label }}{{ form.KLASS }}
+        {{ form.STREAM.label }}{{ form.STREAM }}
+        {{ form.EDITNEW.label }}{{ form.EDITNEW }}
+        {{ form.RTYPE.label }}{{ form.RTYPE }}
+        </div>
+        <hr />
+        <button type="submit" class="pure-button submit-button"
+                    style="margin: 0 1rem;">Weiter</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,10 @@
+############## TEXT/REPORT_TEMPLATES
+############## Version: 2020-01-18
+
+### Zuordnung der Zeugnisvorlagen zu den Klassen/Gruppen.
+## Für Textzeugnisse
+
+Mantelbogen =& 13*:
+             & 12*: Textzeugnis/CoverSheet.html
+             & *: Textzeugnis/CoverSheet.html
+

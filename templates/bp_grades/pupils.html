@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Einzelzeugnisse (Klassenwahl)" %}
+
+{% block title %}Einzelzeugnis, Klasse {{klass}}{% endblock %}
+
+{% block content %}
+    <p>Wählen Sie hier die Schülerin, für die das Zeugnis zu erstellen ist.
+    </p>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for p in pupils %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.pupil', pid=p.PID)}}"
+                        class="pure-menu-link">
+                    {{ p.name() }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+{% endblock %}

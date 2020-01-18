@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-01-15
+Last updated:  2020-01-18
 
 Handle the data for grade reports.
 
@@ -53,7 +53,7 @@ from wz_core.configuration import Paths
 from wz_core.db import DB, UpdateError
 from wz_core.pupils import Pupils, KlassData, match_klass_stream
 from wz_core.courses import CourseTables
-from wz_compat.template import getTemplate, getTemplateTags
+from wz_compat.template import getGradeTemplate, getTemplateTags
 from wz_table.dbtable import readDBTable
 
 
@@ -254,14 +254,14 @@ class GradeReportData:
     # ensure that the correct template and klass-related data is used.
     def __init__(self, schoolyear, rtype, klass, stream=None):
         """<rtype> is the report type, a key to the mapping
-        REPORT_TEMPLATES.
+        GRADE.REPORT_TEMPLATES.
         """
         self.schoolyear = schoolyear
         self.klassdata = KlassData(klass, stream)
 
         ### Set up categorized, ordered lists of grade fields for insertion
         ### in a report template.
-        self.template = getTemplate(rtype, klass, stream)
+        self.template = getGradeTemplate(rtype, klass, stream)
         alltags = getTemplateTags(self.template)
         # Extract grade-entry tags, i.e. those matching <str>_<int>:
         gtags = {}      # {subject group -> [(unsorted) index<int>, ...]}
@@ -397,7 +397,7 @@ def test_01 ():
     REPORT.Test("\nReading template data for class %s" % _ks)
 
     # Get the report type from the term and klass/stream
-    _rtype = match_klass_stream(_klass, CONF.REPORT_TEMPLATES['_' + _term],
+    _rtype = match_klass_stream(_klass, CONF.GRADES.REPORT_TEMPLATES['_' + _term],
             _stream)
     gradedata = GradeReportData(_testyear, _rtype, _klass, _stream)
     REPORT.Test("  Indexes:\n  %s" % repr(gradedata.sgroup2indexes))

@@ -4,7 +4,7 @@
 """
 wz_text/coversheet.py
 
-Last updated:  2020-01-11
+Last updated:  2020-01-18
 
 Build the outer sheets (cover sheets) for the text reports.
 User fields in template files are replaced by the report information.
@@ -39,7 +39,7 @@ from weasyprint.fonts import FontConfiguration
 from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Pupils, KlassData
 from wz_compat.config import printSchoolYear
-from wz_compat.template import getTemplate, getTemplateTags, pupilFields
+from wz_compat.template import getTextTemplate, getTemplateTags, pupilFields
 
 
 def makeSheets (schoolyear, date, klass, pids=None):
@@ -66,7 +66,7 @@ def makeSheets (schoolyear, date, klass, pids=None):
         if pset:
             REPORT.Bug(_PUPILSNOTINCLASS, pids=', '.join(pset), klass=klass)
 
-    template = getTemplate('Mantelbogen', klass)
+    template = getTextTemplate('Mantelbogen', klass)
     klassdata = KlassData(klass)
     source = template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
@@ -93,7 +93,7 @@ def makeOneSheet(schoolyear, date, klass, pupil):
     <pupil>: a mapping with the necessary pupil information (at least a
     subset of <PupilData>).
     """
-    template = getTemplate('Mantelbogen', klass)
+    template = getTextTemplate('Mantelbogen', klass)
     klassdata = KlassData(klass)
     source = template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
@@ -112,7 +112,7 @@ _year = 2016
 _date = '2016-06-22'
 _klass = '09'
 def test_01():
-    template = getTemplate('Mantelbogen', _klass)
+    template = getTextTemplate('Mantelbogen', _klass)
     tags = getTemplateTags(template)
     REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 

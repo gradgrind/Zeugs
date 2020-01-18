@@ -4,7 +4,7 @@
 """
 flask_app/text_cover/text_cover.py
 
-Last updated:  2020-01-11
+Last updated:  2020-01-18
 
 Flask Blueprint for text report cover sheets
 
@@ -42,7 +42,7 @@ from wz_core.configuration import Dates
 from wz_core.db import DB
 from wz_core.pupils import Pupils, match_klass_stream
 from wz_compat.config import sortingName
-from wz_compat.template import getTemplate, getTemplateTags, pupilFields
+from wz_compat.template import getTextTemplate, getTemplateTags, pupilFields
 from wz_text.coversheet import makeSheets, makeOneSheet
 
 _HEADING = "Textzeugnis"
@@ -87,7 +87,7 @@ def index():
     # GET
     form.defaultIssueDate(schoolyear)
     p = Pupils(schoolyear)
-    _kmap = CONF.REPORT_TEMPLATES['Mantelbogen']
+    _kmap = CONF.TEXT.REPORT_TEMPLATES['Mantelbogen']
     klasses = [k for k in p.classes() if match_klass_stream(k, _kmap)]
     return render_template(os.path.join(_BPNAME, 'index.html'),
                             form=form,
@@ -137,7 +137,7 @@ def _allklasses(schoolyear, klasses):
 #@admin_required
 def pupilview(klass, pid):
     schoolyear = session['year']
-    template = getTemplate('Mantelbogen', klass)
+    template = getTextTemplate('Mantelbogen', klass)
     tags = getTemplateTags(template)
     _fields = dict(pupilFields(tags))
     fields = [(f0, f1) for f0, f1 in CONF.TABLES.PUPILS_FIELDNAMES.items()

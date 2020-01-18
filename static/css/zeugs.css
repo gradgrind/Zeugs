@@ -30,15 +30,23 @@
     align-items: center;
     padding: 0 0.5rem;
 }
+.topicon {
+    position: absolute;
+    left: 0;
+}
 .toptitle {
      flex-grow: 1;
      justify-content: center;
      color: #005;
      font-weight: bold;
      font-size: 1.5rem;
+     padding-left: 2rem;
 }
 .topyear {
      font-size: 1.5rem;
+     position: absolute;
+     right: 0;
+     background-color: inherit;
 }
 
 .dropdown-content {
@@ -273,6 +281,7 @@ main {
     top: 3rem;
     align-items: center;
     justify-content: center;
+    padding: 0 4rem;
     color: #00b;
     background-color: #fbe6e6;
     z-index: 1;
@@ -311,5 +320,11 @@ main {
     }
     main, #pagetitle {
         margin-left: 15rem;
+    }
+}
+
+@media (max-width: 399px){
+    .toptitle {
+        font-size: 1.2rem;
     }
 }

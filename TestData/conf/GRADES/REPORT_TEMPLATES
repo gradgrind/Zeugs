@@ -1,16 +1,8 @@
-############## REPORT_TEMPLATES
-############## Version: 2020-01-08
+############## GRADES/REPORT_TEMPLATES
+############## Version: 2020-01-18
 
 ### Zuordnung der Zeugnisvorlagen zu den Klassen/Gruppen.
-
-## Für Textzeugnisse:
-
-Mantelbogen =& 13*:
-             & 12*: Textzeugnis/CoverSheet.html
-             & *: Textzeugnis/CoverSheet.html
-
-
-## Für Notenzeugnisse:
+## Für Notenzeugnisse
 
 #TODO: 11. Kl. term 1: Orientierung? (at least RS?)
 
