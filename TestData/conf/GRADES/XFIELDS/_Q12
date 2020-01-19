@@ -1,0 +1,11 @@
+############## GRADES/XFIELDS/_Q12
+############## Version: 2020-01-19
+
+### Abschlusszeugnis, 12. Klasse
+
+NAME = Abschluss 12. Kl.
+
+VALUES =& HS
+        & RS
+        & Erw
+        &

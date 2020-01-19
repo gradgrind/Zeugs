@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-01-18
+Last updated:  2020-01-19
 
 Flask Blueprint for grade reports
 
@@ -49,7 +49,8 @@ from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, toKlassStream, fromKlassStream, match_klass_stream
 from wz_core.db import DB
 #from wz_compat.config import sortingName
-from wz_grades.gradedata import readGradeTable, grades2db, db2grades
+from wz_grades.gradedata import (readGradeTable, grades2db, db2grades,
+        getGradeData, GradeReportData)
 from wz_grades.makereports import makeReports
 
 
@@ -188,7 +189,7 @@ def pupil(pid):
     pupils = Pupils(schoolyear)
     pdata = pupils.pupil(pid)
     pname = pdata.name()
-    klass, stream = pdata['CLASS'], pdata['STREAM']
+    klass, stream = pdata['CLASS'], pdata['STREAM'] or '_'
     # Get existing dates.
     db = DB(schoolyear)
     rows = db.select('GRADES', PID=pid)
@@ -251,23 +252,107 @@ def pupil(pid):
 def make1(pid, rtype, date, klass, stream):
     """View: Edit data for the report to be created, submit to build it.
     """
-    return "PID: %s, RTYPE: %s, DATE: %s, CLASS: %s, STREAM: %s" %(
-            pid, rtype, date, klass, stream)
+#    return "PID: %s, RTYPE: %s, DATE: %s, CLASS: %s, STREAM: %s" %(
+#            pid, rtype, date, klass, stream)
+
+    class _Form(FlaskForm):
+        DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
+
+    def prepare():
+        # Get the name of the relevant grade scale configuration file:
+        grademap = match_klass_stream(klass, CONF.MISC.GRADE_SCALE, stream)
+        gradechoices = [(g, g) for g in CONF.GRADES[grademap].VALID]
+        # Get existing grades
+        grades = getGradeData(schoolyear, pid, date=date)
+
+        ### Get template fields which need to be set here
+        gdata = GradeReportData(schoolyear, rtype, klass, stream)
+        groups = []
+        for sgroup in sorted(gdata.sgroup2sids):    # grouped subject-ids
+            fields = []
+            for sid in gdata.sgroup2sids[sgroup]:
+                sname = gdata.courses.subjectName(sid)
+                try:
+                    grade = grades['GRADES'][sid]
+                except:
+                    grade = None
+                sfield = SelectField(sname, choices=gradechoices, default=grade)
+                key = sgroup + '_' + sid
+                setattr(_Form, key, sfield)
+                fields.append(key)
+            if fields:
+                groups.append((sgroup, fields))
+        # "Extra" fields like "_GS" (one initial underline!)
+        xfields = []
+        # Build roughly as for subjects, but in group <None>
+        for tag in gdata.alltags:
+            if tag.startswith('grades._'):
+                xfield = tag.split('.', 1)[1]
+                if xfield[1] == '_':
+                    # Calculated fields should not be presented here
+                    continue
+                # Get options
+                try:
+                    xfconf = CONF.GRADES.XFIELDS[xfield]
+                    # The choices depend on the tag
+                    choices = [(c, c) for c in xfconf.VALUES]
+                except:
+                    flash("Feld %s unbekannt: Vorlage %s" % (
+                            xfield, tfile), "Error")
+                    continue
+                try:
+                    val = grades['GRADES'][xfield]
+                except:
+                    val = None
+                sfield = SelectField(xfconf.NAME, choices=choices, default=val)
+                key = 'Z_' + xfield
+                setattr(_Form, key, sfield)
+                xfields.append(key)
+        if xfields:
+            groups.append((None, xfields))
+        return groups
+
+    schoolyear = session['year']
+    groups = REPORT.wrap(prepare, suppressok=True)
+
+    # Get pupil data
+    pupils = Pupils(schoolyear)
+    pdata = pupils.pupil(pid)
+    pname = pdata.name()
+
+#######
+    form = _Form()
+    if form.validate_on_submit():
+        # POST
+        _d = form.DATE_D.data.isoformat()
 
 
-
-
-
+    # GET
+    # Set initial date of issue
+    try:
+        form.DATE_D.data = datetime.date.fromisoformat(date)
+    except ValueError:
+        form.DATE_D.data = datetime.date.today()
+    return render_template(os.path.join(_BPNAME, 'make1.html'),
+                            form = form,
+                            groups = groups,
+                            heading = _HEADING,
+                            pid = pid,
+                            pname = pname,
+                            rtype = rtype,
+                            klass = klass,
+                            stream = stream
+    )
 
 
 @bp.route('/klass/<termn>/<klass_stream>', methods=['GET','POST'])
 #@admin_required
 def klassview(termn, klass_stream):
-    class KlassForm(FlaskForm):
+    class _Form(FlaskForm):
         DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
 
     schoolyear = session['year']
-    form = KlassForm()
+    form = _Form()
     if form.validate_on_submit():
         # POST
         _d = form.DATE_D.data.isoformat()

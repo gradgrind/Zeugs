@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.pupils', klass=klass) %}
+{% set uplink_help = "Klasse " + klass %}
+
+{% block title %}Einzelzeugnis{% endblock %}
+
+{% block content %}
+    <h3>für {{pname}}</h3>
+    <p style="margin-left: 10mm;">Klasse: {{klass}}</p>
+    <p style="margin-left: 10mm;">Maßstab: {{stream}}</p>
+    <p style="margin-left: 10mm;">Zeugnistyp: <strong>{{rtype}}</strong></p>
+    <p>Geben Sie alle Daten ein, die für das Zeugnis nötig sind, dann
+    klicken Sie auf "Erstellen" (ganz unten).
+    </p>
+
+    <form id="dataform" class="pure-form pure-form-aligned widelabel" method="POST">
+        {{ form.csrf_token }}
+
+        <fieldset>
+        {% for group, fields in groups %}
+            <legend>
+            {% if group %}
+                Gruppe {{group}}
+            {% else %}
+                Zeugnisdaten
+            {% endif %}
+            </legend>
+            {% for field in fields %}
+                <div class="pure-control-group">
+                {{ form[field].label }}{{ form[field] }}
+                </div>
+            {% endfor %}
+        {% endfor %}
+        </fieldset>
+        <div class="pure-control-group">
+            {{ form.DATE_D.label }}{{ form.DATE_D }}
+        </div>
+        <hr />
+        <button type="submit" class="pure-button submit-button"
+                    style="margin: 0 1rem;">Erstellen</button>
+    </form>
+{% endblock %}

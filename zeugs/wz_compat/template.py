@@ -4,7 +4,7 @@
 """
 wz_compat/template.py
 
-Last updated:  2020-01-18
+Last updated:  2020-01-19
 
 Functions for template handling.
 
@@ -85,16 +85,19 @@ def openTemplate(tpath):
 
 def getTemplateTags(template):
     """Find all substrings containing only letters, digits, underscore
-    and dot which are surrounded by '{{ ... }}'. Each item must start
-    with a letter or underscore. More than one such substring may occur
-    in each block.
+    and dot which are surrounded by '{{ ... }}' or '{{ ... }}'.
+    Each item must start with a letter or underscore. More than one such
+    substring may occur in each block.
     Return a <set>.
     """
+    _match = r'.*?([a-zA-Z_][a-zA-Z0-9_.]*)'
     with open(template.filename, 'r', encoding='utf-8') as fh:
         text = fh.read()
     tags = set()
     for item in re.findall(r'\{\{(.*?)\}\}', text):
-        tags.update(re.findall(r'.*?([a-zA-Z_][a-zA-Z0-9_.]*)', item))
+        tags.update(re.findall(_match, item))
+    for item in re.findall(r'\{\%(.*?)\%\}', text):
+        tags.update(re.findall(_match, item))
     return tags
 
 

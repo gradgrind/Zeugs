@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-18
+wz_core/pupils.py - last updated 2020-01-19
 
 Database access for reading pupil data.
 
@@ -45,11 +45,11 @@ def fromKlassStream (klass_stream):
 
 def toKlassStream (klass, stream):
     """Build a klass_stream name from klass and stream.
-    Stream may be <None> or other "false" value, in which case
+    Stream may be <None>, any other "false" value or '_', in which case
     just the klass is returned ...
     Return klass_stream as <str>.
     """
-    return klass + '.' + stream if stream else klass
+    return klass + '.' + stream if (stream and stream != '_') else klass
 
 
 def match_klass_stream(klass, kmap, stream=None):

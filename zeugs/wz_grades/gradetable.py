@@ -1,9 +1,9 @@
 # python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-01-04
+wz_grades/gradetable.py - last updated 2020-01-19
 
-Create attendance table for a class.
+Create grade tables for display and grade entry.
 
 ==============================
 Copyright 2020 Michael Towers
@@ -196,7 +196,7 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
 
     ### Add pupils
     pupils = Pupils(schoolyear)
-    for pdata in pupils.classPupils(klass_stream):
+    for pdata in pupils.classPupils(klass, stream):
         while True:
             i += 1
             try:
@@ -301,7 +301,7 @@ def stripTable(schoolyear, term, klass_stream, title):
 
     ### Add pupils
     pupils = Pupils(schoolyear)
-    for pdata in pupils.classPupils(klass_stream):
+    for pdata in pupils.classPupils(klass, stream):
         while True:
             i += 1
             try:
@@ -325,7 +325,7 @@ def stripTable(schoolyear, term, klass_stream, title):
 
 
 ##################### Test functions
-_testyear = 2016
+_testyear = 2020
 def test_01():
     _term = '1'
     for ks in '11.RS', '11.Gym','12.RS', '12.Gym', '13':

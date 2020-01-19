@@ -23,9 +23,9 @@ C =& Ma
 D =& Sp
    & Eu
 
-X =& Kge
-   & FK
-   & Sth
+X =& Kge_k
+   & FK_k
+   & Sth_k
    & AWT
 
 ### Abitur (13. Kl.)
@@ -64,13 +64,13 @@ S =& De
    
 # Künstlerisch-praktisch
 K =& Eu
-   & Bb
-   & FK
-   & Kge
-   & Ktr
-   & Mal
-   & MZ
-   & Pls
-   & Snt
-   & Sth
-   & Web
+   & Bb_k
+   & FK_k
+   & Kge_k
+   & Ktr_k
+   & Mal_k
+   & MZ_k
+   & Pls_k
+   & Snt_k
+   & Sth_k
+   & Web_k

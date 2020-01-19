@@ -142,6 +142,10 @@
     padding-top: 1rem;
 }
 
+.widelabel .pure-control-group label {
+    width: 15rem;
+}
+
 .form2 { /* layout forms with label + input field using grid */
     display: grid;
     grid-template-columns: 10rem 1fr;

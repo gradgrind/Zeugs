@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-01-18
+Last updated:  2020-01-19
 
 Handle the data for grade reports.
 
@@ -209,16 +209,21 @@ def db2grades(schoolyear, term, klass, stream=None, checkonly=False):
 
 
 
-def getGradeData(schoolyear, pid, term):
+def getGradeData(schoolyear, pid, term=None, date=None):
     """Return all the data from the database GRADES table for the
-    given pupil as a mapping.
-    <term> is the report category, e.g. a term.
+    given pupil as a mapping. Either term or date may be given (if term
+    is supplied, date will be ignored).
+    <term> is the term.
+    <date> is the date of issue of the report.
     The string in field 'GRADES' is converted to a mapping. If there is
     grade data, its validity is checked. If there is no grade data, this
     field is <None>.
     """
     db = DB(schoolyear)
-    gdata = db.select1('GRADES', PID=pid, TERM=term)
+    if term:
+        gdata = db.select1('GRADES', PID=pid, TERM=term)
+    else:
+        gdata = db.select1('GRADES', PID=pid, DATE_D=date)
     if gdata:
         # Convert the grades to a <dict>
         gmap = dict(gdata)
@@ -262,10 +267,10 @@ class GradeReportData:
         ### Set up categorized, ordered lists of grade fields for insertion
         ### in a report template.
         self.template = getGradeTemplate(rtype, klass, stream)
-        alltags = getTemplateTags(self.template)
+        self.alltags = getTemplateTags(self.template)
         # Extract grade-entry tags, i.e. those matching <str>_<int>:
         gtags = {}      # {subject group -> [(unsorted) index<int>, ...]}
-        for tag in alltags:
+        for tag in self.alltags:
             try:
                 _group, index = tag.split('_')
                 group = _group.split('.')[-1]
@@ -281,7 +286,7 @@ class GradeReportData:
         # The reversal is for popping in correct order.
         self.sgroup2indexes = {group: sorted(gtags[group], reverse=True)
                 for group in gtags}
-#        print("\n??? alltags", alltags)
+#        print("\n??? self.alltags", self.alltags)
 #        print("\n??? self.sgroup2indexes", self.sgroup2indexes)
 
         ### Sort the subject tags into ordered groups
@@ -301,10 +306,8 @@ class GradeReportData:
                 except:
                     pass
         # Entries remaining in <subjects> are not covered in ORDERING.
-        # Report those not starting with '_':
         for sid in subjects:
-            if sid[0] != '_':
-                REPORT.Error(_UNGROUPED_SID, sid=sid, tfile=self.template.filename)
+            REPORT.Error(_UNGROUPED_SID, sid=sid, tfile=self.template.filename)
 
 
     def getTagmap(self, grades, pname, grademap='GRADES'):
