@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-19
+wz_core/pupils.py - last updated 2020-01-24
 
 Database access for reading pupil data.
 
@@ -22,78 +22,95 @@ Copyright 2019-2020 Michael Towers
    limitations under the License.
 """
 
-# Note that "klass" is often used, in comments as well as in the code,
-# to mean school-class. The "k" can help to avoid confusion with
-# Python classes.
-
 from fnmatch import fnmatchcase
 from collections import OrderedDict, UserList
 
 from .db import DB
 
 
-def fromKlassStream (klass_stream):
-    """Split a klass_stream item into klass and stream.
-    If there is no stream, set this part to <None>.
-    Return a tuple: (klass, stream).
+class Klass:
+    """An object representing a school-class, or one or more streams
+    within a school-class.
     """
-    try:
-        klass, stream = klass_stream.split ('.')
-        return (klass, stream)
-    except:
-        return (klass_stream, None)
+    def __init__(self, klass_stream):
+        """<klass_stream> is a school-class with optional stream appendage.
 
-def toKlassStream (klass, stream):
-    """Build a klass_stream name from klass and stream.
-    Stream may be <None>, any other "false" value or '_', in which case
-    just the klass is returned ...
-    Return klass_stream as <str>.
-    """
-    return klass + '.' + stream if (stream and stream != '_') else klass
-
-
-def match_klass_stream(klass, kmap, stream=None):
-    """Find the first matching entry for the klass/group in the mapping list.
-    The klass-stream is "normalized" so that there is always a '.'
-    between klass and stream, even if there is no stream.
-    An entry in the list has the form 'klass_stream: value'.
-    "glob" (fnmatch) matching is used on the klass_stream part,
-    with one extension:
-    There may be a single '<'. The part before the '<' will be taken as
-    the minimum acceptable klass_stream. After the '<' is the part to
-    be matched.
-    Example <kmap>:
-        ['13.Gym: Notenzeugnis/Abgang-13.html',
-         '12.Gym: Notenzeugnis/Notenzeugnis-12_SII.html',
-         '12.*': Notenzeugnis/Notenzeugnis-12_SI.html',
-         '05<*: Notenzeugnis/Notenzeugnis-SI.html'
-        ]
-    Return the "stripped" value (after ':') if a match is found.
-    If the entry has no value, or if there is no matching entry,
-    return <None>.
-    """
-    ks = klass + '.' + (stream or '')
-    for item in kmap:
-        k, v = item.split(':', 1)
+        The class part can be 1 or 2 digits (school year/grade) followed
+        by an optional tag string.
+        The stream part can be a single stream, or '_', or a list of streams
+        separated by '-'. '_' is used to cover pupils with no stream.
+        The format is '<klass>.<stream list>'.
+        Attributes:
+            klass: str  (2-digit, if necessary with leading 0, + tag)
+            streams: [str]
+            year: int   (school year – Am.: grade)
+            klasstag: str (tag part of class)
+            name: str (print-name of class)
+        """
         try:
-            kmin, k = k.split('<')
+            klass, streams = klass_stream.split ('.')
+            self.streams = sorted(streams.split('-'))
         except:
-            kmin = '00'
-        if fnmatchcase(ks, k):
-            if ks >= kmin:
-                return v.strip() or None
-    return None
-
-
-class KlassData:
-    def __init__(self, klass, stream=None):
-        self.klass = klass
-        self.stream = stream
-        # Leading zero on klass names?
+            klass = klass_stream
+            self.streams = []
+        self.year = int(klass[0])
+        try:
+            self.year = self.year*10 + int(klass[1])
+            self.klasstag = klass[2:]
+        except:
+            self.klasstag = klass[1:]
+        self.klass = '%02d%s' % (self.year, self.klasstag)
         self.name = (self.klass if CONF.MISC.CLASS_LEADING_ZERO
                 else self.klass.lstrip('0'))
-        self.klasstag = self.klass[2:]          # assumes 2-digit classes
-        self.year = self.klass[:2].lstrip('0')  # assumes 2-digit classes
+
+    def __str__(self):
+        if self.streams:
+            return self.klass + '.' + '-'.join(self.streams)
+        return self.klass
+
+
+    def match_map(self, kmap):
+        """Find the first matching entry for the klass.stream in the
+        mapping list.
+        The klass.stream is "normalized" so that there is always a '.',
+        even if the whole class is addressed (empty stream part).
+        An entry in the list has the form 'klass.stream: value'.
+        "glob" (fnmatch) matching is used on the klass.stream part,
+        with one extension:
+        There may be a single '<'. The part before the '<' will be taken as
+        the minimum acceptable klass.stream (string comparison).
+        After the '<' is the part to be matched.
+        Example <kmap>:
+            ['13.Gym: Notenzeugnis/Abgang-13.html',
+             '12.Gym: Notenzeugnis/Notenzeugnis-12_SII.html',
+             '12.*': Notenzeugnis/Notenzeugnis-12_SI.html',
+             '05<*: Notenzeugnis/Notenzeugnis-SI.html'
+            ]
+        Return the "stripped" value (after ':') if a match is found.
+        If the entry has no value, or if there is no matching entry,
+        return <None>.
+        """
+        ks = str(self)
+        if not self.streams:
+            ks += '.'
+        for item in kmap:
+            k, v = item.split(':', 1)
+            try:
+                kmin, k = k.split('<')
+            except:
+                kmin = '00'
+            if fnmatchcase(ks, k):
+                if ks >= kmin:
+                    return v.strip() or None
+        return None
+
+
+    def klassStreams (self, schoolyear):
+        """Return a sorted list of stream names for this school-class.
+        """
+        return sorted ([s or '_'
+                for s in DB(schoolyear).selectDistinct ('PUPILS', 'STREAM',
+                        CLASS=self.klass)])
 
 
 
@@ -145,8 +162,12 @@ class PupilData (list):
         """
         return self ['FIRSTNAME'] + ' ' + self ['LASTNAME']
 
-    def klassStream (self):
-        return toKlassStream (self ['CLASS'], self ['STREAM'] or '_')
+    def getKlass(self, withStream=False):
+        """Return a <Klass> object for this pupil.
+        If <withStream> is true, add a stream tag.
+        """
+        return Klass(self ['CLASS'] + '.' + (self ['STREAM'] or '_')
+                if withStream else self['CLASS'])
 
     def toMapping(self):
         return OrderedDict(map(lambda a,b: (a,b), self.fields(), self))
@@ -163,13 +184,6 @@ class Pupils:
         """
         return sorted (self.db.selectDistinct ('PUPILS', 'CLASS'))
 
-    def streams (self, klass):
-        """Return a sorted list of stream names for the given klass.
-        """
-        return sorted ([s or '_'
-                for s in self.db.selectDistinct ('PUPILS', 'STREAM',
-                        CLASS=klass)])
-
     def pupil(self, pid):
         """Return a <PupilData> named tuple for the given pupil-id.
         """
@@ -178,30 +192,33 @@ class Pupils:
             return PupilData(pdata)
         return None
 
-    def classPupils (self, klass, stream=None, date=None):
-        """Read the pupil data for the given klass (and stream).
+    def classPupils (self, klass, date=None):
+        """Read the pupil data for the given school-class (possibly with
+        streams).
         Return an ordered list of <PupilData> named tuples.
         If a <date> is supplied, pupils who left the school before that
         date will not be included.
-        If <stream> is not supplied, all pupils are returned. If a value
-        is supplied, only those pupils in the given stream are returned.
+        <klass> is a <Klass> instance. If it has no streams, all pupils
+        are returned. If there are strems, only those pupils in one of
+        the given streams are returned.
         To enable indexing on pupil-id, the result has an extra
         attribute, <pidmap>: {pid-> <PupilData> instance}
         """
-        fetched = self.db.select ('PUPILS', CLASS=klass)
+        fetched = self.db.select('PUPILS', CLASS=klass.klass)
         rows = UserList()
         rows.pidmap = {}
+        slist = klass.streams
         for row in fetched:
-            pdata = PupilData (row)
+            pdata = PupilData(row)
             # Check exit date
             if date:
-                exd = pdata ['EXIT_D']
+                exd = pdata['EXIT_D']
                 if exd and exd < date:
                     continue
             # Check stream
-            if (stream == None) or (stream == (pdata ['STREAM'] or '_')):
+            if (not slist) or ((pdata['STREAM'] or '_') in slist):
                 rows.append (pdata)
-                rows.pidmap [pdata ['PID']] = pdata
+                rows.pidmap [pdata['PID']] = pdata
         return rows
 
 
@@ -212,15 +229,15 @@ def test_01 ():
     REPORT.Test ("Classes: %s" % repr(pdb.classes ()))
 
 def test_02 ():
-    schoolyear = 2016
-    pdb = Pupils (schoolyear)
-    REPORT.Test ("Streams: %s" % repr(pdb.streams ('12')))
+    _year = 2016
+    _klass = '12'
+    REPORT.Test ("Streams: %s" % repr(Klass(_klass).klassStreams (_year)))
 
 def test_03 ():
     schoolyear = 2016
     pdb = Pupils (schoolyear)
     date = '2016-06-20'
-    c = '10'
+    c = Klass('10')
     cdata = pdb.classPupils (c, date)
     REPORT.Test ("\n-- Class %s" % c)
     for line in cdata:
@@ -230,7 +247,7 @@ def test_04 ():
     schoolyear = 2016
     pdb = Pupils (schoolyear)
 #    date = '2016-06-20'
-    cs = '10.RS'
+    cs = Klass('10.RS')
     cdata = pdb.classPupils (cs)
     REPORT.Test ("\n-- Class.Stream %s" % cs)
     for line in cdata:

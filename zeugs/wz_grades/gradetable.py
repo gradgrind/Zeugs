@@ -1,7 +1,7 @@
 # python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-01-19
+wz_grades/gradetable.py - last updated 2020-01-25
 
 Create grade tables for display and grade entry.
 
@@ -42,8 +42,8 @@ from openpyxl.worksheet.properties import WorksheetProperties, PageSetupProperti
 from openpyxl.utils import get_column_letter, column_index_from_string
 from openpyxl.styles import Alignment, Border, Side, PatternFill, NamedStyle
 
-from wz_core.configuration import Paths #, ConfigFile
-from wz_core.pupils import Pupils, fromKlassStream, match_klass_stream
+from wz_core.configuration import Paths
+from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from .gradedata import getGradeData
 
@@ -128,25 +128,27 @@ class Table:
 
 
 
-
-def makeGradeTable(schoolyear, term, klass_stream, title):
+def makeGradeTable(schoolyear, term, klass, title):
+    """Make a grade table for the given school-class/group.
+    <klass> is a <Klass> instance.
+    <term> is a string.
+    """
     # Info concerning grade tables:
     gtinfo = CONF.GRADES.GRADE_TABLE_INFO
     # Determine table template
-    t = match_klass_stream(klass_stream, gtinfo.GRADE_TABLE_TEMPLATE)
+    t = klass.match_map(gtinfo.GRADE_TABLE_TEMPLATE)
     if not t:
-        REPORT.Fail(_NO_TEMPLATE, ks=klass_stream)
+        REPORT.Fail(_NO_TEMPLATE, ks=klass)
     template = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
     table = Table(template)
 
     ### Insert general info
-    klass, stream = fromKlassStream(klass_stream)
     table.setCell('B1', title)
     # "Translation" of info items:
     kmap = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
     info = (
         (kmap['SCHOOLYEAR'], str(schoolyear)),
-        (kmap['CLASS'], klass),
+        (kmap['CLASS'], klass.klass),
         (kmap['TERM'], term)
     )
     i, x = 0, 0
@@ -184,7 +186,7 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
                 # Handle extra _tags
                 klassmap = gtinfo.get(k)
                 if klassmap:
-                    m = match_klass_stream(klass_stream, klassmap)
+                    m = klass.match_map(klassmap)
                     if m and term in m.split():
                         colmap[k] = col
                     else:
@@ -196,7 +198,7 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
 
     ### Add pupils
     pupils = Pupils(schoolyear)
-    for pdata in pupils.classPupils(klass, stream):
+    for pdata in pupils.classPupils(klass):
         while True:
             i += 1
             try:
@@ -231,32 +233,31 @@ def makeGradeTable(schoolyear, term, klass_stream, title):
 
     ### Save file
     table.protectSheet()
-#    filepath = Paths.getYearPath(schoolyear, 'FILE_GRADE_FULL', make=-1,
-#                term=term).replace('*', klass_stream.replace('.', '-'))
-#    table.save(filepath)
     return table.save()
 
 
-def stripTable(schoolyear, term, klass_stream, title):
+
+def stripTable(schoolyear, term, klass, title):
     """Build a basic pupil/subject table for entering grades.
-    """
+    <klass> is a <Klass> instance.
+    <term> is a string.
+     """
     # Info concerning grade tables:
     gtinfo = CONF.GRADES.GRADE_TABLE_INFO
 
     ### Determine table template (output)
-    t = match_klass_stream(klass_stream, gtinfo.GRADE_INPUT_TEMPLATE)
+    t = klass.match_map(gtinfo.GRADE_INPUT_TEMPLATE)
     if not t:
-        REPORT.Fail(_NO_ITEMPLATE, ks=klass_stream)
+        REPORT.Fail(_NO_ITEMPLATE, ks=klass)
     template = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
     table = Table(template)
     table.setCell('B1', title)
-    klass, stream = fromKlassStream(klass_stream)
 
     ### Read input table template (for determining subjects and order)
     # Determine table template (input)
-    t = match_klass_stream(klass_stream, gtinfo.GRADE_TABLE_TEMPLATE)
+    t = klass.match_map(gtinfo.GRADE_TABLE_TEMPLATE)
     if not t:
-        REPORT.Fail(_NO_TEMPLATE, ks=klass_stream)
+        REPORT.Fail(_NO_TEMPLATE, ks=klass)
     template0 = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
     table0 = Table(template0)
     i, x = 0, 0
@@ -281,7 +282,7 @@ def stripTable(schoolyear, term, klass_stream, title):
     # <row> is a list of cell values
     istr = str(i)   # row tag
     # Set klass cell
-    table.setCell('A' + istr, row[0].replace('*', klass))
+    table.setCell('A' + istr, row[0].replace('*', klass.klass))
     # Go through the template columns and check if they are needed:
     col = 0
     for sid in row0:
@@ -301,7 +302,7 @@ def stripTable(schoolyear, term, klass_stream, title):
 
     ### Add pupils
     pupils = Pupils(schoolyear)
-    for pdata in pupils.classPupils(klass, stream):
+    for pdata in pupils.classPupils(klass):
         while True:
             i += 1
             try:
@@ -317,27 +318,25 @@ def stripTable(schoolyear, term, klass_stream, title):
 
     ### Save file
     table.protectSheet()
-#    filepath = Paths.getYearPath(schoolyear, 'FILE_GRADE_INPUT', make=-1,
-#                term=term).replace('*', klass_stream.replace('.', '-'))
-#    table.save(filepath)
     return table.save()
 
 
 
 ##################### Test functions
-_testyear = 2020
+_testyear = 2016
 def test_01():
     _term = '1'
-    for ks in '11.RS', '11.Gym','12.RS', '12.Gym', '13':
-        bytefile = makeGradeTable(_testyear, _term, ks, "Noten: 1. Halbjahr")
+    for ks in '11.RS-HS-_', '11.Gym','12.RS-HS', '12.Gym', '13':
+        klass = Klass(ks)
+        bytefile = makeGradeTable(_testyear, _term, klass, "Noten: 1. Halbjahr")
         filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_FULL', make=-1,
-                term=_term).replace('*', ks.replace('.', '-')) + '.xlsx'
+                term=_term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
         with open(filepath, 'wb') as fh:
             fh.write(bytefile)
         REPORT.Test(" --> %s" % filepath)
-        bytefile = stripTable(_testyear, _term, ks, "Noten: 1. Halbjahr")
+        bytefile = stripTable(_testyear, _term, klass, "Noten: 1. Halbjahr")
         filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make=-1,
-                term=_term).replace('*', ks.replace('.', '-')) + '.xlsx'
+                term=_term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
         with open(filepath, 'wb') as fh:
             fh.write(bytefile)
         REPORT.Test(" --> %s" % filepath)
@@ -345,16 +344,17 @@ def test_01():
 
 def test_02():
     _term = '2'
-    for ks in '10', '11.Gym', '11.RS', '12.RS', '12.Gym', '13':
-        bytefile = makeGradeTable(_testyear, _term, ks, "Noten: 1. Halbjahr")
+    for ks in '10', '11.Gym', '11.RS-HS-_', '12.RS-HS', '12.Gym', '13':
+        klass = Klass(ks)
+        bytefile = makeGradeTable(_testyear, _term, klass, "Noten: 1. Halbjahr")
         filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_FULL', make=-1,
-                term=_term).replace('*', ks.replace('.', '-')) + '.xlsx'
+                term=_term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
         with open(filepath, 'wb') as fh:
             fh.write(bytefile)
         REPORT.Test(" --> %s" % filepath)
-        bytefile = stripTable(_testyear, _term, ks, "Noten: 1. Halbjahr")
+        bytefile = stripTable(_testyear, _term, klass, "Noten: 1. Halbjahr")
         filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make=-1,
-                term=_term).replace('*', ks.replace('.', '-')) + '.xlsx'
+                term=_term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
         with open(filepath, 'wb') as fh:
             fh.write(bytefile)
         REPORT.Test(" --> %s" % filepath)

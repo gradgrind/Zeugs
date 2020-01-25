@@ -1,14 +1,13 @@
 ############## GRADES/REPORT_TEMPLATES
-############## Version: 2020-01-18
+############## Version: 2020-01-21
 
 ### Zuordnung der Zeugnisvorlagen zu den Klassen/Gruppen.
 ## Für Notenzeugnisse
 
-#TODO: 11. Kl. term 1: Orientierung? (at least RS?)
-
 ## Halbjahr -> entsprechende Zeugnistypen
 # Setze '_' vor dem Halbjahr, um den Schlüssel zu bilden:
-_1 =& 11<??.*: Halbjahr
+_1 =& 12<??.*: Halbjahr
+    & 11.*: Orientierung
 
 _2 =& 13*: Abschluss
     & 12.Gym: Zeugnis
@@ -29,7 +28,8 @@ Abschluss =& 13*: Notenzeugnis/Abitur.html
            & 12.Gym:
            & 12.*: Notenzeugnis/Notenzeugnis-SI.html
 
-Orientierung =& 10.*: Notenzeugnis/Orientierung.html
+Orientierung =& 11.*: Notenzeugnis/Orientierung.html
+              & 10.*: Notenzeugnis/Orientierung.html
 
 # Abgang aus der Qualifikationsphase (mit Punkten)
 AbgangQ =& 13*: Notenzeugnis/Abgang-Q.html

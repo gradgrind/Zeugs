@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-01-19
+Last updated:  2020-01-21
 
 Flask Blueprint for grade reports
 
@@ -31,11 +31,17 @@ _HEADING = "Notenzeugnis"
 _NEWDATE = "*** neu ***"
 _DEFAULT_RTYPE = "Abgang"
 
+# Messages
+_KLASS_AND_STREAM = ("Klasse {klass} kommt in GRADES/REPORT_CLASSES sowohl"
+        " als ganze Klasse als auch mit Gruppen vor")
+_NO_CLASSES = "Keine Klassen für Halbjahr {term} [in wz_compat/grade_classes.py]"
+
+
 import datetime, io, os
 #from types import SimpleNamespace
 
 from flask import (Blueprint, render_template, request, session,
-        send_file, url_for, abort, redirect, flash)
+        send_file, url_for, abort, redirect, flash, make_response)
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
@@ -52,6 +58,7 @@ from wz_core.db import DB
 from wz_grades.gradedata import (readGradeTable, grades2db, db2grades,
         getGradeData, GradeReportData)
 from wz_grades.makereports import makeReports
+from wz_compat.grade_classes import gradeGroups
 
 
 # Set up Blueprint
@@ -70,15 +77,15 @@ def index():
 @bp.route('/term/<termn>', methods=['GET'])
 #@admin_required
 def term(termn):
+#TODO: prepare is deprecated ...
     def prepare(schoolyear, termn, kmap):
         """Gather the possible klasses/streams.
         """
-#TODO: Maybe rather get permissible classes/streams from config list(s)?
-        p = Pupils(schoolyear)
-        klasses = []
         # Only if all streams have the same report type and template
         # can the whole klass be done together.
         # Pupils with no stream will be handled separately, with stream '_'.
+        klasses = []
+        p = Pupils(schoolyear)
         for klass in p.classes():
             allmatch = True     # whole klass possible
             template = None     # for template matching
@@ -119,8 +126,11 @@ def term(termn):
         abort(404)
     klasses = REPORT.wrap(prepare, schoolyear, termn, kmap,
             suppressok=True)
+#NEW:
+#    klasses = REPORT.wrap(gradeGroups, termn, suppressok=True)
     if not klasses:
-        return index()
+        flash(_NO_CLASSES.format(term = termn), "Error")
+        return redirect(url_for('bp_grades.index'))
     return render_template(os.path.join(_BPNAME, 'term.html'),
                             heading=_HEADING,
                             termn=termn,
@@ -385,13 +395,19 @@ def klassview(termn, klass_stream):
 @bp.route('/download/<dfile>', methods=['GET'])
 #@admin_required
 def download(dfile):
-    pdfBytes = session.pop('filebytes')
-    return send_file(
+    try:
+        pdfBytes = session.pop('filebytes')
+    except:
+        flash("Die Datei '%s' steht nicht mehr zur Verfügung" % dfile, "Warning")
+        return redirect(request.referrer)
+    response = make_response(send_file(
         io.BytesIO(pdfBytes),
         attachment_filename=dfile,
         mimetype='application/pdf',
         as_attachment=True
-    )
+    ))
+    response.headers['Cache-Control'] = 'max-age=0'
+    return response
 
 
 @bp.route('/upload/<termn>', methods=['GET','POST'])

@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2020-01-02
+Last updated:  2020-01-24
 
 Handler for the basic course info.
 
@@ -113,7 +113,7 @@ _TEACHER_CLASH = ("Klasse {klass}, Wahltabelle: Lehrer für Schüler {pid}"
 from collections import OrderedDict, UserList
 
 from .configuration import Paths
-from .pupils import Pupils
+from .pupils import Pupils, Klass
 from .teachers import TeacherData
 # To read subject table:
 from wz_table.dbtable import readDBTable
@@ -172,7 +172,11 @@ class CourseTables:
         classes = {}            # {class -> table column}
         for f, col in data.headers.items ():
             if col >= _CLASSESCOL:
-                classes [f] = col
+                try:
+                    # Check and normalize class name
+                    classes [Klass(f).klass] = col
+                except:
+                    REPORT.Fail(_INVALID_KLASS, klass=f)
         # Read the subject rows
         self._classes = {}
         self._names = {}
@@ -193,14 +197,17 @@ class CourseTables:
 
 
     def classes (self):
+        """Return a sorted list of normalized school-class names.
+        """
         return sorted (self._classes)
 
 
     def classSubjects (self, klass):
-        """Return the subject list for the given class:
+        """Return the subject list for the given class.
+        <klass> is a <Klass> instance.
             {[ordered] sid -> <TeacherList> instance}
         """
-        return self._classes [klass]
+        return self._classes [klass.klass]
 
 
     def subjectName (self, sid):
@@ -211,8 +218,9 @@ class CourseTables:
 
     def filterGrades (self, klass):
         """Return the subject mapping for the given class including only
-        those subjects relevant for a grade report:
-            {[ordered] sid -> teacher list}
+        those subjects relevant for a grade report.
+        <klass> is a <Klass> instance.
+        Return {[ordered] sid -> teacher list}
         """
         sids = OrderedDict ()
         for sid, tlist in self.classSubjects (klass).items ():
@@ -223,153 +231,15 @@ class CourseTables:
 
     def filterText (self, klass):
         """Return the subject mapping for the given class including only
-        those subjects relevant for a text report:
-            {[ordered] sid -> teacher list}
+        those subjects relevant for a text report.
+        <klass> is a <Klass> instance.
+        Return {[ordered] sid -> teacher list}
         """
         sids = OrderedDict ()
         for sid, tlist in self.classSubjects (klass).items ():
             if tlist.TEXT:
                 sids [sid] = tlist
         return sids
-
-
-#TODO?
-    def optoutMatrix (self, klass):
-        """Build a class-course matrix of teachers for each pupil and
-        subject combination.
-        This is for specifiying opt-outs of optional courses and choosing
-        a teacher for subjects with multiple teachers in the main subject
-        matrix. Also, teachers not specified in the main matrix
-        (<_NNTEACHER>) should be specified here.
-        The contents of an existing table should be taken into account.
-        All "taught" subjects should be included, that means all subjects
-        that are relevant for text or grade reports (with at least one
-        teacher entry in the subject matrix).
-        """
-        tmatrix = self.teacherMatrix (klass)
-        sid2info = tmatrix.sid2info
-        subjects = [(sid, self._names [sid])
-                for sid, sinfo in sid2info.items ()]
-        build = FormattedMatrix (self.schoolyear, 'FILE_CLASS_SUBJECTS',
-                klass)
-        # Manage subjects affected by stream
-        pupils = []
-#TODO: Validation lists?
-        for pid, sid2tid in tmatrix.items ():
-            pdata = sid2tid.pupilData
-            pupils.append (pdata)
-            pstream = pdata ['STREAM']
-            for sid, sname in subjects:
-                sinfo = sid2info [sid]
-                if sinfo.STREAMS and pstream not in sinfo.STREAMS:
-                    sid2tid [sid] = _INVALID
-                    continue
-                tid = sid2tid.get (sid)
-                tid0 = sid2info [sid].TIDS
-                if not tid:
-                    sid2tid [sid] = _OPTOUT
-                elif tid == _NNTEACHER:
-                    # Error -> no entry in opt-out table
-                    sid2tid [sid] = None
-                elif tid == sid2info [sid].TIDS:
-                    # The tid is taken from the main table.
-                    sid2tid [sid] = None
-
-        build.build (_MATRIXTITLE, pupils, subjects, tmatrix)
-        fpath = build.save ()
-        REPORT.Info (_COURSEMATRIX, klass=klass, path=fpath)
-
-#?
-    def teacherMatrix (self, klass):
-        """Return a mapping {[ordered] pid -> {sid -> tid}} for "real"
-        subjects taken by the pupils, those that are represented in text
-        or grade reports.
-        This mapping has the subject info as attribute <sid2info>.
-        A further attribute is <filepath>, giving the path of the option
-        table (<None> if there isn't one).
-        The {sid -> tid} sub-mappings have the associated pupil data as
-        attribute <pupilData>.
-        If there is an invalid entry, an error is reported and <_NNTEACHER>
-        is returned for that subject.
-        """
-        class _adict (dict): pass   # a <dict> with extra attributes
-
-        pupils = Pupils (self.schoolyear).classPupils (klass)
-        if len (pupils) == 0:
-            REPORT.Error (_NOPUPILS, klass=klass)
-            return None
-        pid2tids = OrderedDict ()   # build result mapping here
-        # Get the subject info for the class:
-        sid2info = OrderedDict ()
-        for sid, sinfo in self.classSubjects (klass).items ():
-            if sinfo.NOTGRADE and sinfo.NOTTEXT:
-                continue
-            if sinfo.TIDS:
-                sid2info [sid] = sinfo
-        # Retain all (relevant) subject info in the result:
-        pid2tids.sid2info = sid2info
-        # Read the opt-out matrix (if it exists):
-        optout = FormattedMatrix.readMatrix (self.schoolyear,
-                'FILE_CLASS_SUBJECTS', klass)
-        try:
-            # Path of opt-out table, if there is one. This is needed to
-            # make back-ups of the opt-out files:
-            pid2tids.filepath = optout.filepath
-        except:
-            pid2tids.filepath = None
-        # Iterate through the pupils:
-        for pdata in pupils:
-            pid = pdata ['PID']
-            sid2tid = _adict ()
-            sid2tid.pupilData = pdata
-            pid2tids [pid] = sid2tid
-            try:
-                popts = optout [pid]
-            except:
-                popts = None
-            for sid, sinfo in sid2info.items ():
-                # Manage subjects affected by stream
-                try:
-                    # If <sinfo.STREAMS> is <None> there will be an exception
-                    if pdata ['STREAM'] not in sinfo.STREAMS:
-                        continue
-                except:
-                    pass
-                # Check entry in opt-out matrix
-                tids = sinfo.TIDS
-                try:
-                    otid = popts [sid]
-                except:
-                    # No entry in opt-out matrix
-                    otid = None
-                # Manage teacher "wild card"
-                if otid:
-                    # <otid> is the opt-out entry
-                    if otid == _OPTOUT:
-                        continue
-                    if type (tids) == list:
-                        # Check tid is in main list
-                        if otid in tids:
-                            tids = otid
-                        else:
-                            REPORT.Error (_BAD_TEACHER, klass=klass,
-                                    pid=pid, sid=sid, tid=otid)
-                            tids = _NNTEACHER
-                    elif tids == _NNTEACHER:
-                        if self.teacherData.checkTeacher (otid):
-                            tids = otid
-                    else:
-                        REPORT.Error (_TEACHER_CLASH, klass=klass,
-                                    pid=pid, sid=sid)
-                        tids = _NNTEACHER
-                elif tids == _NNTEACHER:
-                    REPORT.Error (_NO_TEACHER, klass=klass,
-                            pid=pid, sid=sid)
-                sid2tid [sid] = tids
-        return pid2tids
-
-
-
 
 
 
@@ -387,36 +257,21 @@ def test_01 ():
 
     REPORT.Test ("\nSubject lists:")
     for klass in clist:
-        subjects = ctables.classSubjects (klass)
+        subjects = ctables.classSubjects (Klass(klass))
         REPORT.Test ("  -- %s: %s" % (klass, repr (subjects)))
 
     klass = '10'
     REPORT.Test ("\nCLASS %s:" % klass)
-    for sid, sinfo in ctables.classSubjects (klass).items ():
+    for sid, sinfo in ctables.classSubjects (Klass(klass)).items ():
         REPORT.Test ("  ++ %s (%s): %s" % (ctables.subjectName (sid),
                 sid, sinfo))
 
     REPORT.Test ("\nClass %s, grade subjects:" % klass)
-    for sid, sinfo in ctables.filterGrades (klass).items ():
+    for sid, sinfo in ctables.filterGrades (Klass(klass)).items ():
         REPORT.Test ("  ++ %s (%s): %s" % (ctables.subjectName (sid),
                 sid, sinfo))
 
     REPORT.Test ("\nClass %s, text subjects:" % klass)
-    for sid, sinfo in ctables.filterText (klass).items ():
+    for sid, sinfo in ctables.filterText (Klass(klass)).items ():
         REPORT.Test ("  ++ %s (%s): %s" % (ctables.subjectName (sid),
                 sid, sinfo))
-
-"""
-def test_02 ():
-    _klass = '12'
-    ctables = CourseTables (_testyear)
-    REPORT.Test ("Lehrermatrix, Klasse %s" % _klass)
-    for pid, sid2tid in ctables.teacherMatrix (_klass).items ():
-        REPORT.Test ("Schüler %s: %s" % (pid, repr (sid2tid)))
-
-def test_03 ():
-    ctables = CourseTables (_testyear)
-    for _klass in '10', '11', '12', '13':
-        REPORT.Test ("Kursbelegungsmatrix, Klasse %s" % _klass)
-        ctables.optoutMatrix (_klass)
-"""

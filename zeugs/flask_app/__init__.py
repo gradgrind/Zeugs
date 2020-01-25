@@ -4,7 +4,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-01-11
+Last updated:  2020-01-21
 
 The Flask application: zeugs front-end.
 
@@ -110,6 +110,13 @@ def create_app(test_config=None):
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_session')
     app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(minutes=20)
+    # The following line stops caching of "downloaded" files by the
+    # browser. This is good (necessary!) for dynamically generated files,
+    # but it also prevents caching of css (and js), which might be annoying?
+    #    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+    # Dynamic file generation is handled at present in the download
+    # view (see grades/grades.py:download()).
+
     Session(app)
 #    for k,v in app.config.items():
 #        print ("§§§ %s:" % k, v)
@@ -146,6 +153,16 @@ def create_app(test_config=None):
         if 'u' in perms and request_path.startswith ('/user/'):
             return None
         return redirect(url_for('bp_auth.login'))
+
+
+#    # No caching at all for API endpoints.
+#    @app.after_request
+#    def add_header(response):
+#        response.cache_control.no_store = True
+##        response.cache_control.no_cache = True
+##        response.cache_control.max_age = 0
+##        response.cache_control.must_revalidate = True
+#        return response
 
 
     @app.route('/', methods=['GET','POST'])

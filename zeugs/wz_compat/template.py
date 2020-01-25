@@ -4,7 +4,7 @@
 """
 wz_compat/template.py
 
-Last updated:  2020-01-19
+Last updated:  2020-01-24
 
 Functions for template handling.
 
@@ -32,37 +32,36 @@ import os, re
 import jinja2
 
 from wz_core.configuration import Paths, Dates
-from wz_core.pupils import match_klass_stream, toKlassStream
 
 
-def getGradeTemplate(rtype, klass, stream=None):
-    """Return the matching template for the given school-class/stream
+def getGradeTemplate(rtype, klass):
+    """Return the matching template for the given school-class/groups
     and report type.
+    <klass> is a <Klass> instance.
     """
     tlist = CONF.GRADES.REPORT_TEMPLATES[rtype]
-    tfile = match_klass_stream(klass, tlist, stream)
+    tfile = klass.match_map(tlist)
     if tfile:
 #        print ("???", tfile)
         return openTemplate(tfile)
     else:
         REPORT.Bug("Invalid report category for class {ks}: {rtype}",
-                ks=toKlassStream(klass, stream),
-                rtype=rtype)
+                ks=klass, rtype=rtype)
 
 
 def getTextTemplate(rtype, klass):
     """Return the matching template for the given school-class and
     report type.
+    <klass> is a <Klass> instance.
     """
     tlist = CONF.TEXT.REPORT_TEMPLATES[rtype]
-    tfile = match_klass_stream(klass, tlist)
+    tfile = klass.match_map(tlist)
     if tfile:
 #        print ("???", tfile)
         return openTemplate(tfile)
     else:
         REPORT.Bug("Invalid report category for class {ks}: {rtype}",
-                ks=klass,
-                rtype=rtype)
+                ks=klass, rtype=rtype)
 
 
 ##### Jinja template handling #####
@@ -114,7 +113,10 @@ def pupilFields(tags):
             b, f = tag.split('.')
         except:
             continue
-        if b == 'pupil':
+        if b == 'pupil' and f[0].isupper():
+# Note that all pupil data fields must start with a capital letter.
+# This allows other pupil-related info to be passed into the template.
+# One example (at present the only one?) is <pupil.grades>.
             fields.append((f, name[f]))
     return fields
 

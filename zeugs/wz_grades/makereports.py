@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-01-18
+Last updated:  2020-01-24
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -39,26 +39,24 @@ Copyright 2019-2020 Michael Towers
 
 ## Messages
 _PUPILS_NOT_IN_CLASS_STREAM = "Schüler {pids} nicht in Klasse/Gruppe {ks}"
-#_NOTEMPLATE = "Vorlagedatei (Notenzeugnis) fehlt für Klasse {ks}:\n  {path}"
 _MADEKREPORTS = "Notenzeugnisse für Klasse {ks} wurden erstellt"
 _NOPUPILS = "Notenzeugnisse: keine Schüler"
 _MADEPREPORT = "Notenzeugnis für {pupil} wurde erstellt"
 
 
 import os
-#from types import SimpleNamespace
 
 from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
-from wz_core.pupils import Pupils, fromKlassStream, KlassData, match_klass_stream
+from wz_core.pupils import Pupils, Klass
 from wz_compat.config import printSchoolYear, printStream
 from wz_grades.gradedata import (GradeReportData,
         db2grades, getGradeData, updateGradeReport)
 
 
-def makeReports(schoolyear, term, klass_stream, date, pids=None):
+def makeReports(schoolyear, term, klass, date, pids=None):
     """Build a single file containing reports for the given pupils.
     This only works for groups with the same report type and template.
     <term> is the term.
@@ -66,15 +64,16 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
     <pids>: a list of pids (must all be in the given klass), only
         generate reports for pupils in this list.
         If not supplied, generate reports for the whole klass/group.
+    <klass> is a <Klass> instance: it can be a just a school-class,
+    but it can also have a stream, or list of streams.
     """
     # <db2grades> returns a list: [(pid, pname, grade map), ...]
     # <grades>: {pid -> (pname, grade map)}
-    klass, stream = fromKlassStream(klass_stream)
     grades = {pid: (pname, gmap)
-            for pid, pname, gmap in db2grades(schoolyear, term, klass, stream)
+            for pid, pname, gmap in db2grades(schoolyear, term, klass)
     }
     pupils = Pupils(schoolyear)
-    pall = pupils.classPupils(klass, stream) # list of data for all pupils
+    pall = pupils.classPupils(klass) # list of data for all pupils
     # If a pupil list is supplied, select the required pupil data.
     # Otherwise use the full list.
     if pids:
@@ -88,19 +87,17 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
             plist.append(pdata)
         if pset:
             REPORT.Bug(_PUPILS_NOT_IN_CLASS_STREAM, pids=', '.join(pset),
-                    ks=klass_stream)
+                    ks=klass)
     else:
         plist = pall
 
     ### Get a tag mapping for the grade data of each pupil
     # Get the name of the relevant configuration file in folder GRADES:
-    grademap = match_klass_stream(klass, CONF.MISC.GRADE_SCALE, stream)
+    grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
     # <GradeReportData> manages the report template, etc.:
     # Get the report type from the term and klass/stream
-    rtype = match_klass_stream(klass, CONF.GRADES.REPORT_TEMPLATES['_' + term], stream)
-    reportData = GradeReportData(schoolyear, rtype, klass, stream)
-    # General info on the klass/stream:
-    klassData = KlassData(klass, stream)
+    rtype = klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + term])
+    reportData = GradeReportData(schoolyear, rtype, klass)
     pmaplist = []
     for pdata in plist:
         pid = pdata['PID']
@@ -126,7 +123,7 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
             STREAM = printStream,
             pupils = pmaplist,
 #            pupils = [pmaplist[n]],
-            klass = klassData
+            klass = klass
         )
     # Convert to pdf
     if not plist:
@@ -134,7 +131,7 @@ def makeReports(schoolyear, term, klass_stream, date, pids=None):
     html = HTML(string=source,
             base_url=os.path.dirname(reportData.template.filename))
     pdfBytes = html.write_pdf(font_config=FontConfiguration())
-    REPORT.Info(_MADEKREPORTS, ks=klass_stream)
+    REPORT.Info(_MADEKREPORTS, ks=klass)
     return pdfBytes
 
 
@@ -154,13 +151,10 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
     pname = pdata.name()
     # <GradeReportData> manages the report template, etc.:
     # From here on use klass_stream from <gradedata>
-    klass = gradedata['KLASS']
-    stream = gradedata['STREAM']
-    reportData = GradeReportData(schoolyear, rtype, klass, stream)
-    # General info on the klass/stream:
-    klassData = KlassData(klass, stream)
+    klass = Klass(gradedata['KLASS'] + '.' + (gradedata['STREAM'] or '_'))
+    reportData = GradeReportData(schoolyear, rtype, klass)
     # Get the name of the relevant configuration file in folder GRADES:
-    grademap = match_klass_stream(klass, CONF.MISC.GRADE_SCALE, stream)
+    grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
     # Build a grade mapping for the tags of the template:
     pdata.grades = reportData.getTagmap(gmap, pname, grademap)
     # Update grade database
@@ -177,7 +171,7 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
             todate = Dates.dateConv,
             STREAM = printStream,
             pupils = [pdata],
-            klass = klassData
+            klass = klass
         )
     # Convert to pdf
     html = HTML(string=source,
@@ -207,7 +201,7 @@ def test_01():
         REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 
 def test_02():
-    _klass_stream = '13'
+    _klass_stream = Klass('13')
     pdfBytes = makeReports (_year, _term, _klass_stream, _date)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
@@ -215,7 +209,7 @@ def test_02():
         fh.write(pdfBytes)
 
 def test_03():
-    _klass_stream = '12.RS'
+    _klass_stream = Klass('12.RS')
     pdfBytes = makeReports (_year, _term, _klass_stream, _date)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
@@ -223,7 +217,7 @@ def test_03():
         fh.write(pdfBytes)
 
 def test_04():
-    _klass_stream = '12.Gym'
+    _klass_stream = Klass('12.Gym')
     pdfBytes = makeReports (_year, _term, _klass_stream, _date)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
@@ -231,7 +225,7 @@ def test_04():
         fh.write(pdfBytes)
 
 def test_05():
-    _klass_stream = '11'
+    _klass_stream = Klass('11')
     pdfBytes = makeReports (_year, _term, _klass_stream, _date)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
@@ -241,7 +235,7 @@ def test_05():
 
 def test_06():
 #TODO: Perhaps if _GS is set, the type should be overriden?
-    _klass = '12'
+    _klass = Klass('12')
     _pid = '200407'
     pupils = Pupils(_year)
     pall = pupils.classPupils(_klass) # list of data for all pupils
