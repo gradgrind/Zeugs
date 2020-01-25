@@ -31,13 +31,14 @@ Abschluss =& 13*: Notenzeugnis/Abitur.html
 Orientierung =& 11.*: Notenzeugnis/Orientierung.html
               & 10.*: Notenzeugnis/Orientierung.html
 
+#TODO: Abgang aus der 12.Gym ...
 # Abgang aus der Qualifikationsphase (mit Punkten)
 AbgangQ =& 13*: Notenzeugnis/Abgang-Q.html
-        & 12.Gym: Notenzeugnis/Abgang-Q.html
+#        & 12.Gym: Notenzeugnis/Abgang-Q.html
 
-# Abgang SekI oder 12.Gym mit Noten aus der 11. Klasse:
+# Abgang SekI oder 12.Gym
 Abgang =& 13*:
-        & 12.Gym: Notenzeugnis/Notenzeugnis-SI.html
+        & 12.Gym: Notenzeugnis/Notenzeugnis-12_SII.html
         & 05<??.*: Notenzeugnis/Notenzeugnis-SI.html
 
 Zwischenzeugnis =& 11<??.*:

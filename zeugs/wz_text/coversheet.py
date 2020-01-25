@@ -4,7 +4,7 @@
 """
 wz_text/coversheet.py
 
-Last updated:  2020-01-18
+Last updated:  2020-01-25
 
 Build the outer sheets (cover sheets) for the text reports.
 User fields in template files are replaced by the report information.
@@ -37,7 +37,7 @@ from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
-from wz_core.pupils import Pupils, KlassData
+from wz_core.pupils import Pupils, Klass
 from wz_compat.config import printSchoolYear
 from wz_compat.template import getTextTemplate, getTemplateTags, pupilFields
 

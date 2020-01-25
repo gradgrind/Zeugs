@@ -131,13 +131,17 @@
     {% for pupil in pupils %}
     {% set grades = pupil.grades %}
     <div class="frontpage">
-<!-- If no background logo, remove margin and padding: -->
-        <div class="underline"
+<!--        <div class="underline"
                 style="margin: 0 20mm; padding-top: 7mm;
+                        display: flex; justify-content: center;"> -->
+<!-- If no background logo: remove margin-left, padding -->
+        <div class="underline"
+                style="margin: 0;
                         display: flex; justify-content: center;">
             <h1>{{schoolname.upper()}}</h1>
+<!-- If no background logo: remove margin-left, padding -->
         </div>
-        <center style="font-size: 200%; margin: 15mm 0 0 0;">
+        <center style="font-size: 200%; margin: 30mm 0 0 0;">
             {{report_title.upper()}}
         </center>
         <center style="margin: 20mm 0 0 0;">{{qphase}}</center>
@@ -269,24 +273,24 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['A_1_N']}}</td>
-                    <td class="punkte">{{grades['A_1']}}</td>
+                    <td class="fach">{{grades.A_1_N}}</td>
+                    <td class="punkte">{{grades.A_1}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['A_2_N']}}</td>
-                    <td class="punkte">{{grades['A_2']}}</td>
+                    <td class="fach">{{grades.A_2_N}}</td>
+                    <td class="punkte">{{grades.A_2}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['A_3_N']}}</td>
-                    <td class="punkte">{{grades['A_3']}}</td>
+                    <td class="fach">{{grades.A_3_N}}</td>
+                    <td class="punkte">{{grades.A_3}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['A_4_N']}}</td>
-                    <td class="punkte">{{grades['A_4']}}</td>
+                    <td class="fach">{{grades.A_4_N}}</td>
+                    <td class="punkte">{{grades.A_4}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['A_5_N']}}</td>
-                    <td class="punkte">{{grades['A_5']}}</td>
+                    <td class="fach">{{grades.A_5_N}}</td>
+                    <td class="punkte">{{grades.A_5}}</td>
                 </tr>
 
                 <tr>
@@ -295,24 +299,24 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['C_1_N']}}</td>
-                    <td class="punkte">{{grades['C_1']}}</td>
+                    <td class="fach">{{grades.C_1_N}}</td>
+                    <td class="punkte">{{grades.C_1}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['C_2_N']}}</td>
-                    <td class="punkte">{{grades['C_2']}}</td>
+                    <td class="fach">{{grades.C_2_N}}</td>
+                    <td class="punkte">{{grades.C_2}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['C_3_N']}}</td>
-                    <td class="punkte">{{grades['C_3']}}</td>
+                    <td class="fach">{{grades.C_3_N}}</td>
+                    <td class="punkte">{{grades.C_3}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['C_4_N']}}</td>
-                    <td class="punkte">{{grades['C_4']}}</td>
+                    <td class="fach">{{grades.C_4_N}}</td>
+                    <td class="punkte">{{grades.C_4}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['C_5_N']}}</td>
-                    <td class="punkte">{{grades['C_5']}}</td>
+                    <td class="fach">{{grades.C_5_N}}</td>
+                    <td class="punkte">{{grades.C_5}}</td>
                 </tr>
             </table>
 
@@ -327,24 +331,24 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['B_1_N']}}</td>
-                    <td class="punkte">{{grades['B_1']}}</td>
+                    <td class="fach">{{grades.B_1_N}}</td>
+                    <td class="punkte">{{grades.B_1}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['B_2_N']}}</td>
-                    <td class="punkte">{{grades['B_2']}}</td>
+                    <td class="fach">{{grades.B_2_N}}</td>
+                    <td class="punkte">{{grades.B_2}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['B_3_N']}}</td>
-                    <td class="punkte">{{grades['B_3']}}</td>
+                    <td class="fach">{{grades.B_3_N}}</td>
+                    <td class="punkte">{{grades.B_3}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['B_4_N']}}</td>
-                    <td class="punkte">{{grades['B_4']}}</td>
+                    <td class="fach">{{grades.B_4_N}}</td>
+                    <td class="punkte">{{grades.B_4}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['B_5_N']}}</td>
-                    <td class="punkte">{{grades['B_5']}}</td>
+                    <td class="fach">{{grades.B_5_N}}</td>
+                    <td class="punkte">{{grades.B_5}}</td>
                 </tr>
 
                 <tr>
@@ -353,24 +357,24 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['D_1_N']}}</td>
-                    <td class="punkte">{{grades['D_1']}}</td>
+                    <td class="fach">{{grades.D_1_N}}</td>
+                    <td class="punkte">{{grades.D_1}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['D_2_N']}}</td>
-                    <td class="punkte">{{grades['D_2']}}</td>
+                    <td class="fach">{{grades.D_2_N}}</td>
+                    <td class="punkte">{{grades.D_2}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['D_3_N']}}</td>
-                    <td class="punkte">{{grades['D_3']}}</td>
+                    <td class="fach">{{grades.D_3_N}}</td>
+                    <td class="punkte">{{grades.D_3}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['D_4_N']}}</td>
-                    <td class="punkte">{{grades['D_4']}}</td>
+                    <td class="fach">{{grades.D_4_N}}</td>
+                    <td class="punkte">{{grades.D_4}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['D_5_N']}}</td>
-                    <td class="punkte">{{grades['D_5']}}</td>
+                    <td class="fach">{{grades.D_5_N}}</td>
+                    <td class="punkte">{{grades.D_5}}</td>
                 </tr>
             </table>
 <!-- Hidden grades: {{X_1}}{{X_2}}{{X_3}}{{X_4}}{{X_5}}{{X_6}} -->
@@ -381,29 +385,29 @@
                 display: flex; justify-content: space-between;">
             <div style="width: 125mm;">
 <!-- Versetzung -->
-                {% if report_type == 'Zeugnis' and grades['_V_D'] %}
+                {% if report_type == 'Zeugnis' and grades._V_D %}
                 <p style="margin: 5mm 0 0 0; font-size: 11pt;">
                     <strong>Bemerkungen:</strong>
                 </p>
                 <p style="margin: 2mm 5mm; font-size: 11pt;">
-                    Durch Konferenzbeschluss vom {{todate(grades['_V_D'])}}
+                    Durch Konferenzbeschluss vom {{todate(grades._V_D)}}
                     in die 13. Klasse versetzt.
                 </p>
-                {% elif report_type == 'Abgang' and grades['_GS'] %}
+                {% elif report_type == 'Abgang' and grades._GS %}
 <!-- Abgang mit Gleichstellungsvermerk -->
                 <p style="margin: 10mm 0 0 0; font-size: 11pt;">
                     <strong>Gleichstellungsvermerk:</strong>
                 </p>
                 <p style="margin: 2mm 5mm; font-size: 11pt;">
-                    {% if grades['_GS'] == 'Erw' %}
+                    {% if grades._GS == 'Erw' %}
                     Dieses Zeugnis ist dem Erweiterten Sekundarabschluss I
                     gleichgestellt. Es vermittelt die gleiche Berechtigung
                     wie das Zeugnis über den Erweiterten Sekundarabschluss I.
-                    {% elif grades['_GS'] == 'RS' %}
+                    {% elif grades._GS == 'RS' %}
                     Dieses Zeugnis ist dem Sekundarabschluss I – Realschulabschluss
                     gleichgestellt. Es vermittelt die gleiche Berechtigung
                     wie das Zeugnis über den Sekundarabschluss I – Realschulabschluss.
-                    {% elif grades['_GS'] == 'HS' %}
+                    {% elif grades._GS == 'HS' %}
                     Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss
                     gleichgestellt. Es vermittelt die gleiche Berechtigung
                     wie das Zeugnis über den Sekundarabschluss I – Hauptschulabschluss.

@@ -1,5 +1,5 @@
 ############## GRADES/GRADES_P
-############## Version: 2020-01-05
+############## Version: 2020-01-25
 
 ### 'Punktskala' für Noten der Abiturprüfung (12. Klasse)
 
@@ -29,21 +29,14 @@ VALID =& 15
        & nb
        & nt
        & t
-# Noch nicht erteilt (für Fächer, die später im Jahr unterrichtet werden)
-# oder nicht gewählt:
+# "Noch nicht erteilt" (für Fächer, die später im Jahr unterrichtet werden),
+# oder Fach nicht belegt, sollte aber erscheinen:
        & *
+# "Nicht relevant" (/): Fach erscheint nicht im Zeugnis
+       & |/
 
 #       & ne
 
-#TODO: Do I still want this? Why not just ––––––?
-## Für zusammengesetzte Noten. Wenn eine Note leer ist, bleibt die zusammengesetzte
-## Note leer. Ansonsten wird der Mittelwert der Komponenten ermittelt. Wenn es
-## unter den Komponenten keine echten Noten gibt, wird in folgender Reihenfolge
-## eine Prioritätsliste von "Nicht-Noten" gegeben.
-NOGRADE_PRIORITY =& nb
-                  & t
-                  & nt
-                  & *
 
 ## Zuordnung zu entsprechenden Textnoten.
 15   = 15

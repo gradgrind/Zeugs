@@ -129,9 +129,12 @@
     {% for pupil in pupils %}
     {% set grades = pupil.grades %}
     <div class="frontpage">
-<!-- If no background logo, remove margin and padding: -->
-        <div class="underline"
+<!--        <div class="underline"
                 style="margin: 0 20mm; padding-top: 7mm;
+                        display: flex; justify-content: center;"> -->
+<!-- If no background logo: remove margin-left, padding -->
+        <div class="underline"
+                style="margin: 0;
                         display: flex; justify-content: center;">
             <h1>{{schoolname.upper()}}</h1>
         </div>
@@ -219,16 +222,16 @@
                     <th class="punkte">Punkte</th>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['E_1_N']}}</td>
-                    <td class="punkte">{{grades['E_1']}}</td>
+                    <td class="fach">{{grades.E_1_N}}</td>
+                    <td class="punkte">{{grades.E_1}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['E_2_N']}}</td>
-                    <td class="punkte">{{grades['E_2']}}</td>
+                    <td class="fach">{{grades.E_2_N}}</td>
+                    <td class="punkte">{{grades.E_2}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['E_3_N']}}</td>
-                    <td class="punkte">{{grades['E_3']}}</td>
+                    <td class="fach">{{grades.E_3_N}}</td>
+                    <td class="punkte">{{grades.E_3}}</td>
                 </tr>
             </table>
 
@@ -242,24 +245,24 @@
                     <th class="punkte">Punkte</th>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['G_1_N']}}</td>
-                    <td class="punkte">{{grades['G_1']}}</td>
+                    <td class="fach">{{grades.G_1_N}}</td>
+                    <td class="punkte">{{grades.G_1}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['G_2_N']}}</td>
-                    <td class="punkte">{{grades['G_2']}}</td>
+                    <td class="fach">{{grades.G_2_N}}</td>
+                    <td class="punkte">{{grades.G_2}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['G_3_N']}}</td>
-                    <td class="punkte">{{grades['G_3']}}</td>
+                    <td class="fach">{{grades.G_3_N}}</td>
+                    <td class="punkte">{{grades.G_3}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['G_4_N']}}</td>
-                    <td class="punkte">{{grades['G_4']}}</td>
+                    <td class="fach">{{grades.G_4_N}}</td>
+                    <td class="punkte">{{grades.G_4}}</td>
                 </tr>
                 <tr>
-                    <td class="fach">{{grades['G_5_N']}}</td>
-                    <td class="punkte">{{grades['G_5']}}</td>
+                    <td class="fach">{{grades.G_5_N}}</td>
+                    <td class="punkte">{{grades.G_5}}</td>
                 </tr>
             </table>
 <!--         </div> -->

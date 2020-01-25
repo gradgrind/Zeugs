@@ -19,7 +19,7 @@
         }
         @page {
             size: A4;
-            margin: 15mm 20mm 10mm 20mm;
+            margin: 10mm 20mm 10mm 20mm;
         }
 
         .frontpage {
@@ -101,10 +101,12 @@
   <body>
     {% for pupil in pupils %}
     {% set grades = pupil.grades %}
-    <div class="frontpage">
-<!-- If no background logo, remove margin and padding: -->
+<!--        <div class="underline"
+                style="margin: 0 20mm; padding-top: 7mm;
+                        display: flex; justify-content: center;"> -->
+<!-- If no background logo: remove margin-left, padding -->
         <div class="underline"
-                style="margin: 0 20mm; padding-top: 2mm;
+                style="margin: 0;
                         display: flex; justify-content: center;">
             <h1>{{schoolname.upper()}}</h1>
         </div>
@@ -129,46 +131,52 @@
         <!-- Fächer-Tabelle (Noten der Hauptfächer) -->
         <table class="subjects" style="margin-top: 5mm;">
             <tr>
-                <td class="sbj1">{{grades['S_1_N']}}</td>
-                <td class="grade">{{grades['S_1']}}</td>
-                <td class="sbj2">{{grades['S_2_N']}}</td>
-                <td class="grade">{{grades['S_2']}}</td>
+                <td class="sbj1">{{grades.S_1_N}}</td>
+                <td class="grade">{{grades.S_1}}</td>
+                <td class="sbj2">{{grades.S_2_N}}</td>
+                <td class="grade">{{grades.S_2}}</td>
             </tr>
             <tr>
-                <td class="sbj1">{{grades['S_3_N']}}</td>
-                <td class="grade">{{grades['S_3']}}</td>
-                <td class="sbj2">{{grades['S_4_N']}}</td>
-                <td class="grade">{{grades['S_4']}}</td>
+                <td class="sbj1">{{grades.S_3_N}}</td>
+                <td class="grade">{{grades.S_3}}</td>
+                <td class="sbj2">{{grades.S_4_N}}</td>
+                <td class="grade">{{grades.S_4}}</td>
             </tr>
             <tr>
-                <td class="sbj1">{{grades['S_5_N']}}</td>
-                <td class="grade">{{grades['S_5']}}</td>
-                <td class="sbj2">{{grades['S_6_N']}}</td>
-                <td class="grade">{{grades['S_6']}}</td>
+                <td class="sbj1">{{grades.S_5_N}}</td>
+                <td class="grade">{{grades.S_5}}</td>
+                <td class="sbj2">{{grades.S_6_N}}</td>
+                <td class="grade">{{grades.S_6}}</td>
             </tr>
             <tr>
-                <td class="sbj1">{{grades['S_7_N']}}</td>
-                <td class="grade">{{grades['S_7']}}</td>
-                <td class="sbj2">{{grades['S_8_N']}}</td>
-                <td class="grade">{{grades['S_8']}}</td>
+                <td class="sbj1">{{grades.S_7_N}}</td>
+                <td class="grade">{{grades.S_7}}</td>
+                <td class="sbj2">{{grades.S_8_N}}</td>
+                <td class="grade">{{grades.S_8}}</td>
             </tr>
             <tr>
-                <td class="sbj1">{{grades['S_9_N']}}</td>
-                <td class="grade">{{grades['S_9']}}</td>
-                <td class="sbj2">{{grades['S_10_N']}}</td>
-                <td class="grade">{{grades['S_10']}}</td>
+                <td class="sbj1">{{grades.S_9_N}}</td>
+                <td class="grade">{{grades.S_9}}</td>
+                <td class="sbj2">{{grades.S_10_N}}</td>
+                <td class="grade">{{grades.S_10}}</td>
             </tr>
             <tr>
-                <td class="sbj1">{{grades['S_11_N']}}</td>
-                <td class="grade">{{grades['S_11']}}</td>
-                <td class="sbj2">{{grades['S_12_N']}}</td>
-                <td class="grade">{{grades['S_12']}}</td>
+                <td class="sbj1">{{grades.S_11_N}}</td>
+                <td class="grade">{{grades.S_11}}</td>
+                <td class="sbj2">{{grades.S_12_N}}</td>
+                <td class="grade">{{grades.S_12}}</td>
             </tr>
             <tr>
-                <td class="sbj1">{{grades['S_13_N']}}</td>
-                <td class="grade">{{grades['S_13']}}</td>
-                <td class="sbj2">{{grades['S_14_N']}}</td>
-                <td class="grade">{{grades['S_14']}}</td>
+                <td class="sbj1">{{grades.S_13_N}}</td>
+                <td class="grade">{{grades.S_13}}</td>
+                <td class="sbj2">{{grades.S_14_N}}</td>
+                <td class="grade">{{grades.S_14}}</td>
+            </tr>
+            <tr>
+                <td class="sbj1">{{grades.S_15_N}}</td>
+                <td class="grade">{{grades.S_15}}</td>
+                <td class="sbj2">{{grades.S_16_N}}</td>
+                <td class="grade">{{grades.S_16}}</td>
             </tr>
         </table>
 
@@ -177,22 +185,22 @@
         </p>
         <table class="subjects">
             <tr>
-                <td class="sbj1">{{grades['K_1_N']}}</td>
-                <td class="grade">{{grades['K_1']}}</td>
-                <td class="sbj2">{{grades['K_2_N']}}</td>
-                <td class="grade">{{grades['K_2']}}</td>
+                <td class="sbj1">{{grades.K_1_N}}</td>
+                <td class="grade">{{grades.K_1}}</td>
+                <td class="sbj2">{{grades.K_2_N}}</td>
+                <td class="grade">{{grades.K_2}}</td>
             </tr>
             <tr>
-                <td class="sbj1">{{grades['K_3_N']}}</td>
-                <td class="grade">{{grades['K_3']}}</td>
-                <td class="sbj2">{{grades['K_4_N']}}</td>
-                <td class="grade">{{grades['K_4']}}</td>
+                <td class="sbj1">{{grades.K_3_N}}</td>
+                <td class="grade">{{grades.K_3}}</td>
+                <td class="sbj2">{{grades.K_4_N}}</td>
+                <td class="grade">{{grades.K_4}}</td>
             </tr>
             <tr>
-                <td class="sbj1">{{grades['K_5_N']}}</td>
-                <td class="grade">{{grades['K_5']}}</td>
-                <td class="sbj2">{{grades['K_6_N']}}</td>
-                <td class="grade">{{grades['K_6']}}</td>
+                <td class="sbj1">{{grades.K_5_N}}</td>
+                <td class="grade">{{grades.K_5}}</td>
+                <td class="sbj2">{{grades.K_6_N}}</td>
+                <td class="grade">{{grades.K_6}}</td>
             </tr>
         </table>
 

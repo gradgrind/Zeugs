@@ -1,5 +1,5 @@
 ############## GRADES/GRADES_A
-############## Version: 2020-01-05
+############## Version: 2020-01-25
 
 ### 'Punktskala' für Noten der Abiturprüfung (13. Klasse)
 
@@ -30,9 +30,11 @@ VALID =& 15
 #       & nb
 #       & nt
 #       & t
-# Noch nicht erteilt (für Fächer, die später im Jahr unterrichtet werden)
-# oder nicht gewählt:
+# "Noch nicht erteilt" (für Fächer, die später im Jahr unterrichtet werden),
+# oder Fach nicht belegt, sollte aber erscheinen:
        & *
+# "Nicht relevant" (/): Fach erscheint nicht im Zeugnis
+       & |/
 
 #       & ne
 

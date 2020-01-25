@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2020-01-13
+Last updated:  2020-01-25
 
 Configuration items and the handler for the configuration files.
 
@@ -212,8 +212,6 @@ class ConfigFile (OrderedDict):
             _l = _line.lstrip ()
             try:
                 l0 = _l [0]
-                if _l [0] == '|':
-                    return _l [1:]
             except IndexError:
                 pass
             else:

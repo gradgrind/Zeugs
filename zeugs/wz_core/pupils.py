@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-24
+wz_core/pupils.py - last updated 2020-01-25
 
 Database access for reading pupil data.
 
@@ -67,6 +67,10 @@ class Klass:
         if self.streams:
             return self.klass + '.' + '-'.join(self.streams)
         return self.klass
+
+    @classmethod
+    def fromKandS(cls, klass, stream):
+        return cls(klass + '.' + stream or '_')
 
 
     def match_map(self, kmap):
@@ -166,8 +170,9 @@ class PupilData (list):
         """Return a <Klass> object for this pupil.
         If <withStream> is true, add a stream tag.
         """
-        return Klass(self ['CLASS'] + '.' + (self ['STREAM'] or '_')
-                if withStream else self['CLASS'])
+        if withStream:
+            return Klass.fromKandS(self ['CLASS'], self ['STREAM'])
+        return Klass(self['CLASS'])
 
     def toMapping(self):
         return OrderedDict(map(lambda a,b: (a,b), self.fields(), self))

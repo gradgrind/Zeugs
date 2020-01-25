@@ -9,3 +9,7 @@ VALUES =& HS
         & RS
         & Erw
         &
+
+# Welche Klasse/Zeugnistypen sind möglich
+KLASS =& 12.Gym:
+       & 12.*: Abschluss

@@ -1,0 +1,13 @@
+############## GRADES/XFIELDS/_V_D
+############## Version: 2020-01-25
+
+### Zeugnis, 12. Klasse, Gym: Datum der Versetzungskonferenz
+
+NAME = Versetzungsdatum
+
+# DATUM: keine Optionswerte
+VALUES = 
+
+# Welche Klasse/Zeugnistypen sind möglich
+KLASS =& 12.Gym: Zeugnis
+       & 11.Gym: Zeugnis

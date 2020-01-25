@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-01-21
+Last updated:  2020-01-25
 
 Flask Blueprint for grade reports
 
@@ -38,7 +38,6 @@ _NO_CLASSES = "Keine Klassen für Halbjahr {term} [in wz_compat/grade_classes.py
 
 
 import datetime, io, os
-#from types import SimpleNamespace
 
 from flask import (Blueprint, render_template, request, session,
         send_file, url_for, abort, redirect, flash, make_response)
@@ -47,14 +46,12 @@ from flask import current_app as app
 from flask_wtf import FlaskForm
 from wtforms import SelectField
 from wtforms.fields.html5 import DateField
-from wtforms.validators import InputRequired #, Length
+from wtforms.validators import InputRequired, Optional #, Length
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-#from werkzeug.utils import secure_filename
 
 from wz_core.configuration import Dates
-from wz_core.pupils import Pupils, toKlassStream, fromKlassStream, match_klass_stream
+from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
-#from wz_compat.config import sortingName
 from wz_grades.gradedata import (readGradeTable, grades2db, db2grades,
         getGradeData, GradeReportData)
 from wz_grades.makereports import makeReports
@@ -77,44 +74,6 @@ def index():
 @bp.route('/term/<termn>', methods=['GET'])
 #@admin_required
 def term(termn):
-#TODO: prepare is deprecated ...
-    def prepare(schoolyear, termn, kmap):
-        """Gather the possible klasses/streams.
-        """
-        # Only if all streams have the same report type and template
-        # can the whole klass be done together.
-        # Pupils with no stream will be handled separately, with stream '_'.
-        klasses = []
-        p = Pupils(schoolyear)
-        for klass in p.classes():
-            allmatch = True     # whole klass possible
-            template = None     # for template matching
-            klist = []          # klass.stream list
-            for stream in p.streams(klass):
-                rtype = match_klass_stream(klass, kmap, stream)
-                if rtype:
-                    rtype_tpl = match_klass_stream(klass,
-                            CONF.GRADES.REPORT_TEMPLATES[rtype], stream)
-                    if rtype_tpl:
-                        klist.append(toKlassStream(klass, stream))
-                        if template:
-                            if rtype_tpl == template:
-                                continue
-                        else:
-                            template = rtype_tpl
-                            continue
-                allmatch = False
-            if allmatch:
-                # Add the whole class as an option
-                klasses.append (klass)
-                if len(klist) > 1:
-                    # Only add the individual groups if there are more than one
-                    klasses += klist
-            else:
-                klasses += klist
-        return klasses
-
-    # Start of method
     try:
         dfile = session.pop('download')
     except:
@@ -124,10 +83,7 @@ def term(termn):
         kmap = CONF.GRADES.REPORT_TEMPLATES['_' + termn]
     except:
         abort(404)
-    klasses = REPORT.wrap(prepare, schoolyear, termn, kmap,
-            suppressok=True)
-#NEW:
-#    klasses = REPORT.wrap(gradeGroups, termn, suppressok=True)
+    klasses = REPORT.wrap(gradeGroups, termn, suppressok=True)
     if not klasses:
         flash(_NO_CLASSES.format(term = termn), "Error")
         return redirect(url_for('bp_grades.index'))
@@ -164,12 +120,13 @@ def pupils(klass):
     schoolyear = session['year']
     # Collect list of pupils for this school-class.
     pupils = Pupils(schoolyear)
-    # List the classes with the oldest pupils first, as these are more
+    # List the classes with the highest first, as these are more
     # likely to need grades.
-    plist = pupils.classPupils(klass)
+    _klass = Klass(klass)
+    plist = pupils.classPupils(_klass)
     return render_template(os.path.join(_BPNAME, 'pupils.html'),
             heading = _HEADING,
-            klass = klass,
+            klass = _klass.klass,
             pupils = plist
     )
 
@@ -199,7 +156,7 @@ def pupil(pid):
     pupils = Pupils(schoolyear)
     pdata = pupils.pupil(pid)
     pname = pdata.name()
-    klass, stream = pdata['CLASS'], pdata['STREAM'] or '_'
+    klass = pdata.getKlass(withStream=True)
     # Get existing dates.
     db = DB(schoolyear)
     rows = db.select('GRADES', PID=pid)
@@ -222,7 +179,10 @@ def pupil(pid):
     # warning can be shown at the next step.
     rtypes = [rtype for rtype in CONF.GRADES.REPORT_TEMPLATES if rtype[0] != '_']
 
-    form = _Form(KLASS = klass, STREAM = stream, RTYPE = _DEFAULT_RTYPE)
+    kname = klass.klass
+    stream = klass.streams[0]
+    form = _Form(KLASS = kname, STREAM = stream,
+            RTYPE = _DEFAULT_RTYPE)
     form.KLASS.choices = [(k, k) for k in reversed(pupils.classes())]
     form.STREAM.choices = [(s, s) for s in CONF.GROUPS.STREAMS]
     form.EDITNEW.choices = [(d, d) for d in dates]
@@ -230,53 +190,53 @@ def pupil(pid):
 
     if form.validate_on_submit():
         # POST
-        klass = form.KLASS.data
-        stream = form.STREAM.data
+        klass = Klass.fromKandS(form.KLASS.data, form.STREAM.data)
         date = form.EDITNEW.data
         rtype = form.RTYPE.data
         kmap = CONF.GRADES.REPORT_TEMPLATES[rtype]
-        tfile = match_klass_stream(klass, kmap, stream)
+        tfile = klass.match_map(kmap)
         if tfile:
             return redirect(url_for('bp_grades.make1',
                     pid = pid,
-                    klass = klass,
-                    stream = stream,
+                    kname = klass,
                     date = date,
                     rtype = rtype
             ))
         else:
             flash("Zeugnistyp '%s' nicht möglich für Gruppe %s" % (
-                    rtype, toKlassStream(klass, stream)), "Error")
+                    rtype, klass), "Error"
+            )
 
     # GET
     return render_template(os.path.join(_BPNAME, 'pupil.html'),
                             form = form,
                             heading = _HEADING,
-                            klass = klass,
+                            klass = kname,
                             pname = pname)
 
 
-#TODO
-@bp.route('/make1/<pid>/<rtype>/<date>/<klass>/<stream>', methods=['GET','POST'])
+@bp.route('/make1/<pid>/<rtype>/<date>/<kname>', methods=['GET','POST'])
 #@admin_required
-def make1(pid, rtype, date, klass, stream):
+def make1(pid, rtype, date, kname):
     """View: Edit data for the report to be created, submit to build it.
+
+    <kname> has a stream tag.
     """
-#    return "PID: %s, RTYPE: %s, DATE: %s, CLASS: %s, STREAM: %s" %(
-#            pid, rtype, date, klass, stream)
+#    return "PID: %s, RTYPE: %s, DATE: %s, CLASS: %s" %(
+#            pid, rtype, date, klass)
 
     class _Form(FlaskForm):
         DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
 
     def prepare():
         # Get the name of the relevant grade scale configuration file:
-        grademap = match_klass_stream(klass, CONF.MISC.GRADE_SCALE, stream)
+        grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
         gradechoices = [(g, g) for g in CONF.GRADES[grademap].VALID]
         # Get existing grades
         grades = getGradeData(schoolyear, pid, date=date)
 
         ### Get template fields which need to be set here
-        gdata = GradeReportData(schoolyear, rtype, klass, stream)
+        gdata = GradeReportData(schoolyear, rtype, klass)
         groups = []
         for sgroup in sorted(gdata.sgroup2sids):    # grouped subject-ids
             fields = []
@@ -285,7 +245,7 @@ def make1(pid, rtype, date, klass, stream):
                 try:
                     grade = grades['GRADES'][sid]
                 except:
-                    grade = None
+                    grade = '/'
                 sfield = SelectField(sname, choices=gradechoices, default=grade)
                 key = sgroup + '_' + sid
                 setattr(_Form, key, sfield)
@@ -301,20 +261,40 @@ def make1(pid, rtype, date, klass, stream):
                 if xfield[1] == '_':
                     # Calculated fields should not be presented here
                     continue
-                # Get options
+                # Get options/field type
                 try:
                     xfconf = CONF.GRADES.XFIELDS[xfield]
-                    # The choices depend on the tag
-                    choices = [(c, c) for c in xfconf.VALUES]
+                    values = xfconf.VALUES
                 except:
                     flash("Feld %s unbekannt: Vorlage %s" % (
-                            xfield, tfile), "Error")
+                            xfield, gdata.template.filename), "Error")
                     continue
+                # Check class/report-type validity
+                rtypes = klass.match_map(xfconf.KLASS).split()
+                if rtype not in rtypes:
+                    continue
+                # Get existing value for this field
                 try:
                     val = grades['GRADES'][xfield]
                 except:
                     val = None
-                sfield = SelectField(xfconf.NAME, choices=choices, default=val)
+                # Determine field type
+                if xfield.endswith('_D'):
+                    # An optional date field:
+                    d = datetime.date.fromisoformat(val) if val else None
+                    sfield = DateField(xfconf.NAME, default=d,
+                            validators=[Optional()])
+                else:
+                    try:
+                        # Assume a select field.
+                        # The choices depend on the tag.
+                        choices = [(c, c) for c in xfconf.VALUES]
+                        sfield = SelectField(xfconf.NAME,
+                                choices=choices, default=val)
+                    except:
+                        flash("Unbekannter Feldtyp: %s in Vorlage %s" % (
+                                xfield, gdata.template.filename), "Error")
+                        continue
                 key = 'Z_' + xfield
                 setattr(_Form, key, sfield)
                 xfields.append(key)
@@ -323,7 +303,11 @@ def make1(pid, rtype, date, klass, stream):
         return groups
 
     schoolyear = session['year']
+    klass = Klass(kname)
     groups = REPORT.wrap(prepare, suppressok=True)
+    if not groups:
+        # Return to caller
+        return redirect(request.referrer)
 
     # Get pupil data
     pupils = Pupils(schoolyear)
@@ -334,7 +318,24 @@ def make1(pid, rtype, date, klass, stream):
     form = _Form()
     if form.validate_on_submit():
         # POST
-        _d = form.DATE_D.data.isoformat()
+        print("§§§§1", form.DATE_D.data.isoformat())
+        try:
+            print("§§§§2", form.Z__V_D.data.isoformat())
+        except:
+            print("§§§§3")
+        for g, keys in groups:
+            for key in keys:
+                print("===========", key.split('_', 1)[1], form[key].data)
+                #items[key] = form[key].data
+#TODO
+# * There is no point to +/-, as these won't appear in the report and
+#   are only intended for Notenkonferenzen. However, they might be of
+#   interest for future reference?
+# * __Ku is shown. This should be calculated (needing code!) and not shown
+#   here (unless it is included as an AJAX-modified field).
+
+
+
 
 
     # GET
@@ -350,8 +351,8 @@ def make1(pid, rtype, date, klass, stream):
                             pid = pid,
                             pname = pname,
                             rtype = rtype,
-                            klass = klass,
-                            stream = stream
+                            klass = klass.klass,
+                            stream = klass.streams[0]
     )
 
 
@@ -362,6 +363,7 @@ def klassview(termn, klass_stream):
         DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
 
     schoolyear = session['year']
+    klass = Klass(klass_stream)
     form = _Form()
     if form.validate_on_submit():
         # POST
@@ -369,22 +371,21 @@ def klassview(termn, klass_stream):
         pids=request.form.getlist('Pupil')
         if pids:
             pdfBytes = REPORT.wrap(makeReports,
-                    schoolyear, termn, klass_stream, _d, pids)
+                    schoolyear, termn, klass, _d, pids)
             session['filebytes'] = pdfBytes
-            session['download'] = 'Notenzeugnis_%s.pdf' % klass_stream
+            session['download'] = 'Notenzeugnis_%s.pdf' % klass
             return redirect(url_for('bp_grades.term', termn=termn))
         else:
             flash("** Keine Schüler ... **", "Warning")
 
     # GET
     form.DATE_D.data = datetime.date.today ()
-    klass, stream = fromKlassStream(klass_stream)
-    pdlist = db2grades(schoolyear, termn, klass, stream, checkonly=True)
+    pdlist = db2grades(schoolyear, termn, klass, checkonly=True)
     return render_template(os.path.join(_BPNAME, 'klass.html'),
                             form=form,
                             heading=_HEADING,
                             termn=termn,
-                            klass_stream=klass_stream,
+                            klass_stream=klass,
                             pupils=pdlist)
 #TODO:
 # There might be a checkbox/switch for print/pdf, but print might not

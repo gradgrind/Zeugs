@@ -11,3 +11,6 @@ VALUES =& HS
         & Erw
         & X
         &
+
+# Welche Klasse/Zeugnistypen sind möglich
+KLASS =& 10<??.*: Abgang

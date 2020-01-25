@@ -4,7 +4,7 @@
 """
 wz_compat/template.py
 
-Last updated:  2020-01-24
+Last updated:  2020-01-25
 
 Functions for template handling.
 
@@ -27,6 +27,10 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
+# Messages
+_NO_TEMPLATE = "Vorlage nicht gefunden: {fname}"
+
+
 import os, re
 
 import jinja2
@@ -42,7 +46,6 @@ def getGradeTemplate(rtype, klass):
     tlist = CONF.GRADES.REPORT_TEMPLATES[rtype]
     tfile = klass.match_map(tlist)
     if tfile:
-#        print ("???", tfile)
         return openTemplate(tfile)
     else:
         REPORT.Bug("Invalid report category for class {ks}: {rtype}",
@@ -79,17 +82,20 @@ def openTemplate(tpath):
         tpdir = os.path.join(tpdir, *tpsplit)
     templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
     templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)
-    return templateEnv.get_template(fname)
+    try:
+        return templateEnv.get_template(fname)
+    except:
+        REPORT.Fail(_NO_TEMPLATE, fname=os.path.join(tpdir, fname))
 
 
 def getTemplateTags(template):
     """Find all substrings containing only letters, digits, underscore
-    and dot which are surrounded by '{{ ... }}' or '{{ ... }}'.
+    and dot which are surrounded by '{{ ... }}' or '{% ... %}'.
     Each item must start with a letter or underscore. More than one such
     substring may occur in each block.
     Return a <set>.
     """
-    _match = r'.*?([a-zA-Z_][a-zA-Z0-9_.]*)'
+    _match = r'([a-zA-Z_][a-zA-Z0-9_.]*)'
     with open(template.filename, 'r', encoding='utf-8') as fh:
         text = fh.read()
     tags = set()
