@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_text/coversheet.py
 
-Last updated:  2020-01-25
+Last updated:  2020-01-26
 
 Build the outer sheets (cover sheets) for the text reports.
 User fields in template files are replaced by the report information.
@@ -46,7 +46,7 @@ def makeSheets (schoolyear, date, klass, pids=None):
     """
     <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
-    <klass>: name of the school-class
+    <klass>: a <Klass> instance for the school-class
     <pids>: a list of pids (must all be in the given klass), only
         generate reports for pupils in this list.
         If not supplied, generate reports for the whole klass.
@@ -67,13 +67,12 @@ def makeSheets (schoolyear, date, klass, pids=None):
             REPORT.Bug(_PUPILSNOTINCLASS, pids=', '.join(pset), klass=klass)
 
     template = getTextTemplate('Mantelbogen', klass)
-    klassdata = KlassData(klass)
     source = template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
             pupils = plist,
-            klass = klassdata
+            klass = klass
         )
 
     if plist:
@@ -89,18 +88,17 @@ def makeOneSheet(schoolyear, date, klass, pupil):
     """
     <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
-    <klass>: name of the school-class
+    <klass>: a <Klass> instance for the school-class
     <pupil>: a mapping with the necessary pupil information (at least a
     subset of <PupilData>).
     """
     template = getTextTemplate('Mantelbogen', klass)
-    klassdata = KlassData(klass)
     source = template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
             DATE_D = date,
             todate = Dates.dateConv,
             pupils = [pupil],
-            klass = klassdata
+            klass = klass
         )
     html = HTML (string=source,
             base_url=os.path.dirname (template.filename))
@@ -112,12 +110,12 @@ _year = 2016
 _date = '2016-06-22'
 _klass = '09'
 def test_01():
-    template = getTextTemplate('Mantelbogen', _klass)
+    template = getTextTemplate('Mantelbogen', Klass(_klass))
     tags = getTemplateTags(template)
     REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 
 def test_02():
-    pdfBytes = makeSheets (_year, _date, _klass)
+    pdfBytes = makeSheets (_year, _date, Klass(_klass))
     folder = Paths.getUserPath ('DIR_TEXT_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test.pdf')
     with open(fpath, 'wb') as fh:
@@ -125,7 +123,9 @@ def test_02():
     REPORT.Test(" --> %s" % fpath)
 
 def test_03():
-    _klass = '12K'
+    _k = '12K'
+    _k = '12'
+    _klass = Klass(_k)
     pupils = Pupils(_year)
     plist = pupils.classPupils(_klass)
     pdata = plist[0]

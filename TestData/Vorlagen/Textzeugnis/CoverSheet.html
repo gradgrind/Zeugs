@@ -133,7 +133,7 @@
             font-size: 80%;
             font-style: italic;
             border: solid 0.5pt #999999;
-            {% if klass.name >= "12" %}
+            {% if klass.klass >= "12" %}
             display: none;
             {% endif %}
         }
@@ -167,7 +167,7 @@
             width: 42mm;
             height: 36mm;
             border: solid 0.5pt #999999;
-            {% if klass.name >= "12" %}
+            {% if klass.klass >= "12" %}
             margin-right: 20mm;
             {% endif %}
         }
@@ -195,7 +195,7 @@
                 <div class="stampbox">
                     <p>Siegel</p>
                 </div>
-                {% if klass.name < "12" %}
+                {% if klass.klass < "12" %}
                 <div class="signbox">
                     <p>Erziehungsberechtigte/r oder volljährige/r Schüler/in</p>
                 </div>

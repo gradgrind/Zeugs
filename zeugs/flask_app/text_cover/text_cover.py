@@ -4,7 +4,7 @@
 """
 flask_app/text_cover/text_cover.py
 
-Last updated:  2020-01-25
+Last updated:  2020-01-26
 
 Flask Blueprint for text report cover sheets
 
@@ -88,39 +88,45 @@ def index():
     form.defaultIssueDate(schoolyear)
     p = Pupils(schoolyear)
     _kmap = CONF.TEXT.REPORT_TEMPLATES['Mantelbogen']
-    klasses = [k for k in p.classes() if match_klass_stream(k, _kmap)]
+    klasses = []
+    for k in p.classes():
+        klass = Klass(k)
+        if klass.match_map(_kmap):
+            klasses.append(str(klass))
     return render_template(os.path.join(_BPNAME, 'index.html'),
-                            form=form,
-                            heading=_HEADING,
-                            klasses=klasses) #['01', '01K', '02', '02K', '03', '03K']
+                            form = form,
+                            heading = _HEADING,
+                            klasses = klasses)
 
 
 @bp.route('/klass/<klass>', methods=['GET','POST'])
 #@admin_required
 def klassview(klass):
+    _klass = Klass(klass)
     form = DateForm()
     # Set date
     schoolyear = session['year']
     if form.validate_on_submit():
         # POST
         _d = form.getDate()
-        pdfBytes = makeSheets (schoolyear, _d, klass,
-#TODO check list not empty ...
-                pids=request.form.getlist('Pupil'))
-        return send_file(
-            io.BytesIO(pdfBytes),
-            attachment_filename='Mantel_%s.pdf' % klass,
-            mimetype='application/pdf',
-            as_attachment=True
-        )
+        pids = request.form.getlist('Pupil')
+        if pids:
+            pdfBytes = makeSheets(schoolyear, _d, _klass, pids=pids)
+            return send_file(io.BytesIO(pdfBytes),
+                attachment_filename = 'Mantel_%s.pdf' % _klass,
+                mimetype = 'application/pdf',
+                as_attachment = True
+            )
+        flash("Keine Schüler gewählt", "Warning")
+
     # GET
     form.defaultIssueDate(schoolyear)
     p = Pupils(schoolyear)
-    pdlist = p.classPupils(klass)
+    pdlist = p.classPupils(_klass)
     return render_template(os.path.join(_BPNAME, 'text_cover_klass.html'),
-                            form=form,
-                            heading=_HEADING,
-                            klass=klass,
+                            form = form,
+                            heading = _HEADING,
+                            klass = str(_klass),
                             pupils=[(pd['PID'], pd.name()) for pd in pdlist])
 #TODO:
 # There might be a checkbox/switch for print/pdf, but print might not
@@ -128,16 +134,14 @@ def klassview(klass):
 # It might be helpful to a a little javascript to implement a pupil-
 # selection toggle (all/none).
 
-#TODO: generate a zip of all classes ...
-def _allklasses(schoolyear, klasses):
-    pass
 
 
 @bp.route('/pupil/<klass>/<pid>', methods=['GET','POST'])
 #@admin_required
 def pupilview(klass, pid):
+    _klass = Klass(klass)
     schoolyear = session['year']
-    template = getTextTemplate('Mantelbogen', klass)
+    template = getTextTemplate('Mantelbogen', _klass)
     tags = getTemplateTags(template)
     _fields = dict(pupilFields(tags))
     fields = [(f0, f1) for f0, f1 in CONF.TABLES.PUPILS_FIELDNAMES.items()
@@ -147,19 +151,18 @@ def pupilview(klass, pid):
         # POST
         _d = form.getDate()
         pupil = SimpleNamespace (**{f: request.form[f] for f, _ in fields})
-        pdfBytes = makeOneSheet(schoolyear, _d, klass, pupil)
-        return send_file(
-            io.BytesIO(pdfBytes),
-            attachment_filename='Mantel_%s.pdf' % sortingName(
-                    pupil.FIRSTNAMES, pupil.LASTNAME),
-            mimetype='application/pdf',
-            as_attachment=True
+        pdfBytes = makeOneSheet(schoolyear, _d, _klass, pupil)
+        return send_file(io.BytesIO(pdfBytes),
+                attachment_filename = 'Mantel_%s.pdf' % sortingName(
+                        pupil.FIRSTNAMES, pupil.LASTNAME),
+                mimetype = 'application/pdf',
+                as_attachment = True
         )
     # GET
     form.defaultIssueDate(schoolyear)
     p = Pupils(schoolyear)
     try:
-        pdlist = p.classPupils(klass)
+        pdlist = p.classPupils(_klass)
         pdata = pdlist.pidmap[pid]
         pupil = {f: (fname, pdata[f]) for f, fname in fields}
     except:
@@ -167,5 +170,5 @@ def pupilview(klass, pid):
     return render_template(os.path.join(_BPNAME, 'text_cover_pupil.html'),
                             form=form,
                             heading=_HEADING,
-                            klass=klass,
+                            klass=str(_klass),
                             pupil=pupil)

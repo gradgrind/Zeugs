@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_compat/template.py
 
-Last updated:  2020-01-25
+Last updated:  2020-01-26
 
 Functions for template handling.
 

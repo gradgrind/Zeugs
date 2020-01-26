@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_core/courses.py
 
-Last updated:  2020-01-24
+Last updated:  2020-01-26
 
 Handler for the basic course info.
 

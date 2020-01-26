@@ -1,15 +1,15 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_text/summary.py
 
-Last updated:  2019-12-19
+Last updated:  2020-01-26
 
 Prepare checklists of classes/subjects for the teachers.
 Prepare checklists of subjects/teachers for the classes.
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ from weasyprint import HTML, CSS
 
 from wz_core.configuration import Paths, Dates
 from wz_core.courses import CourseTables
+from wz_core.pupils import Klass
 from wz_compat.config import printSchoolYear
 
 _NOTEMPLATE = "Vorlagedatei (Lehrer-Zeugniskontrolle) fehlt:\n  {path} "
@@ -42,7 +43,8 @@ _NOTEMPLATE = "Vorlagedatei (Lehrer-Zeugniskontrolle) fehlt:\n  {path} "
 def tSheets (schoolyear, manager, date):
     courses = CourseTables (schoolyear)
     tidmap = {}
-    for klass in courses.classes ():
+    for k in courses.classes ():
+        klass = Klass(k)
         sid2tids = courses.filterText (klass)
         for sid, tids in sid2tids.items ():
             if tids.TEXT:
@@ -52,12 +54,12 @@ def tSheets (schoolyear, manager, date):
                     try:
                         tmap = tidmap [tid]
                     except:
-                        tidmap [tid] = {klass: {sid}}
+                        tidmap [tid] = {klass.klass: {sid}}
                         continue
                     try:
-                        tmap [klass].add (sid)
+                        tmap [klass.klass].add (sid)
                     except:
-                        tmap [klass] = {sid}
+                        tmap [klass.klass] = {sid}
 
     noreports = []
     teachers = []
@@ -69,10 +71,10 @@ def tSheets (schoolyear, manager, date):
         except:
             noreports.append (tname)
             continue
-        for klass in sorted (tmap):
-            for sid in tmap [klass]:
+        for k in sorted (tmap):
+            for sid in tmap [k]:
                 sname = courses.subjectName (sid)
-                lines.append ((klass, sname))
+                lines.append ((k, sname))
         teachers.append ((tname, lines))
 
     tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
@@ -102,7 +104,8 @@ def ksSheets (schoolyear, manager, date):
             for tid in courses.teacherData}
 
     klasses = []
-    for klass in courses.classes ():
+    for k in courses.classes ():
+        klass = Klass(k)
         sidmap = {}
         sid2tids = courses.filterText (klass)
         for sid, tids in sid2tids.items ():
@@ -119,7 +122,7 @@ def ksSheets (schoolyear, manager, date):
             sname = courses.subjectName (sid)
             for tid in tids:
                 lines.append ((sname, tidmap [tid]))
-        klasses.append ((klass, lines))
+        klasses.append ((klass.klass, lines))
 
     tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
     templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)

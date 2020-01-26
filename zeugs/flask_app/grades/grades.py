@@ -166,12 +166,6 @@ def pupil(pid):
     # Get existing dates.
     db = DB(schoolyear)
     rows = db.select('GRADES', PID=pid)
-#TODO: It is possible that the date field is empty – if the grades for a
-# term have been entered, but no reports generated.
-# Is it reasonable to use the TERM in such a case? Not in a date field ...
-# Would it be ok to just have the REPORT_TYPE field of a pending term
-# report empty? There would need to be a default date ...
-# At present I am including undated term reports as _1 or _2 ...
     dates = [_NEWDATE]
     for row in db.select('GRADES', PID=pid):
         dates.append(row['TERM'])
