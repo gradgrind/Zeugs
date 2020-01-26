@@ -1,8 +1,0 @@
-############## GRADES/XCOLUMNS/MITTEL
-############## Version: 2019-10-27
-
-TAG = %alle
-TEXT = Φ: alle Fächer
-TYPE = AVERAGE
-
-GROUPS =& *

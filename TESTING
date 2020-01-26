@@ -1,3 +1,0 @@
-If this file is named "TESTING", zeugs will be run with the test data in
-the folder "TestData". To run "normally" change the name of this file,
-e.g. to "_TESTING".

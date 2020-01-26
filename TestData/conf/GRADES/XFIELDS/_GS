@@ -1,16 +1,14 @@
 ############## GRADES/XFIELDS/_GS
-############## Version: 2020-01-19
+############## Version: 2020-01-26
 
 ### Gleichstellungsvermerk: für Abgangszeugnisse
 
 NAME = Gleichstellungsvermerk
 
-# "X" steht für Abgang ohne Qualifikation
 VALUES =& HS
         & RS
         & Erw
-        & X
-        &
+        & 
 
 # Welche Klasse/Zeugnistypen sind möglich
 KLASS =& 10<??.*: Abgang

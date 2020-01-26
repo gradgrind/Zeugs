@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-01-24
+Last updated:  2020-01-26
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -141,7 +141,7 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
     <schoolyear>: year in which school-year ends (int)
     <data>: date of issue ('YYYY-MM-DD')
     <pdata>: a <PupilData> instance for the pupil whose report is to be built
-    <term>: keys the grades in the database
+    <term>: keys the grades in the database (term or date)
     <rtype>: report category, determines template
     """
     pid = pdata['PID']
@@ -150,18 +150,19 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
     gmap = gradedata['GRADES']  # grade mapping
     pname = pdata.name()
     # <GradeReportData> manages the report template, etc.:
-    # From here on use klass_stream from <gradedata>
-    klass = Klass(gradedata['KLASS'] + '.' + (gradedata['STREAM'] or '_'))
+    # From here on use klass and stream from <gradedata>
+    klass = Klass.fromKandS(gradedata['KLASS'], gradedata['STREAM'])
     reportData = GradeReportData(schoolyear, rtype, klass)
     # Get the name of the relevant configuration file in folder GRADES:
     grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
     # Build a grade mapping for the tags of the template:
     pdata.grades = reportData.getTagmap(gmap, pname, grademap)
     # Update grade database
-    updateGradeReport(schoolyear, pid, term,
-            date=date,
-            rtype=rtype
-    )
+    if term != date:
+        updateGradeReport(schoolyear, pid, term,
+                date=date,
+                rtype=rtype
+        )
 
     ### Generate html for the reports
     source = reportData.template.render(
@@ -247,3 +248,15 @@ def test_06():
     with open(fpath, 'wb') as fh:
         fh.write(pdfBytes)
     REPORT.Test(" --> %s" % fpath)
+
+def test_07():
+    # Reports for second term
+    _term = '2'
+    _date = '2016-06-22'
+    for _ks in '11', '12.RS-HS-_', '12.Gym':
+        _klass_stream = Klass(_ks)
+        pdfBytes = makeReports (_year, _term, _klass_stream, _date)
+        folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
+        fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _date))
+        with open(fpath, 'wb') as fh:
+            fh.write(pdfBytes)

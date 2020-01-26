@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-01-24
+Last updated:  2020-01-26
 
 Handle the data for grade reports.
 
@@ -143,7 +143,7 @@ def grades2db(schoolyear, gtable, term=None):
     if p2grades:
         db = DB(schoolyear)
         for pid, grades in p2grades.items():
-            gstring = ';'.join([g + '=' + v for g, v in grades.items()])
+            gstring = map2grades(grades)
             db.updateOrAdd('GRADES',
                     {   'KLASS': klass.klass, 'STREAM': p2stream[pid],
                         'PID': pid, 'TERM': rtag, 'REPORT_TYPE': None,
@@ -159,12 +159,38 @@ def grades2db(schoolyear, gtable, term=None):
 
 
 
-def updateGradeReport(schoolyear, pid, term, date, rtype):
-    """Update grade database when building reports.
-    Update only DATE_D and REPORT_TYPE fields.
+def singleGrades2db(schoolyear, pid, klass, term, date, rtype, grades):
+    """Add or update GRADES table entry for a single pupil and date.
+    <term> is the date of the entry, which may already exist: the TERM field.
+    <date> is the new date, which may be the same as <term>, but can also
+    indicate a change, in which case also the TERM field will be changed.
+    <rtype> is the report type.
+    <grades> is a mapping {sid -> grade}.
     """
     db = DB(schoolyear)
+    gstring = map2grades(grades)
+    db.updateOrAdd('GRADES',
+            {   'KLASS': klass.klass, 'STREAM': klass.stream, 'PID': pid,
+                'TERM': term if term.isdigit() else date,
+                'REPORT_TYPE': rtype, 'DATE_D': date, 'GRADES': gstring
+            },
+            TERM=term,
+            PID=pid
+    )
+
+
+
+def updateGradeReport(schoolyear, pid, term, date, rtype):
+    """Update grade database when building reports.
+    <pid> (pupil-id) and <term> (term or extra date) are used to key the
+    entry in the GRADES table.
+    For term reports, update only DATE_D and REPORT_TYPE fields.
+    This is not used for "extra" reports.
+    """
+    db = DB(schoolyear)
+    termn = int(term)   # check that term (not date) is given
     try:
+        # Update term. This only works if there is already an entry.
         db.updateOrAdd ('GRADES',
                 {'DATE_D': date, 'REPORT_TYPE': rtype},
                 update_only=True,
@@ -216,21 +242,16 @@ def db2grades(schoolyear, term, klass, checkonly=False):
 
 
 
-def getGradeData(schoolyear, pid, term=None, date=None):
+def getGradeData(schoolyear, pid, term):
     """Return all the data from the database GRADES table for the
-    given pupil as a mapping. Either term or date may be given (if term
-    is supplied, date will be ignored).
-    <term> is the term.
-    <date> is the date of issue of the report.
+    given pupil as a mapping. Either term or – in the case of "extra"
+    reports – date is supplied to key the entry.
     The string in field 'GRADES' is converted to a mapping. If there is
     grade data, its validity is checked. If there is no grade data, this
     field is <None>.
     """
     db = DB(schoolyear)
-    if term:
-        gdata = db.select1('GRADES', PID=pid, TERM=term)
-    else:
-        gdata = db.select1('GRADES', PID=pid, DATE_D=date)
+    gdata = db.select1('GRADES', PID=pid, TERM=term)
     if gdata:
         # Convert the grades to a <dict>
         gmap = dict(gdata)
@@ -258,6 +279,14 @@ def grades2map(gstring):
             raise ValueError
         # There is an entry, but no data
         return None
+
+
+
+def map2grades(gmap):
+    """Convert a mapping {sid -> grade} to a grade string for the GRADES
+    field in the GRADES table.
+    """
+    return ';'.join([g + '=' + v for g, v in gmap.items()])
 
 
 

@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-01-25
+Last updated:  2020-01-26
 
 Flask Blueprint for grade reports
 
@@ -53,9 +53,10 @@ from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
 from wz_grades.gradedata import (readGradeTable, grades2db, db2grades,
-        getGradeData, GradeReportData)
-from wz_grades.makereports import makeReports
+        getGradeData, GradeReportData, singleGrades2db)
+from wz_grades.makereports import makeReports, makeOneSheet
 from wz_compat.grade_classes import gradeGroups
+from wz_compat.gradefunctions import gradeCalc
 
 
 # Set up Blueprint
@@ -117,6 +118,10 @@ def klasses():
 def pupils(klass):
     """View: select pupil from given school-class (single report generation).
     """
+    try:
+        dfile = session.pop('download')
+    except:
+        dfile = None
     schoolyear = session['year']
     # Collect list of pupils for this school-class.
     pupils = Pupils(schoolyear)
@@ -127,7 +132,8 @@ def pupils(klass):
     return render_template(os.path.join(_BPNAME, 'pupils.html'),
             heading = _HEADING,
             klass = _klass.klass,
-            pupils = plist
+            pupils = plist,
+            dfile = dfile
     )
 
 
@@ -168,7 +174,7 @@ def pupil(pid):
 # At present I am including undated term reports as _1 or _2 ...
     dates = [_NEWDATE]
     for row in db.select('GRADES', PID=pid):
-        dates.append(row['DATE_D'] or '_' + row['TERM'])
+        dates.append(row['TERM'])
     # If the stream, or even school-class have changed since an
     # existing report, the templates and available report types may be
     # different. To keep it simple, a list of all report types from the
@@ -180,7 +186,7 @@ def pupil(pid):
     rtypes = [rtype for rtype in CONF.GRADES.REPORT_TEMPLATES if rtype[0] != '_']
 
     kname = klass.klass
-    stream = klass.streams[0]
+    stream = klass.stream
     form = _Form(KLASS = kname, STREAM = stream,
             RTYPE = _DEFAULT_RTYPE)
     form.KLASS.choices = [(k, k) for k in reversed(pupils.classes())]
@@ -191,7 +197,7 @@ def pupil(pid):
     if form.validate_on_submit():
         # POST
         klass = Klass.fromKandS(form.KLASS.data, form.STREAM.data)
-        date = form.EDITNEW.data
+        rtag = form.EDITNEW.data
         rtype = form.RTYPE.data
         kmap = CONF.GRADES.REPORT_TEMPLATES[rtype]
         tfile = klass.match_map(kmap)
@@ -199,7 +205,7 @@ def pupil(pid):
             return redirect(url_for('bp_grades.make1',
                     pid = pid,
                     kname = klass,
-                    date = date,
+                    rtag = rtag,
                     rtype = rtype
             ))
         else:
@@ -215,16 +221,14 @@ def pupil(pid):
                             pname = pname)
 
 
-@bp.route('/make1/<pid>/<rtype>/<date>/<kname>', methods=['GET','POST'])
+@bp.route('/make1/<pid>/<rtype>/<rtag>/<kname>', methods=['GET','POST'])
 #@admin_required
-def make1(pid, rtype, date, kname):
+def make1(pid, rtype, rtag, kname):
     """View: Edit data for the report to be created, submit to build it.
-
-    <kname> has a stream tag.
+    <rtype> is the report type.
+    <rtag> is a TERM field entry from the GRADES table (term or date).
+    <kname> is the school-class with stream tag.
     """
-#    return "PID: %s, RTYPE: %s, DATE: %s, CLASS: %s" %(
-#            pid, rtype, date, klass)
-
     class _Form(FlaskForm):
         DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
 
@@ -233,7 +237,7 @@ def make1(pid, rtype, date, kname):
         grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
         gradechoices = [(g, g) for g in CONF.GRADES[grademap].VALID]
         # Get existing grades
-        grades = getGradeData(schoolyear, pid, date=date)
+        grades = getGradeData(schoolyear, pid, rtag)
 
         ### Get template fields which need to be set here
         gdata = GradeReportData(schoolyear, rtype, klass)
@@ -241,6 +245,9 @@ def make1(pid, rtype, date, kname):
         for sgroup in sorted(gdata.sgroup2sids):    # grouped subject-ids
             fields = []
             for sid in gdata.sgroup2sids[sgroup]:
+                if sid.startswith('__'):
+                    gcalc.append(sid)
+                    continue
                 sname = gdata.courses.subjectName(sid)
                 try:
                     grade = grades['GRADES'][sid]
@@ -302,8 +309,17 @@ def make1(pid, rtype, date, kname):
             groups.append((None, xfields))
         return groups
 
+    def enterGrades():
+        # Add calculated grade entries
+        gradeCalc(gmap, gcalc)
+        # Enter grade data into db
+        singleGrades2db(schoolyear, pid, klass, term = rtag,
+                date = DATE_D, rtype = rtype, grades = gmap)
+        return True
+
     schoolyear = session['year']
     klass = Klass(kname)
+    gcalc = []  # list of composite sids
     groups = REPORT.wrap(prepare, suppressok=True)
     if not groups:
         # Return to caller
@@ -314,34 +330,31 @@ def make1(pid, rtype, date, kname):
     pdata = pupils.pupil(pid)
     pname = pdata.name()
 
-#######
     form = _Form()
     if form.validate_on_submit():
         # POST
-        print("§§§§1", form.DATE_D.data.isoformat())
-        try:
-            print("§§§§2", form.Z__V_D.data.isoformat())
-        except:
-            print("§§§§3")
+        DATE_D = form.DATE_D.data.isoformat()
+        gmap = {}   # grade mapping {sid -> "grade"}
         for g, keys in groups:
             for key in keys:
-                print("===========", key.split('_', 1)[1], form[key].data)
-                #items[key] = form[key].data
-#TODO
-# * There is no point to +/-, as these won't appear in the report and
-#   are only intended for Notenkonferenzen. However, they might be of
-#   interest for future reference?
-# * __Ku is shown. This should be calculated (needing code!) and not shown
-#   here (unless it is included as an AJAX-modified field).
+                gmap[key.split('_', 1)[1]] = form[key].data
+        if REPORT.wrap(enterGrades, suppressok=True):
+            pdfBytes = REPORT.wrap(makeOneSheet,
+                    schoolyear, DATE_D, pdata, rtag, rtype)
+            session['filebytes'] = pdfBytes
+            session['download'] = 'Notenzeugnis_%s.pdf' % (
+                    pdata['PSORT'].replace(' ', '_'))
+            return redirect(url_for('bp_grades.pupils', klass = klass.klass))
 
-
-
-
+#TODO: ?
+# There is no point to +/-, as these won't appear in the report and
+# are only intended for Notenkonferenzen. However, they might be of
+# interest for future reference?
 
     # GET
     # Set initial date of issue
     try:
-        form.DATE_D.data = datetime.date.fromisoformat(date)
+        form.DATE_D.data = datetime.date.fromisoformat(rtag)
     except ValueError:
         form.DATE_D.data = datetime.date.today()
     return render_template(os.path.join(_BPNAME, 'make1.html'),
@@ -352,7 +365,7 @@ def make1(pid, rtype, date, kname):
                             pname = pname,
                             rtype = rtype,
                             klass = klass.klass,
-                            stream = klass.streams[0]
+                            stream = klass.stream
     )
 
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-25
+wz_core/pupils.py - last updated 2020-01-26
 
 Database access for reading pupil data.
 
@@ -43,13 +43,17 @@ class Klass:
         Attributes:
             klass: str  (2-digit, if necessary with leading 0, + tag)
             streams: [str]
+            stream: the stream if a single stream is given, otherwise <None>
             year: int   (school year – Am.: grade)
             klasstag: str (tag part of class)
             name: str (print-name of class)
         """
+        self.stream = None
         try:
             klass, streams = klass_stream.split ('.')
             self.streams = sorted(streams.split('-'))
+            if len(self.streams) == 1:
+                self.stream = streams
         except:
             klass = klass_stream
             self.streams = []
@@ -70,7 +74,7 @@ class Klass:
 
     @classmethod
     def fromKandS(cls, klass, stream):
-        return cls(klass + '.' + stream or '_')
+        return cls(klass + '.' + (stream or '_'))
 
 
     def match_map(self, kmap):

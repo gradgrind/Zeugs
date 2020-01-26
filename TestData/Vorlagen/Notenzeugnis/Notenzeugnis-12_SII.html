@@ -32,7 +32,7 @@
             background-size: 3cm auto;
             background-repeat: no-repeat;
 /* TWEAK */
-            background-position: 0 6mm;
+            background-position: 0 1mm;
         }
         .backpage {
             width: 17cm;
@@ -131,12 +131,8 @@
     {% for pupil in pupils %}
     {% set grades = pupil.grades %}
     <div class="frontpage">
-<!--        <div class="underline"
-                style="margin: 0 20mm; padding-top: 7mm;
-                        display: flex; justify-content: center;"> -->
-<!-- If no background logo: remove margin-left, padding -->
         <div class="underline"
-                style="margin: 0;
+                style="margin: 0 20mm;
                         display: flex; justify-content: center;">
             <h1>{{schoolname.upper()}}</h1>
 <!-- If no background logo: remove margin-left, padding -->
@@ -395,7 +391,7 @@
                 </p>
                 {% elif report_type == 'Abgang' and grades._GS %}
 <!-- Abgang mit Gleichstellungsvermerk -->
-                <p style="margin: 10mm 0 0 0; font-size: 11pt;">
+                <p style="margin: 5mm 0 0 0; font-size: 11pt;">
                     <strong>Gleichstellungsvermerk:</strong>
                 </p>
                 <p style="margin: 2mm 5mm; font-size: 11pt;">

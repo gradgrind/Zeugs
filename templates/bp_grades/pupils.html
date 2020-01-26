@@ -5,6 +5,12 @@
 {% block title %}Einzelzeugnis, Klasse {{klass}}{% endblock %}
 
 {% block content %}
+    {% if dfile %}
+    <p>Hier können Sie die Zeugnisdatei herunterladen:</p>
+    <a href="{{url_for('bp_grades.download', dfile=dfile)}}">{{dfile}}</a>
+    <hr />
+    {% endif %}
+
     <p>Wählen Sie hier die Schülerin, für die das Zeugnis zu erstellen ist.
     </p>
     <div class="pure-menu">

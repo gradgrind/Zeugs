@@ -32,7 +32,7 @@
             background-size: 3cm auto;
             background-repeat: no-repeat;
 /* TWEAK */
-            background-position: 0 6mm;
+            background-position: 0 1mm;
         }
         .backpage {
             width: 17cm;
@@ -110,12 +110,8 @@
     {% for pupil in pupils %}
     {% set grades = pupil.grades %}
     <div class="frontpage">
-<!--        <div class="underline"
-                style="margin: 0 20mm; padding-top: 7mm;
-                        display: flex; justify-content: center;"> -->
-<!-- If no background logo: remove margin-left, padding -->
         <div class="underline"
-                style="margin: 0;
+                style="margin: 0 20mm;
                         display: flex; justify-content: center;">
             <h1>{{schoolname.upper()}}</h1>
         </div>
@@ -365,9 +361,18 @@
                 display: flex; flex-direction: column;
                 justify-content: space-between;">
             <p></p>
-<!-- Bemerkungen ? -->
-
-            {% if report_type == 'Abgang' and grades._GS %}
+            <!-- Versetzung -->
+            {% if report_type == 'Zeugnis' and grades._V_D %}
+                <div>
+                    <p style="margin: 5mm 0 0 0; font-size: 11pt;">
+                        <strong>Bemerkungen:</strong>
+                    </p>
+                    <p style="margin: 2mm 5mm; font-size: 11pt;">
+                        Durch Konferenzbeschluss vom {{todate(grades._V_D)}}
+                        in die Qualifikationsphase versetzt.
+                    </p>
+                </div>
+            {% elif report_type == 'Abgang' and grades._GS %}
                 <!-- Gleichstellungsvermerk -->
                 <div>
                     <p style="margin: 10mm 0 0 0; font-size: 11pt;">
@@ -423,9 +428,15 @@
 
         <!-- Unterschrift der Erziehungsberechtigten, nicht für Abschluss-
             und Abgangszeugnisse -->
-        <div style="display: flex; justify-content: flex-end; height: 32mm;
-                {% if report_type in ('Abschluss', 'Abgang') %}
+        <div style="display: flex; justify-content: flex-end;
+                {% if report_type == 'Abschluss' %}
+                    height: 10mm;
                     visibility: hidden;
+                {% else %}
+                    height: 32mm;
+                    {% if report_type == 'Abgang' %}
+                        visibility: hidden;
+                    {% endif %}
                 {% endif %}">
             <div class="signbox" style="width: 10cm;">
                 <p style="height: 0; margin-top: 20mm;">

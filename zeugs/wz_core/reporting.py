@@ -1,16 +1,16 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_core/reporting.py
 
-Last updated:  2019-12-31
+Last updated:  2020-01-26
 
 Handle the basic reporting needs of the program.
 Supports various error levels and other informative output.
 
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
