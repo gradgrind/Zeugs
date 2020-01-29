@@ -1,5 +1,5 @@
 ############## GRADES/ORDERING
-############## Version: 2020-01-05
+############## Version: 2020-01-29
 
 ### Abitur (12. Kl.)
 A =& De
@@ -25,6 +25,7 @@ D =& Sp
 
 X =& Kge_k
    & FK_k
+   & Mal_k
    & Sth_k
    & AWT
 

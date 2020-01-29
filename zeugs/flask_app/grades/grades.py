@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-01-26
+Last updated:  2020-01-29
 
 Flask Blueprint for grade reports
 
@@ -271,8 +271,10 @@ def make1(pid, rtype, rtag, kname):
                             xfield, gdata.template.filename), "Error")
                     continue
                 # Check class/report-type validity
-                rtypes = klass.match_map(xfconf.KLASS).split()
-                if rtype not in rtypes:
+                rtypes = klass.match_map(xfconf.KLASS)
+                if not rtypes:
+                    continue
+                if rtype not in rtypes.split():
                     continue
                 # Get existing value for this field
                 try:
