@@ -19,3 +19,4 @@ weasyprint
 flask
 Flask-WTF
 Flask-Session
+gunicorn[gthread]
