@@ -1,10 +1,12 @@
-##### python >= 3.7: Start only using run-zeugs.sh in top-level folder.
+##### python >= 3.7
 # -*- coding: utf-8 -*-
+# Start only using run-zeugs.sh in top-level folder to use the production
+# server, or run-gui.sh for the development server.
 
 """
 flask_app/__init__.py
 
-Last updated:  2020-01-21
+Last updated:  2020-02-03
 
 The Flask application: zeugs front-end.
 
@@ -52,7 +54,9 @@ def logger(messages, suppressok):
     l = session.get('logger')
     if not l:
         user = session.get('user_id', '##')
-        l = datetime.datetime.now().isoformat(timespec='seconds') + '-' + user
+        now = datetime.datetime.now()
+        # Make new log-file
+        l = now.isoformat(timespec='seconds') + '-' + user
         session['logger'] = l
     mimax = -10
     toflash = []
@@ -90,22 +94,27 @@ def create_app(test_config=None):
             instance_relative_config=True,
             static_folder=os.path.join(ZEUGS_BASE, 'static'),
             template_folder=os.path.join(ZEUGS_BASE, 'templates'))
+    SECRET_KEY0 = "not-very-secret" # generate real one with: os.urandom(24)
+#    SECRET_KEY0 = os.environ.get('SECRET_KEY') or 'you-will-never-guess'
     app.config.from_mapping(
-#       SECRET_KEY = os.environ.get('SECRET_KEY') or 'you-will-never-guess',
-        SECRET_KEY = 'not-very-secret', # generate with: os.urandom(24)
+        SECRET_KEY = SECRET_KEY0,
 #        DATABASE = os.path.join(app.instance_path, 'flask.sqlite'),
         USERS = os.path.join(app.instance_path, 'users'),
     )
-#    app.config.from_object('flask_config') # Load module config.py (this directory).
     if test_config is None:
         # Load the config from the instance directory, if it exists, when not testing
         # Might be better to get secret key from environment?
         # Are there any other differences to development mode?
         app.config.from_pyfile('flaskconfig.py',
                 silent=(app.config['ENV']=='development'))
+        if (app.config['SECRET_KEY'] == SECRET_KEY0
+                and app.config['ENV'] != 'development'):
+            raise ValueError("Must set SECRET_KEY")
     else:
         # load the test config if passed in
         app.config.from_mapping(test_config)
+# For more configuration options see Configuration Handling in the flask docs.
+
     # Set up Flask-Session
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_session')

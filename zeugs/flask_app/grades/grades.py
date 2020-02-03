@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-01-29
+Last updated:  2020-02-03
 
 Flask Blueprint for grade reports
 
@@ -26,10 +26,10 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
-_HEADING = "Notenzeugnis"
+_HEADING = "Notenzeugnis"   # page heading
 
-_NEWDATE = "*** neu ***"
-_DEFAULT_RTYPE = "Abgang"
+_NEWDATE = "*** neu ***"    # label for new date, as opposed to editing an old one
+_DEFAULT_RTYPE = "Abgang"   # default report type for single reports
 
 # Messages
 _KLASS_AND_STREAM = ("Klasse {klass} kommt in GRADES/REPORT_CLASSES sowohl"
@@ -66,15 +66,18 @@ bp = Blueprint(_BPNAME,             # internal name of the Blueprint
 
 
 @bp.route('/', methods=['GET'])
-#@admin_required
 def index():
     return render_template(os.path.join(_BPNAME, 'index.html'),
                             heading=_HEADING)
 
 
+########### Views for group reports ###########
+
+### View for a term, select school-class
 @bp.route('/term/<termn>', methods=['GET'])
-#@admin_required
 def term(termn):
+    """View: select school-class (group report generation).
+    """
     try:
         dfile = session.pop('download')
     except:
@@ -95,6 +98,84 @@ def term(termn):
                             dfile=dfile)
 
 
+### Select date-of-issue and which pupils should be included. Generate
+### reports.
+@bp.route('/klass/<termn>/<klass_stream>', methods=['GET','POST'])
+def klassview(termn, klass_stream):
+    """View: Handle report generation for a group of pupils.
+    This is specific to the selected term.
+    A list of pupils with checkboxes is displayed, so that some can be
+    deselected. Also the date-of-issue can be set.
+    """
+    class _Form(FlaskForm):
+        DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
+
+    schoolyear = session['year']
+    klass = Klass(klass_stream)
+    form = _Form()
+    if form.validate_on_submit():
+        # POST
+        _d = form.DATE_D.data.isoformat()
+        pids=request.form.getlist('Pupil')
+        if pids:
+            pdfBytes = REPORT.wrap(makeReports,
+                    schoolyear, termn, klass, _d, pids)
+            session['filebytes'] = pdfBytes
+            session['download'] = 'Notenzeugnis_%s.pdf' % klass
+            return redirect(url_for('bp_grades.term', termn=termn))
+        else:
+            flash("** Keine Schüler ... **", "Warning")
+
+    # GET
+    form.DATE_D.data = datetime.date.today ()
+    pdlist = db2grades(schoolyear, termn, klass, checkonly=True)
+    return render_template(os.path.join(_BPNAME, 'klass.html'),
+                            form=form,
+                            heading=_HEADING,
+                            termn=termn,
+                            klass_stream=klass,
+                            pupils=pdlist)
+#TODO:
+# There might be a checkbox/switch for print/pdf, but print might not
+# be available on all hosts.
+#
+# It might be helpful to a a little javascript to implement a pupil-
+# selection toggle (all/none) – or else (without javascript) a redisplay
+# with all boxes unchecked?
+
+
+### Upload a grade table for a group (for the selected term).
+@bp.route('/upload/<termn>', methods=['GET','POST'])
+def addgrades(termn):
+    """View: allow a file (grade table) to be uploaded to the server.
+    The grades will be entered into the database, overwriting all
+    existing grades for the pupils in the table.
+    """
+    class UploadForm(FlaskForm):
+        upload = FileField('Notentabelle:', validators=[
+            FileRequired(),
+            FileAllowed(['xlsx', 'ods'], 'Notentabelle')
+        ])
+
+    def readdata(f):
+        gtbl = readGradeTable(f)
+        grades2db(session['year'], gtbl, term=termn)
+
+    form = UploadForm()
+    if form.validate_on_submit():
+        REPORT.wrap(readdata, form.upload.data)
+
+    return render_template(os.path.join(_BPNAME, 'grades_upload.html'),
+                            heading=_HEADING,
+                            termn=termn,
+                            form=form)
+
+########### END: views for group reports ###########
+
+
+########### Views for single reports ###########
+
+### Select school-class
 @bp.route('/klasses', methods=['GET'])
 def klasses():
     """View: select school-class (single report generation).
@@ -113,7 +194,7 @@ def klasses():
             klasses = klasslist
     )
 
-
+### Select pupil
 @bp.route('/pupils/<klass>', methods=['GET'])
 def pupils(klass):
     """View: select pupil from given school-class (single report generation).
@@ -136,11 +217,10 @@ def pupils(klass):
             dfile = dfile
     )
 
-
+### For the given pupil select report type, edit / make new, etc.
 @bp.route('/pupil/<pid>', methods=['GET','POST'])
-#@admin_required
 def pupil(pid):
-    """View: select report type and edit-existing / new for single report.
+    """View: select report type and [edit-existing vs. new] for single report.
 
     All existing report dates for this pupil will be presented for
     selection.
@@ -214,9 +294,8 @@ def pupil(pid):
                             klass = kname,
                             pname = pname)
 
-
+### Edit grades, date-of-issue, etc., then generate report.
 @bp.route('/make1/<pid>/<rtype>/<rtag>/<kname>', methods=['GET','POST'])
-#@admin_required
 def make1(pid, rtype, rtag, kname):
     """View: Edit data for the report to be created, submit to build it.
     <rtype> is the report type.
@@ -364,47 +443,16 @@ def make1(pid, rtype, rtag, kname):
                             stream = klass.stream
     )
 
+########### END: views for single reports ###########
 
-@bp.route('/klass/<termn>/<klass_stream>', methods=['GET','POST'])
-#@admin_required
-def klassview(termn, klass_stream):
-    class _Form(FlaskForm):
-        DATE_D = DateField('Ausgabedatum', validators=[InputRequired()])
-
-    schoolyear = session['year']
-    klass = Klass(klass_stream)
-    form = _Form()
-    if form.validate_on_submit():
-        # POST
-        _d = form.DATE_D.data.isoformat()
-        pids=request.form.getlist('Pupil')
-        if pids:
-            pdfBytes = REPORT.wrap(makeReports,
-                    schoolyear, termn, klass, _d, pids)
-            session['filebytes'] = pdfBytes
-            session['download'] = 'Notenzeugnis_%s.pdf' % klass
-            return redirect(url_for('bp_grades.term', termn=termn))
-        else:
-            flash("** Keine Schüler ... **", "Warning")
-
-    # GET
-    form.DATE_D.data = datetime.date.today ()
-    pdlist = db2grades(schoolyear, termn, klass, checkonly=True)
-    return render_template(os.path.join(_BPNAME, 'klass.html'),
-                            form=form,
-                            heading=_HEADING,
-                            termn=termn,
-                            klass_stream=klass,
-                            pupils=pdlist)
-#TODO:
-# There might be a checkbox/switch for print/pdf, but print might not
-# be available on all hosts.
-# It might be helpful to a a little javascript to implement a pupil-
-# selection toggle (all/none).
-
+### Handle download link for generated files.
 @bp.route('/download/<dfile>', methods=['GET'])
-#@admin_required
 def download(dfile):
+    """Handle downloading of generated files.
+    The files are not stored permanently. Only one is available (per
+    session) and when it has been downloaded – or just clicked on – it
+    will be removed.
+    """
     try:
         pdfBytes = session.pop('filebytes')
     except:
@@ -416,31 +464,9 @@ def download(dfile):
         mimetype='application/pdf',
         as_attachment=True
     ))
+    # Prevent caching:
     response.headers['Cache-Control'] = 'max-age=0'
     return response
-
-
-@bp.route('/upload/<termn>', methods=['GET','POST'])
-#@admin_required
-def addgrades(termn):
-    class UploadForm(FlaskForm):
-        upload = FileField('Notentabelle:', validators=[
-            FileRequired(),
-            FileAllowed(['xlsx', 'ods'], 'Notentabelle')
-        ])
-
-    def readdata(f):
-        gtbl = readGradeTable(f)
-        grades2db(session['year'], gtbl, term=termn)
-
-    form = UploadForm()
-    if form.validate_on_submit():
-        REPORT.wrap(readdata, form.upload.data)
-
-    return render_template(os.path.join(_BPNAME, 'grades_upload.html'),
-                            heading=_HEADING,
-                            termn=termn,
-                            form=form)
 
 
 #TODO: remove

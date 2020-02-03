@@ -4,7 +4,7 @@
 """
 flask_app/auth/auth.py
 
-Last updated:  2020-01-12
+Last updated:  2020-02-03
 
 Flask Blueprint for user authentication (login).
 
@@ -29,8 +29,7 @@ Copyright 2019-2020 Michael Towers
 
 #TODO: Check imports
 
-import os
-#import functools
+import os, time
 
 from flask import (Blueprint, g, redirect, render_template, request,
         session, url_for, current_app
@@ -103,9 +102,16 @@ def login():
         # Set the school-year to the latest one:
         session['year'] = Paths.getYears()[0]
         session.permanent = True
-#TODO: remove:
-        print("LOGGED IN:", tid, permission)
-        #return redirect(url_for('bp_text_cover.textCover'))
+
+        # Delete old session files
+        sdir = current_app.config['SESSION_FILE_DIR']
+        now = time.time()
+        for f in os.listdir(sdir):
+            ff = os.path.join(sdir, f)
+            delta = (now - os.path.getmtime(ff))/86400
+            if delta > 2:
+                os.remove(ff)
+
     if session.get('user_id'):
         return redirect(url_for('index'))
     return render_template(os.path.join(_BPNAME, 'login.html'), form=form)

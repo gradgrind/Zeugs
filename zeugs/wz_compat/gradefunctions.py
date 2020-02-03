@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-01-26
+Last updated:  2020-02-03
 
 Handling for grades which are the result of calculations.
 
@@ -95,6 +95,283 @@ class FUNCTIONS:
             # Use integer arithmetic to calculate average
             return DIVIDE_ROUND (asum, acount, 0, idigits=idigits)
         return _NO_AVERAGE
+
+
+########################################################################
+#TODO: Below are some old Abitur-functions which need to be integrated:
+
+_NOOPERATOR         = "Notenberechnung nicht definiert: {sbj}"
+_BADOP              = "Notenberechnung schlug fehl: {sbj}"
+_WEIGHTEDCRITERION  = "Notenberechnung darf nicht gewichtete Komponenten haben: {sbj}"
+_WRITTENNOT4        = "Notenberechnung: {n} schriftliche Fächer (nicht 4)"
+_ORALNNOT4          = "Notenberechnung: {n} mündliche Fächer (nicht 4)"
+
+_PASS = "ja"
+_FAIL = "nein"
+
+class GradeEval:
+    _gradeScale = None
+    _subject = None
+    _dp = None
+    _gradeText = {'0': 'null', '1': 'eins', '2': 'zwei', '3': 'drei', '4': 'vier',
+            '5': 'fünf', '6': 'sechs', '7': 'sieben', '8': 'acht', '9': 'neun'}
+
+
+    @classmethod
+    def setGradeScale (cls, gscale):
+        cls._gradeScale = gscale
+        cls._dp = CONFIG.FORMATTING.DECIMALPOINT.string ()
+
+
+    @classmethod
+    def str2grade (cls, sgrade, w):
+        """Scale a grade possibly containing a decimal separator.
+        The result should be an integer.
+        """
+        gflt = float (sgrade.replace (cls._dp, '.'))
+        return int (gflt * w + 0.5)
+
+
+    @classmethod
+    def call (cls, sbj, op, s_w, s_grade):
+        cls._subject = sbj
+        opsplit = op.split ('.')
+        try:
+            f = getattr (cls, opsplit [0])
+        except:
+            REPORT.Error (_NOOPERATOR, sbj=cls._subject)
+            return None
+        try:
+            return f (s_w, s_grade, *opsplit [1:])
+        except:
+            REPORT.Error (_BADOP, sbj=cls._subject)
+            return None
+
+
+    @classmethod
+    def COMPOSITE_SFACH (cls, components, s_grade):
+        """Calculate a (weighted) average of the contributions.
+        Round to nearest integer.
+        """
+        vsum = 0
+        i = 0
+        nograde = None
+        gscale = CONFIG.GRADES [cls._gradeScale]
+        for s, w in components.items ():
+            try:
+                val = s_grade [s]
+                if not val:
+                    # Any empty component causes the result to be empty
+                    return None
+            except:
+                continue
+            try:
+                # Only consider genuine grades
+                ival = int (val.rstrip ('+-'))
+            except:
+                if i == 0:
+                    # Prepare for "no grade" result
+                    for np in gscale.NOGRADE_PRIORITY:
+                        if np == nograde:
+                            break
+                        if np == val:
+                            nograde = np
+                            break
+                continue
+            vsum += ival * w
+            i += w
+
+        if i == 0:
+            return (gscale.NOGRADE_PRIORITY [-1]
+                    if nograde == None else nograde)
+
+        vsum = int (vsum / i + 0.5)
+        return "{:0{:d}d}".format (vsum, gscale.DIGITS.nat ())
+
+
+    @classmethod
+    def CALC_MITTEL (cls, components, s_grade, rounding):
+        """Calculate a (weighted) average of the contributions.
+        Round to given number of decimal places. Note that <rounding>
+        is a string!
+        """
+        vsum = 0
+        i = 0
+        gscale = CONFIG.GRADES [cls._gradeScale]
+        for s, w in components.items ():
+            try:
+                val = s_grade [s]
+                if not val:
+                    # Any empty component causes the result to be empty
+                    return None
+            except:
+                continue
+            try:
+                # Only consider genuine grades
+                ival = int (val.rstrip ('+-'))
+            except:
+                continue
+            vsum += ival * w
+            i += w
+
+        if i == 0:
+            return None
+
+        rint = int (rounding)
+        vsum = int (((vsum * 10**rint) / i) + 0.5)
+        val = "{:0{:d}d}".format (vsum, rint+1)
+        # Include the decimal separator
+        return (val [:-rint]
+                + CONFIG.FORMATTING.DECIMALPOINT.string ()
+                + val [-rint:])
+
+
+    @classmethod
+    def CALC_ABI (cls, components, s_grade, subcalc, *args):
+        """Calculations for the Abitur result.
+        """
+        if subcalc == "f4":
+            # (z0, p52, s220, s_alle) or (z0, m52, s80, s_alle)
+            try:
+                bpmin = int (args [0])
+                if bpmin not in (220, 80):
+                    raise ValueError
+            except:
+                REPORT.Error (_NOOPERATOR, sbj=cls._subject)
+                return '0:0:0:0'
+            if len (components) != 4:
+                REPORT.Error (_WRITTENNOT4 if bpmin == 220 else _ORALNNOT4,
+                        n=len (components))
+                return '0:0:0:0'
+            isum = 0
+            i0 = 0
+            i5 = 0
+            for s, w in components.items ():
+                try:
+                    val = cls.str2grade (s_grade [s], w)
+                except:
+                    i0 += 1
+                    continue
+                isum += val
+                if val == 0:
+                    i0 += 1
+                elif val >= 5 * w:
+                    i5 += 1
+            res = [ '1' if i0 == 0 else '0',
+                    '1' if i5 >= 2 else '0',
+                    '1' if isum >= bpmin else '0',
+                    str (isum)]
+            return ':'.join (res)
+
+        if subcalc == "ok":
+            try:
+                i = int (args [0])
+            except:
+                REPORT.Error (_NOOPERATOR, sbj=cls._subject)
+                return None
+
+            for s, w in components.items ():
+                if w != 1:
+                    REPORT.Error (_WEIGHTEDCRITERION, sbj=cls._subject)
+                    return None
+                if s_grade [s].split (':') [i] != '1':
+                    return _FAIL
+            return _PASS
+
+        if subcalc == "teil":
+            if len (components) != 1:
+                REPORT.Error (_ONEEXPECTED, sbj=cls._subject)
+                return None
+            for s, w in components.items ():
+                try:
+                    vsplit = s_grade [s].rsplit (':', 1)
+                    val = int (vsplit [1])
+                except:
+                    return None
+                return str (val)
+
+
+        if subcalc == "summe":
+            # Weighted sum.
+            i = 0
+            for s, w in components.items ():
+                try:
+                    vsplit = s_grade [s].rsplit (':', 1)
+                    val = int (vsplit [1])
+                except:
+                    return None
+                if vsplit [0] != '1:1:1':
+                    # Only return a value if all tests pass.
+                    return None
+                i += val * w
+            return str (i)
+
+        elif subcalc == "Note":
+            # Presentation of the grade.
+            if len (components) != 1:
+                REPORT.Error (_ONEEXPECTED, sbj=cls._subject)
+                return None
+            for s, w in components.items ():
+                break
+            ntype = args [0]
+            if ntype == 'N':
+                try:
+                    val = int (s_grade [s]) * w
+                except:
+                    return None
+                return cls.AbiGrade (val)
+            else:
+                if w != 1:
+                    REPORT.Error (_WEIGHTEDCRITERION, sbj=cls._subject)
+                    return None
+                val = s_grade [s]
+                if not val:
+                    return None
+                d1, d2 = val.split (cls._dp)
+                if ntype == '1':
+                    return d1
+                elif ntype == '2':
+                    return d2
+                elif ntype == 'T':
+                    return cls._gradeText [d1] + cls._dp + ' ' + cls._gradeText [d2]
+                REPORT.Error (_NOOPERATOR, sbj=cls._subject)
+
+
+    @classmethod
+    def CALC_BP (cls, components, s_grade):
+        """Abitur: "Bewertungspunkte" (scaled average).
+        One, and only one, component is expected.
+        """
+        if len (components) != 1:
+            REPORT.Error (_ONEEXPECTED, sbj=cls._subject)
+            return None
+        for s, w in components.items ():
+            try:
+                val = cls.str2grade (s_grade [s], w)
+                return str (val)
+            except:
+                return None
+
+
+    @classmethod
+    def AbiGrade (cls, points):
+        """Use a formula to calculate "Abiturnote". To avoid rounding
+        errors, use integer arithmetic.
+        """
+        g180 = (1020 - points)
+        p180 = str (g180 // 180) + cls._dp + str ((g180 % 180) // 18)
+        return p180
+
+
+    @classmethod
+    def FachAbiGrade (cls, points):
+        """Use a formula to calculate "Abiturnote" (Waldorf/Niedersachsen).
+        To avoid rounding errors, use integer arithmetic.
+        """
+        g420 = 2380 - points*20 + 21
+        p420 = str (g420 // 420) + cls._dp + str ((g420 % 420) // 42)
+        return p420
+
 
 
 

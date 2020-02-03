@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+#DEPRECATED – at least in part ...
 """
 wz_grades/makeabireports.py
 

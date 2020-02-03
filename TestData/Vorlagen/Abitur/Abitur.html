@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <title>Abiturzeugnis</title>
+    <style>
+        @font-face {
+            font-family: ZeugsFont;
+            src: url(../fonts/DroidSans.ttf);
+            font-weight: normal;
+            font-style: normal;
+        }
+        body {
+            margin: 0;
+            font-family: ZeugsFont;
+            font-size: 12pt;
+/*            color: #0019E6; */
+        }
+        @page {
+            size: A4;
+            margin: 15mm 20mm 10mm 20mm;
+        }
+
+        .frontpage {
+            width: 17cm;
+            height: 27cm;
+/*            border-style: solid;
+            border-color: red; ... for testing */
+/*            background: url(../Logo-Bild-grey.svg);
+            background-size: 3cm auto;
+            background-repeat: no-repeat;
+            background-position: 0 0; */
+        }
+        .backpage {
+            width: 17cm;
+            height: 25cm;
+/*            border-style: solid;
+            border-color: green; ... for testing */
+        }
+
+        h1 {
+            font-size: 18pt;
+            font-weight: normal;
+            width: inherit;
+            margin: 0;
+            text-align: center;
+        }
+
+        .underline {
+            border-bottom: 0.5pt solid;
+        }
+
+        .subjects {
+            display: inline-block;
+            margin: 0;
+            border-collapse: collapse;
+        }
+        .subjects th {
+            font-size: 8pt;
+            height: 5mm;
+            border-bottom: 0.5pt solid black;
+        }
+        .subjects .fach {
+            width: 45mm;
+            text-align: left;
+            padding: 0 1mm;
+        }
+        .subjects .punkte {
+            width: 25mm;
+            text-align: center;
+        }
+        .subjects td {
+            font-size: 11pt;
+            height: 7mm;
+            border-top: 0.5pt solid black;
+        }
+        .subjects td.title2 {
+            font-size: 8pt;
+            height: 8mm;
+            text-align: left;
+            padding: 5mm 1mm 0 1mm;
+            vertical-align: middle;
+            /* border: none !important; */
+        }
+        .doubletable {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5mm;
+            border-top: 1pt solid black;
+            border-bottom: 1pt solid black;
+        }
+
+        .signbox {
+            display: inline-block;
+            width: 80mm;
+        }
+        .signbox p {
+            font-size: 70%;
+            font-style: italic;
+            text-align: center;
+            margin: 27mm 0 0 0;
+            padding: 1mm 1mm;
+            border-top: 0.5pt solid;
+        }
+         /* die Zellen der Tabelle der Notenstufen */
+        .noten {
+            width: 6mm;
+            font-size: 8pt;
+            border: 0.5pt solid #999999;
+            padding: 2pt;
+        }
+        .notennr {
+            border-right: none;
+        }
+        .notennl {
+            border-left: none;
+        }
+        .notennlr {
+            border-right: none;
+            border-left: none;
+        }
+        .leftcol { text-align: left; }
+
+
+        .ribo {
+            border-right: 1px solid black;
+            border-bottom: 1px solid black;
+        }
+        .rig {
+            border-right: 1px solid black;
+        }
+        .bot {
+            border-bottom: 1px solid black;
+        }
+        sup {font-size: 8pt;}
+    </style>
+  </head>
+
+  <body>
+    <div class="frontpage">
+        <div class="underline"
+                style="margin: 0; display: flex; justify-content: center;">
+            <h1>FREIE MICHAELSCHULE NIMMERSTADT</h1>
+        </div>
+        <center style="font-size: 200%; margin: 30mm 0 0 0; font-weight: bold;">
+            ZEUGNIS
+        </center>
+        <center style="margin: 2mm 0 0 0; font-weight: bold;">
+            DER ALLGEMEINEN HOCHSCHULREIFE
+        </center>
+
+        <div style="height:80mm; margin: 15mm 0 0 0; padding: 0 10mm">
+            <div style="margin: 44mm 0 0 0; display: flex;
+                    justify-content: center;">
+                <div style="display: flex; width: 150mm;">
+                    <span class="underline"
+                            style="padding: 0 1rem 0.2rem 1rem; flex-grow: 1;
+                                text-align: center;">
+                        <strong>{{pupil.FIRSTNAMES}} {{pupil.LASTNAME}}</strong>
+                    </span>
+                </div>
+            </div>
+
+            <div style="margin: 8mm 0 0 0; display: flex;
+                    justify-content: center;">
+                <div style="display: flex; width: 150mm;">
+                    <span style="width: 25mm;">
+                        geboren am
+                    </span>
+                    <span class="underline"
+                            style="width: 35mm;
+                                padding: 0 0 0.2rem 0.2rem;
+                                text-align: center;">
+                        {{todate(pupil.DOB_D)}}
+                    </span>
+                    <span style="width: 8mm;
+                            text-align: center;">
+                        in
+                    </span>
+                    <span class="underline"
+                            style="padding: 0 0 0.2rem 0; flex-grow: 1;
+                            text-align: center;">
+                        {{pupil.POB}}
+                    </span>
+                </div>
+            </div>
+
+            <div style="margin: 8mm 0 0 0; display: flex;
+                    justify-content: center;">
+                <div style="display: flex; width: 150mm;">
+                    <span style="width: 25mm;">
+                        wohnhaft in
+                    </span>
+                    <span class="underline"
+                            style="flex-grow: 1;
+                                padding: 0 0 0.2rem 0.2rem;
+                                text-align: center;">
+                        {{pupil.HOME}}
+                    </span>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: flex-start;
+                    width: 150mm; margin: 8mm 0 0 0;">
+                <span style="">
+                    hat sich nach dem Besuch der Qualifikationsphase der
+                    Freien Waldorfschule der Abiturprüfung unterzogen.
+                </span>
+            </div>
+        </div>
+
+        <div style="font-size: 8pt; margin-top: 30mm">
+            <p>Dem Zeugnis liegen zugrunde:</p>
+            <p>Die Vereinbarung über die Durchführung der
+              Abiturprüfung für Schülerinnen und Schüler an
+              Waldorfschulen<br />(Beschluss der Kultusministerkonferenz vom 21.2.1980 in der
+              jeweils geltenden Fassung).</p>
+            <p>Die Vereinbarung über die Bildungsstandards für die
+              Allgemeine Hochschulreife<br />(Beschluss der Kultusministerkonferenz vom
+              18.10.2012 in der jeweils geltenden Fassung).</p>
+            <p>Die Vereinbarung über die Einheitlichen
+              Prüfungsanforderungen in der Abiturprüfung<br />(Beschluss der
+              Kultusministerkonferenz vom 1.6.1979 in der jeweils geltenden Fassung).</p>
+            <p>Die Verordnung über die Qualifikationsphase und die
+              Abiturprüfung für Schülerinnen und Schüler der Freien
+              Waldorfschulen sowie über die Abiturprüfung für
+              Nichtschülerinnen und Nichtschüler (AVO-WaNi) vom 2.5.2005 (Nds.GVBl.
+              S.139) in der jeweils geltenden Fassung</p>
+        </div>
+    </div>
+
+    <div class="backpage">
+        <div class="heading2" style="border: 1pt black solid; padding-bottom: 0.1rem;">
+            <div style="display: flex;margin: 0; font-size: 8pt;">
+                <span style="display: inline-block; width: 100mm;">
+                    Name, Vornamen</span>
+                <span style="display: inline-block; width: 25mm;">
+                    Geburtstag</span>
+                <span style="display: inline-block;">
+                    Geburtsort</span>
+            </div>
+            <div style="display: flex; margin: 0; font-size: 11pt;">
+                <span style="display: inline-block; width: 100mm;">
+                    <strong>{{pupil.FIRSTNAMES}} {{pupil.LASTNAME}}</strong></span>
+                <span style="display: inline-block; width: 25mm;">
+                    <strong>{{todate(pupil.DOB_D)}}</strong></span>
+                <span style="display: inline-block;">
+                    <strong>{{pupil.POB}}</strong></span>
+            </div>
+        </div>
+
+        <p style="font-weight: bold; font-size: 8pt; margin: 12pt 0 2pt 0;">
+            I. Leistungen in den schriftlichen Abiturprüfungsfächern
+        </p>
+
+        <table style="border: 1pt black solid; width:100%; border-collapse: collapse;
+                text-align: center;">
+            <tbody>
+                <tr>
+                 <td rowspan="2" class="ribo" colspan="2">Prüfungsfächer <sup>1)</sup></td>
+                 <td colspan="2" style="font-size: 8pt; text-align: center" class="rig">Prüfungsergebnis<br>(in einfacher Wertung)</td>
+
+                 <td rowspan="2" class="ribo" colspan="2">Gesamtergebnis <sup>2)</sup></td>
+                </tr>
+                <tr>
+                 <td style="font-size: 8pt; text-align: center" class="ribo">schriftlich</td>
+                 <td style="font-size: 8pt; text-align: center" class="ribo">mündlich</td>
+                </tr>
+                <tr>
+                 <td class="ribo" style="width: 59mm; text-align: left;">1. {{grades.F1}}</td>
+                 <td class="ribo" style="width: 8mm;">eA</td>
+                 <td class="ribo" style="width: 24mm;">{{grades.S1}}</td>
+                 <td class="ribo" style="width: 24mm;">{{grades.M1}}</td>
+                 <td class="ribo" style="width: 20mm; font-size: 8pt; text-align: center">12-fach</td>
+                 <td class="bot" >{{grades.E1}}</td>
+                </tr>
+                <tr>
+                 <td class="ribo" style="text-align: left;">2. {{grades.F2}}</td>
+                 <td class="ribo">eA</td>
+                 <td class="ribo" >{{grades.S2}}</td>
+                 <td class="ribo" >{{grades.M2}}</td>
+                 <td class="ribo" style="font-size: 8pt; text-align: center">12-fach</td>
+                 <td class="bot" >{{grades.E2}}</td>
+                </tr>
+                <tr>
+                 <td class="ribo" style="text-align: left;">3. {{grades.F3}}</td>
+                 <td class="ribo">eA</td>
+                 <td class="ribo">{{grades.S3}}</td>
+                 <td class="ribo">{{grades.M3}}</td>
+                 <td class="ribo" style="font-size: 8pt; text-align: center">12-fach</td>
+                 <td class="bot">{{grades.E3}}</td>
+                </tr>
+                <tr>
+                 <td class="rig" colspan="2" style="text-align: left;">4. {{grades.F4}}</td>
+                 <td class="rig">{{grades.S4}}</td>
+                 <td class="rig">{{grades.M4}}</td>
+                 <td class="rig" style="font-size: 8pt; text-align: center">8-fach</td>
+                 <td>{{grades.E4}}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p style="font-weight: bold; font-size: 8pt; margin: 12pt 0 2pt 0;">
+            II. Leistungen in den mündlichen Abiturprüfungsfächern
+        </p>
+
+        <table style="border: 1pt black solid; width:100%; border-collapse: collapse;
+                text-align: center;">
+            <tbody>
+                <tr>
+                 <td rowspan="2" class="ribo" colspan="2">Prüfungsfächer <sup>3)</sup></td>
+                 <td colspan="2" style="font-size: 8pt; text-align: center" class="rig">Prüfungsergebnis<br>(in einfacher Wertung)</td>
+
+                 <td rowspan="2" class="ribo" colspan="2">Gesamtergebnis</sup></td>
+                </tr>
+                <tr>
+                 <td style="font-size: 8pt; text-align: center" class="ribo">mündlich</td>
+                 <td style="font-size: 8pt; text-align: center" class="ribo">Schulhalbjahres-<br />ergebnisse</td>
+                </tr>
+                <tr>
+                 <td class="bot" style="width: 59mm; text-align: left;">5. {{grades.F5}}</td>
+                 <td class="ribo" style="width: 8mm;">&nbsp;</td>
+                 <td class="ribo" style="width: 24mm;">{{grades.M5}}</td>
+                 <td class="ribo" style="width: 24mm;">––––––</td>
+                 <td class="ribo" style="width: 20mm; font-size: 8pt; text-align: center">4-fach</td>
+                 <td class="bot">{{grades.E5}}</td>
+                </tr>
+                <tr>
+                 <td colspan="2" class="ribo" style="text-align: left;">6. {{grades.F6}}</td>
+                 <td class="ribo" >{{grades.M6}}</td>
+                 <td class="ribo" >––––––</td>
+                 <td class="ribo" style="font-size: 8pt; text-align: center">4-fach</td>
+                 <td class="bot">{{grades.E6}}</td>
+                </tr>
+                <tr>
+                 <td colspan="2" class="ribo" style="text-align: left;">7. {{grades.F7}}</td>
+                 <td class="ribo">––––––</td>
+                 <td class="ribo">{{grades.HJ7}}</td>
+                 <td class="ribo" style="font-size: 8pt; text-align: center">4-fach</td>
+                 <td class="bot">{{grades.E7}}</td>
+                </tr>
+                <tr>
+                 <td colspan="2" class="rig" colspan="2" style="text-align: left;">8. {{grades.F8}}</td>
+                 <td class="rig">––––––</td>
+                 <td class="rig">{{grades.HJ8}}</td>
+                 <td class="rig" style="font-size: 8pt; text-align: center">4-fach</td>
+                 <td>{{grades.E8}}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p style="font-weight: bold; font-size: 8pt; margin: 12pt 0 4pt 0;">
+            III. Berechnung der Gesamtqualifikation und der Durchschnittsnote
+        </p>
+
+        <table style="width:100%; border-collapse: collapse;
+                text-align: center;">
+            <tbody>
+                <tr>
+                 <td style="font-size: 10pt; width: 80mm; height: 7mm;">Gesamtsumme der schriftlichen Prüfungsfächer</td>
+                 <td style="border: 1pt black solid; width: 18mm;">{{grades.TOTAL1}}</td>
+                 <td style="width: 5mm">&nbsp;</td>
+                 <td colspan="3" style="font-size: 9pt; text-align: right;">mindestens 220, höchstens 660 Punkte</td>
+                </tr>
+                <tr style="height: 2mm;"><td colspan="6"></td></tr>
+                <tr>
+                 <td style="font-size: 10pt; height: 7mm;">Gesamtsumme der mündlichen Prüfungsfächer</td>
+                 <td style="border: 1pt black solid;">{{grades.TOTAL2}}</td>
+                 <td></td>
+                 <td colspan="3"  style="font-size: 9pt; text-align: right;">mindestens 80, höchstens 240 Punkte</td>
+                </tr>
+                <tr style="height: 2mm;"><td colspan="6"></td></tr>
+                <tr>
+                 <td style="font-size: 10pt; height: 7mm;">Durchschnittsnote</td>
+                 <td style="border: 1pt black solid;">{{grades.Grade1}}</td>
+                 <td>,</td>
+                 <td style="width: 18mm; border: 1pt #000000 solid;">{{grades.Grade2}}</td>
+                 <td style="width: 6mm">&nbsp;</td>
+                 <td style="border: 1pt black solid;">{{grades.GradeT}}<sup> 4)</sup></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="margin-top: 10mm; padding: 0 10mm">
+            <div style="margin: 8mm 0 0 0; display: flex;
+                    justify-content: center;">
+                <div style="display: flex; width: 150mm;">
+                    <span style="width: 25mm;">
+                        {{pupil.HrFr}}
+                    </span>
+                    <span class="underline"
+                            style="flex-grow: 1;
+                                padding: 0 0 0.2rem 0.2rem;
+                                text-align: center;">
+                        <strong>{{pupil.FIRSTNAMES}} {{pupil.LASTNAME}}</strong>
+                    </span>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: flex-start;
+                    width: 150mm; margin-top: 2mm;">
+                <span style="">
+                    hat die Abiturprüfung bestanden und damit die Befähigung
+                    zum Studium an einer Hochschule in der Bundesrepublik
+                    Deutschland erworben.
+                </span>
+            </div>
+        </div>
+
+        <!-- Ort, Datum -->
+        <p style="margin: 8mm 0 0 0">
+            Hannover, den {{todate(DATE_D)}}
+        </p>
+
+        <!-- Unterschrift -->
+        <div style="display: flex; justify-content: space-between;
+                margin-top: 5mm;">
+        <!--Siegel -->
+            <div style="
+                margin-left: 5mm;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                width: 42mm;
+                height: 36mm;
+                border: solid 0.5pt #999999;">
+                <p style="font-size: 9pt; color: #999999;">Siegel</p>
+            </div>
+
+            <div class="signbox">
+                <p>Die / Der Vorsitzende der Prüfungskommission</p>
+            </div>
+        </div>
+
+
+        <!-- Notenstufen -->
+        <div style="width: 100%; padding-top: 5mm;">
+            <table style="border-collapse: collapse; width:100%; text-align: center;">
+                <tr>
+                    <td colspan="17" class="noten leftcol"
+                            style="font-size: 9pt;">
+                        Für die Umrechnung der 6-Noten-Skala in das
+                        Punktesystem gilt folgender Schlüssel:
+                    </td>
+                </tr>
+                <tr>
+                    <td class="noten leftcol">Notenstufe</td>
+                    <td class="noten" colspan="3">sehr gut</td>
+                    <td class="noten" colspan="3">gut</td>
+                    <td class="noten" colspan="3">befriedigend</td>
+                    <td class="noten" colspan="3">ausreichend</td>
+                    <td class="noten" colspan="3">mangelhaft</td>
+                    <td class="noten" style="width: 18mm">ungenügend</td>
+                </tr>
+                <tr>
+                    <td class="noten leftcol">Note</td>
+                    <td class="noten notennr">+</td>
+                    <td class="noten notennlr">1</td>
+                    <td class="noten notennl">–</td>
+                    <td class="noten notennr">+</td>
+                    <td class="noten notennlr">2</td>
+                    <td class="noten notennl">–</td>
+                    <td class="noten notennr">+</td>
+                    <td class="noten notennlr">3</td>
+                    <td class="noten notennl">–</td>
+                    <td class="noten notennr">+</td>
+                    <td class="noten notennlr">4</td>
+                    <td class="noten notennl">–</td>
+                    <td class="noten notennr">+</td>
+                    <td class="noten notennlr">5</td>
+                    <td class="noten notennl">–</td>
+                    <td class="noten">6</td>
+                </tr>
+                <tr>
+                    <td class="noten leftcol">Punktzahl</td>
+                    <td class="noten">15</td>
+                    <td class="noten">14</td>
+                    <td class="noten">13</td>
+                    <td class="noten">12</td>
+                    <td class="noten">11</td>
+                    <td class="noten">10</td>
+                    <td class="noten">09</td>
+                    <td class="noten">08</td>
+                    <td class="noten">07</td>
+                    <td class="noten">06</td>
+                    <td class="noten">05</td>
+                    <td class="noten">04</td>
+                    <td class="noten">03</td>
+                    <td class="noten">02</td>
+                    <td class="noten">01</td>
+                    <td class="noten">00</td>
+                </tr>
+            </table>
+        </div>
+        <table style="margin-top: 5mm; font-size: 8pt; width:100%">
+            <tbody>
+                <tr>
+                    <td style="vertical-align: top;">1)</td>
+                    <td>Die Abiturprüfungsfächer, die auf
+                        erhöhtem Anforderungsniveau betrieben worden sind, sind mit „eA“
+                        gekennzeichnet.</td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: top;">2)</td>
+                    <td>Die Ergebnisse der schriftlichen und der
+                        mündlichen Abiturprüfung werden im Verhältnis 1:1
+                        gewichtet.</td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: top;">3)</td>
+                    <td>Im 7. und 8. Prüfungsfach können
+                        statt einer mündlichen Prüfung die Schulhalbjahresergebnisse aus dem
+                        vierten Schulhalbjahr der Qualifikationsphase eingebracht werden.</td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: top;">4)</td>
+                    <td>Wiederholung der Durchschnittsnote in
+                        Worten</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+  </body>
+</html>

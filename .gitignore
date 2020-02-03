@@ -3,5 +3,6 @@ tmp
 todo
 venv
 logs
+flask_session
 
 zeugs_data
