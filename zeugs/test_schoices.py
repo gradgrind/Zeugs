@@ -1,16 +1,15 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 """
-test_grades.py
+test_schoices.py
 
-Last updated:  2020-01-02
+Last updated:  2020-02-04
 
-Run some tests on the modules in the wz_grades package.
-The final Abitur grade handling is tested separately (test_abitur).
+Run tests on the module handling subject choice tables in the wz_core package.
 
 
 =+LICENCE=============================
-Copyright 2019-2020 Michael Towers
+Copyright 2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,14 +33,5 @@ from test_core import testinit, runTests
 if __name__ == '__main__':
     testinit ()
 
-#    from wz_compat import grade_classes
-#    runTests(grade_classes)
-
-#    from wz_grades import gradedata
-#    runTests (gradedata)
-
-#    from wz_grades import makereports
-#    runTests (makereports)
-
-    from wz_grades import gradetable
-    runTests (gradetable)
+    from wz_core import subjectchoices
+    runTests (subjectchoices)

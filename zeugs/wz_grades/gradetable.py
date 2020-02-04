@@ -1,7 +1,7 @@
 # python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-01-25
+wz_grades/gradetable.py - last updated 2020-02-04
 
 Create grade tables for display and grade entry.
 
@@ -21,17 +21,16 @@ Copyright 2020 Michael Towers
    limitations under the License.
 """
 
+#TODO: Need to modify the grade tables to use KlassMatrix.
+
+
 _FIRSTSIDCOL = 4    # Index (0-based) of first sid column
 _UNUSED = '/'      # Subject tag for unused column
 
 # Messages
-_TOO_MANY_INFOLINES = "Zu viele Infozeilen ('#, ...'), {n} erforderlich, in:\n  {path}"
-_TOO_FEW_INFOLINES = "Zu wenige Infozeilen ('#, ...'), {n} erforderlich, in:\n  {path}"
 _MISSING_SUBJECT = "Fachkürzel {sid} fehlt in Notentabellenvorlage:\n  {path}"
 _NO_TEMPLATE = "Keine Notentabelle-Vorlage für Klasse/Gruppe {ks} in GRADES.GRADE_TABLE_INFO"
 _NO_ITEMPLATE = "Keine Noteneingabe-Vorlage für Klasse/Gruppe {ks} in GRADES.GRADE_TABLE_INFO"
-_TOO_FEW_COLUMNS = "Noteneingabe-Vorlage hat zu wenige Spalten:\n  {path}"
-_TOO_FEW_COLUMNS = "Noteneingabe-Vorlage hat zu wenige Zeilen:\n  {path}"
 
 
 import datetime
@@ -45,87 +44,9 @@ from openpyxl.styles import Alignment, Border, Side, PatternFill, NamedStyle
 from wz_core.configuration import Paths
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
+#TODO: replace Table use by KlassMatrix
+from wz_table.matrix import KlassMatrix, Table
 from .gradedata import getGradeData
-
-
-class Table:
-    """openpyxl based spreadsheet handler ('.xlsx'-files).
-    """
-    def __init__(self, filepath):
-        self._wb = load_workbook(filepath + '.xlsx')
-        self.rows = []
-        for row in self._wb.active.iter_rows():
-            values = []
-            for cell in row:
-                v = cell.value
-                if isinstance(v, datetime.datetime):
-                    v = v.strftime ("%Y-%m-%d")
-                elif isinstance(v, str):
-                    v = v.strip ()
-                    if v == '':
-                         v = None
-                elif v != None:
-                    v = str (v)
-                values.append (v)
-            self.rows.append (values)
-
-
-    def getCell (self, celltag):
-        return self._wb.active [celltag].value
-
-
-    def setCell (self, celltag, value=None, style=None):
-        cell = self._wb.active [celltag]
-        cell.value = value
-        if style:
-            cell.style = style
-
-
-    def hideCol(self, index, clearheader=None):
-        """Hide the given column (0-indexed).
-        <clearheader> is the row number (1-based) of a cell to be cleared.
-        """
-        letter = get_column_letter(index+1)
-#TODO: disabled pending hidden column fix ...
-#        self._wb.active.column_dimensions[letter].hidden = True
-        if clearheader:
-            # Clear any existing "subject"
-            self.setCell(letter + str(clearheader))
-            self.setCell(letter + str(clearheader+1))
-
-
-    def delEndCols(self, col0):
-        """Delete last columns, starting at index <col0> (0-based).
-        """
-        ndel = len(self.rows[0]) - col0
-        if ndel > 0:
-            self._wb.active.delete_cols(col0+1, ndel)
-
-
-    def delEndRows(self, row0):
-        """Delete last rows, starting at index <row0> (0-based).
-        """
-        ndel = len(self.rows) - row0
-        if ndel > 0:
-            self._wb.active.delete_rows(row0+1, ndel)
-
-
-    def protectSheet (self, pw=None):
-        if pw:
-            self._wb.active.protection.set_password (pw)
-        else:
-            self._wb.active.protection.enable ()
-
-
-    def save (self, filepath=None):
-        if filepath:
-            self._wb.save (filepath + '.xlsx')
-            return None
-        else:
-            virtual_workbook = BytesIO()
-            self._wb.save(virtual_workbook)
-            return virtual_workbook.getvalue()
-
 
 
 def makeGradeTable(schoolyear, term, klass, title):
