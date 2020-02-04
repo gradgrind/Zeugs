@@ -96,19 +96,6 @@ class Table:
         self.setCell(coltag + str(row+1), val)
 
 
-    def hideCol(self, index, clearheader=None):
-        """Hide the given column (0-indexed).
-        <clearheader> is the row number (1-based) of a cell to be cleared.
-        """
-        letter = get_column_letter(index+1)
-#TODO: disabled pending hidden column fix ...
-#        self._wb.active.column_dimensions[letter].hidden = True
-        if clearheader:
-            # Clear any existing "subject"
-            self.setCell(letter + str(clearheader))
-            self.setCell(letter + str(clearheader+1))
-
-
     def delEndCols(self, col0):
         """Delete last columns, starting at index <col0> (0-based).
         """
@@ -179,6 +166,18 @@ class KlassMatrix(Table):
         self.rowindex = i
         # column index for header column iteration
         self.hcol = 0
+
+
+    def hideCol(self, index, clearheader=False):
+        """Hide the given column (0-indexed). Optionally clear the subject.
+        """
+        letter = self.columnLetter(index)
+#TODO: disabled pending hidden column fix ...
+#        self._wb.active.column_dimensions[letter].hidden = True
+        if clearheader:
+            # Clear any existing "subject"
+            self.write(self.rowindex-1, index, None)
+            self.write(self.rowindex, index, None)
 
 
     def nextcol(self):
