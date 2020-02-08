@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-02-03
+Last updated:  2020-02-08
 
 The Flask application: zeugs front-end.
 
@@ -28,10 +28,10 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
-import os, sys, datetime
+import os, sys, datetime, io
 
 from flask import (Flask, render_template, request, redirect, session,
-        send_from_directory, url_for, flash)
+        send_from_directory, url_for, flash, make_response, send_file)
 from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
@@ -243,5 +243,38 @@ def create_app(test_config=None):
 
     from .grades import grades
     app.register_blueprint(grades.bp, url_prefix='/grade_report')
+
+
+    ### Handle download link for generated files.
+    @app.route('/download/<dfile>', methods=['GET'])
+    def download(dfile):
+        """Handle downloading of generated files.
+        The files are not stored permanently. Only one is available (per
+        session) and when it has been downloaded – or just clicked on – it
+        will be removed.
+        """
+        ftype = dfile.rsplit('.', 1)[-1]
+        if ftype == 'pdf':
+            mimetype = 'application/pdf'
+        elif ftype == 'xlsx':
+            mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        else:
+            mimetype = None
+            flash("Unbekannte Dateitype: " + ftype, "Error")
+        try:
+            pdfBytes = session.pop('filebytes')
+        except:
+            flash("Die Datei '%s' steht nicht mehr zur Verfügung" % dfile, "Warning")
+            return redirect(request.referrer)
+        response = make_response(send_file(
+            io.BytesIO(pdfBytes),
+            attachment_filename=dfile,
+            mimetype=mimetype,
+            as_attachment=True
+        ))
+        # Prevent caching:
+        response.headers['Cache-Control'] = 'max-age=0'
+        return response
+
 
     return app

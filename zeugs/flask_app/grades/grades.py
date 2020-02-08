@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-02-07
+Last updated:  2020-02-08
 
 Flask Blueprint for grade reports
 
@@ -37,10 +37,10 @@ _KLASS_AND_STREAM = ("Klasse {klass} kommt in GRADES/REPORT_CLASSES sowohl"
 _NO_CLASSES = "Keine Klassen für Halbjahr {term} [in wz_compat/grade_classes.py]"
 
 
-import datetime, io, os
+import datetime, os
 
 from flask import (Blueprint, render_template, request, session,
-        send_file, url_for, abort, redirect, flash, make_response)
+        url_for, abort, redirect, flash, make_response)
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
@@ -445,29 +445,6 @@ def make1(pid, rtype, rtag, kname):
     )
 
 ########### END: views for single reports ###########
-
-### Handle download link for generated files.
-@bp.route('/download/<dfile>', methods=['GET'])
-def download(dfile):
-    """Handle downloading of generated files.
-    The files are not stored permanently. Only one is available (per
-    session) and when it has been downloaded – or just clicked on – it
-    will be removed.
-    """
-    try:
-        pdfBytes = session.pop('filebytes')
-    except:
-        flash("Die Datei '%s' steht nicht mehr zur Verfügung" % dfile, "Warning")
-        return redirect(request.referrer)
-    response = make_response(send_file(
-        io.BytesIO(pdfBytes),
-        attachment_filename=dfile,
-        mimetype='application/pdf',
-        as_attachment=True
-    ))
-    # Prevent caching:
-    response.headers['Cache-Control'] = 'max-age=0'
-    return response
 
 
 #TODO: remove

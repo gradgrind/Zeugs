@@ -26,6 +26,8 @@ _MISSING_SUBJECT_CHOICE = "Fach fehlt in Kurswahl-Tabelle für Klasse {klass}: {
 _REMOVED_SUBJECT_CHOICE = "Unerwartetes Fach in Kurswahl-Tabelle für Klasse {klass}: {sid}"
 _CHANGED_KLASS = ("Klassenwechsel des Schülers {pid}: {old} -> {new}.\n"
         "  Die Kurswahl-Tabelle muss neu erstellt werden")
+_WRONG_YEAR = "Falsches Schuljahr: '{year}'"
+
 
 from collections import OrderedDict
 
@@ -169,13 +171,12 @@ def choices2db(schoolyear, table):
 
 
 
-def pupilSubjects(schoolyear, pid, TEXT=False, GRADE=False):
+def pupilSubjects(schoolyear, pid, filter_=None):
     """Return a subject-teacher mapping for all subjects relevant for
     this pupil (in the subject table):
         {[ordered] sid -> <TeacherList> instance}
-    If <TEXT> is true, return subjects for text reports.
-    If <GRADE> is true, return subjects for grade reports.
-    Otherwise don't filter at all.
+    <filter> can be 'TEXT', 'GRADE' or <None>, to include subjects for
+    text reports, grade reports or all entries.
     """
     pupils = Pupils(schoolyear)
     pdata = pupils.pupil(pid)
@@ -221,9 +222,7 @@ def pupilSubjects(schoolyear, pid, TEXT=False, GRADE=False):
     # Filter the sid mapping for GRADE / TEXT
     sidmap = OrderedDict()
     for sid, val in smap.items():
-        if GRADE and not val.GRADE:
-            continue
-        if TEXT and not val.TEXT:
+        if filter_ and not getattr(val, filter_):
             continue
         sidmap[sid] = val
     return sidmap
@@ -271,7 +270,7 @@ def test_02():
 def test_03():
     _klass = 13
     _pid='200305'
-    p2tlist = pupilSubjects(_testyear, _pid, GRADE=True)
+    p2tlist = pupilSubjects(_testyear, _pid, 'GRADE')
     print(_klass, _pid, "(GRADE)-->", p2tlist)
-    p2tlist = pupilSubjects(_testyear, _pid, TEXT=True)
+    p2tlist = pupilSubjects(_testyear, _pid, 'TEXT')
     print(_klass, _pid, "(TEXT)-->", p2tlist)

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% set uplink = url_for('index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}Kurswahl{% endblock %}
+
+{% block content %}
+    <h2>Verwaltung der Kurswahl-Tabellen.
+    </h2>
+
+    {% if dfile %}
+    <p>Hier können Sie die Tabellendatei herunterladen:</p>
+    <a href="{{url_for('download', dfile=dfile)}}">{{dfile}}</a>
+    <hr />
+    {% endif %}
+
+    <p>Hier können Sie eine Kurswahl-Tabelle einlesen (hochladen).
+    </p>
+    <form id="dataform" class="pure-form pure-form-stacked" method="POST" enctype="multipart/form-data">
+        {{ form.csrf_token }}
+        <div class="uploaddiv">
+            {{ form.upload.label }}{{ form.upload }}
+        </div>
+        <hr />
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Einlesen</button>
+        </div>
+    </form>
+
+    <p>Wählen Sie hier eine Klasse, um für diese eine Kurswahl-Tabelle (xlsx)
+    zu erstellen.
+    </p>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for k in klasses %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_settings.klass_choices', klass=k)}}"
+                        class="pure-menu-link">
+                    Klasse {{ k }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+{% endblock %}
