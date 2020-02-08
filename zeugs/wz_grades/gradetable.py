@@ -21,9 +21,6 @@ Copyright 2020 Michael Towers
    limitations under the License.
 """
 
-#TODO: Need to modify the grade tables to use KlassMatrix.
-
-
 _FIRSTSIDCOL = 4    # Index (0-based) of first sid column
 _UNUSED = '/'      # Subject tag for unused column
 

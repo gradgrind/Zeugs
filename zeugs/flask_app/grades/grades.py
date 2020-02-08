@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-02-03
+Last updated:  2020-02-07
 
 Flask Blueprint for grade reports
 
@@ -52,7 +52,8 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
-from wz_grades.gradedata import (readGradeTable, grades2db, db2grades,
+from wz_table.dbtable import readPSMatrix
+from wz_grades.gradedata import (grades2db, db2grades,
         getGradeData, GradeReportData, singleGrades2db)
 from wz_grades.makereports import makeReports, makeOneSheet
 from wz_compat.grade_classes import gradeGroups
@@ -158,7 +159,7 @@ def addgrades(termn):
         ])
 
     def readdata(f):
-        gtbl = readGradeTable(f)
+        gtbl = readPSMatrix(f)
         grades2db(session['year'], gtbl, term=termn)
 
     form = UploadForm()

@@ -1,16 +1,16 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_table/dbtable.py
 
-Last updated:  2019-12-25
+Last updated:  2020-02-07
 
 Read and write a database-like table using a spreadsheet file (xlsx).
 Each file has fields and rows, like a relational db, but there may also
 be additional key-value lines at the head of the table.
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -194,3 +194,41 @@ def makeDBTable (filepath, title, fields, values, kvpairs=None):
         row += 1
 
     sheet.save (filepath)
+
+
+
+_SUBJECTSCOL = 3    # first column (0-based index) with subject-tag
+def readPSMatrix(filepath):
+    """Read the given file as a pupil-subject matrix (xlsx/ods).
+    Return a mapping {[ordered] pupil-id -> {subject-id -> value}}.
+    The returned mapping also has an "info" attribute, which is a key-value
+    mapping of the info-lines from the table.
+    The "sids" attribute is a list of all subject-ids.
+    """
+    table = readDBTable(filepath)
+    pupils = OrderedDict()  # build result here
+    # "Translate" the info items, where possible
+    kvrev = {v: k for k, v in CONF.TABLES.COURSE_PUPIL_FIELDNAMES.items()}
+    pupils.info = {kvrev.get(key, key): value
+            for key, value in table.info.items()}
+    # The subject tags are in the columns starting after <_SUBJECTSCOL>.
+    sids = {}            # {sid -> table column}
+    pupils.sids = []
+    for sid, col in table.headers.items():
+        if col >= _SUBJECTSCOL:
+            sids[sid] = col
+            pupils.sids.append(sid)
+    # Read the pupil rows
+    for row in table:
+        pid = row[0]
+        # The pupil's name and stream are for display info only, they are
+        # not included in the result.
+        #pname = row[1]
+        #stream = row[2]
+        values = {}
+        pupils[pid] = values
+        for sid, col in sids.items():
+            val = row[col]
+            if val:
+                values[sid] = val
+    return pupils

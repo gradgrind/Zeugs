@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 """
 test_grades.py
 
-Last updated:  2020-01-02
+Last updated:  2020-01-07
 
 Run some tests on the modules in the wz_grades package.
 The final Abitur grade handling is tested separately (test_abitur).

@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-01-26
+Last updated:  2020-02-07
 
 Handle the data for grade reports.
 
@@ -54,43 +54,10 @@ from wz_core.db import DB, UpdateError
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_compat.template import getGradeTemplate, getTemplateTags
-from wz_table.dbtable import readDBTable
+from wz_table.dbtable import readPSMatrix
 
 
 _INVALID = '/'      # Table entry for cells marked "invalid"
-_SUBJECTSCOL = 3    # First column (0-based index) with subject-info
-def readGradeTable(filepath):
-    """Read the given file as a grade table (xlsx/ods).
-    Return a mapping {[ordered] pupil-id -> {subject-id -> value}}.
-    The returned mapping also has an "info" attribute, which is a key-value
-    mapping of the info-lines from the grade table.
-    """
-    gtable = readDBTable(filepath)
-    pupils = OrderedDict()  # build result here
-    # "Translate" the info items, where possible
-    kvrev = {v: k for k, v in CONF.TABLES.COURSE_PUPIL_FIELDNAMES.items()}
-    pupils.info = {kvrev.get(key, key): value
-            for key, value in gtable.info.items()}
-    # The subject tags are in the columns starting after the one with
-    # '#' as header.
-    sids = {}            # {sid -> table column}
-    for sid, col in gtable.headers.items():
-        if col >= _SUBJECTSCOL:
-            sids[sid] = col
-    # Read the pupil rows
-    for row in gtable:
-        pid = row[0]
-        pname = row[1]
-        stream = row[2]
-        grades = {}
-        pupils[pid] = grades
-        for sid, col in sids.items():
-            g = row[col]
-            if g:
-                grades[sid] = g
-    return pupils
-
-
 
 def grades2db(schoolyear, gtable, term=None):
     """Enter the grades from the given table into the database.
@@ -145,7 +112,7 @@ def grades2db(schoolyear, gtable, term=None):
         for pid, grades in p2grades.items():
             gstring = map2grades(grades)
             db.updateOrAdd('GRADES',
-                    {   'KLASS': klass.klass, 'STREAM': p2stream[pid],
+                    {   'CLASS': klass.klass, 'STREAM': p2stream[pid],
                         'PID': pid, 'TERM': rtag, 'REPORT_TYPE': None,
                         'DATE_D': None, 'GRADES': gstring
                     },
@@ -170,7 +137,7 @@ def singleGrades2db(schoolyear, pid, klass, term, date, rtype, grades):
     db = DB(schoolyear)
     gstring = map2grades(grades)
     db.updateOrAdd('GRADES',
-            {   'KLASS': klass.klass, 'STREAM': klass.stream, 'PID': pid,
+            {   'CLASS': klass.klass, 'STREAM': klass.stream, 'PID': pid,
                 'TERM': term if term.isdigit() else date,
                 'REPORT_TYPE': rtype, 'DATE_D': date, 'GRADES': gstring
             },
@@ -224,7 +191,7 @@ def db2grades(schoolyear, term, klass, checkonly=False):
         if gdata:
             gstring = gdata['GRADES'] or None
             if gstring:
-                if gdata['KLASS'] != klass.klass or gdata['STREAM'] != pstream:
+                if gdata['CLASS'] != klass.klass or gdata['STREAM'] != pstream:
                     # Pupil has switched klass and/or stream.
                     # This can only be handled via individual view.
                     gstring = None
@@ -429,7 +396,7 @@ def test_01 ():
 #TODO: This might not be the optimal location for this file.
         filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_TABLE',
                     term=_term).replace('*', str(klass).replace('.', '-'))
-        pgrades = readGradeTable(filepath)
+        pgrades = readPSMatrix(filepath)
         REPORT.Test(" ++ INFO: %s" % repr(pgrades.info))
         for pid, grades in pgrades.items():
             REPORT.Test("\n  -- %s: %s\n" % (pid, repr(grades)))
@@ -453,5 +420,5 @@ def test_02():
     files = glob(Paths.getYearPath(_testyear, 'FILE_GRADE_TABLE',
                 term='*'))
     for filepath in files:
-        pgrades = readGradeTable(filepath)
+        pgrades = readPSMatrix(filepath)
         grades2db(_testyear, pgrades)

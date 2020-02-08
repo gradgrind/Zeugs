@@ -3,7 +3,7 @@
 """
 wz_grades/makeabi.py
 
-Last updated:  2020-02-03
+Last updated:  2020-02-07
 
 Generate final grade reports for the Abitur.
 
@@ -37,6 +37,11 @@ Copyright 2020 Michael Towers
 # - "Datum der Feststellung des Prüfungsergebnisses", so maybe rather individually
 # ...
 
+_INVALID_YEAR = "Ungültiges Schuljahr in Tabelle: '{val}'"
+_WRONG_YEAR = "Falsches Schuljahr in Tabelle: '{year}'"
+_INVALID_KLASS = "Ungültige Klasse in Tabelle: {klass}"
+_MISSING_PUPIL = "In Kurswahltabelle: keine Zeile für {pname}"
+_UNKNOWN_PUPIL = "In Notentabelle: unbekannte Schüler-ID – {pid}"
 
 
 import os
@@ -44,12 +49,19 @@ import os
 from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
-from wz_core.configuration import Paths, Dates
+from wz_core.configuration import Paths#, Dates
 from wz_core.pupils import Pupils, Klass
+#from wz_core.db import DB
 #?
 from wz_grades.gradedata import (GradeReportData,
         db2grades, getGradeData, updateGradeReport)
 
 
-# Determining subjects for each pupil.
-# This might be easiest if there is a table ... perhaps a db table CHOICES?
+
+
+
+
+
+############### TEST functions ###############
+_testyear = 2016
+def test_01():

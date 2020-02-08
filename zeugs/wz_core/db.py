@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-01-15
+Last updated:  2020-02-07
 
 This module handles access to an sqlite database.
 
@@ -45,9 +45,11 @@ _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
 # them as superseded.
 #TODO: There should be only one report for a given date, regardless of
 # the TERM?
-GRADE_FIELDS = ('KLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
+GRADE_FIELDS = ('CLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
         'DATE_D', 'GRADES')
 GRADE_UNIQUE = [('PID', 'TERM')]
+CHOICE_FIELDS = ('CLASS', 'PID', 'CHOICES')
+CHOICE_UNIQUE = ['PID']
 
 
 import os, sqlite3
@@ -93,6 +95,8 @@ class DB0:
             self.makeTable2 ('INFO', ('K', 'V'), index=['K'])
         if not self.tableExists ('GRADES'):
             self.makeTable2 ('GRADES', GRADE_FIELDS, index=GRADE_UNIQUE)
+        if not self.tableExists ('CHOICES'):
+            self.makeTable2 ('CHOICES', CHOICE_FIELDS, index=CHOICE_UNIQUE)
 #TODO ...
 
 

@@ -1,5 +1,5 @@
 ############## PATHS
-############## Version: 2020-02-04
+############## Version: 2020-02-05
 
 ### Hier wird das Layout des Datenordners definiert
 
@@ -50,7 +50,13 @@ FILE_SUBJECT_CHOICE_TEMPLATE =& *DIR_TEMPLATES
 FILE_SUBJECT_CHOICE_TABLE =& *DIR_SCHOOLDATA
                            & Kurswahl
                            & Kurswahl_*
-                             
+
+#TEMPORARY:
+FILE_SUBJECT_CHOICE_NEW =& *DIR_SCHOOLDATA
+                         & Kurswahl
+                         & new
+                         & Kurswahl_*
+         
 ###############################################################
 ## Textzeugnisse
 

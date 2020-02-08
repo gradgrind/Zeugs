@@ -1,15 +1,15 @@
-#!/usr/bin/env python3
+# python >= 3.7
 # -*- coding: utf-8 -*-
 """
 test_abitur.py
 
-Last updated:  2019-10-03
+Last updated:  2020-02-07
 
 Run some tests on the abitur module in the wz_grades package.
 
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -33,6 +33,6 @@ from test_core import testinit, runTests
 if __name__ == '__main__':
     testinit ()
 
-    from wz_grades import makeabireports
-    runTests (makeabireports)
+    from wz_grades import makeabi
+    runTests (makeabi)
 
