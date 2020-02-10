@@ -1,10 +1,10 @@
-### python >= 3.7
+# python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 flask_app/auth/auth.py
 
-Last updated:  2020-02-03
+Last updated:  2020-02-10
 
 Flask Blueprint for user authentication (login).
 
@@ -42,21 +42,7 @@ from wtforms.validators import DataRequired, StopValidation
 
 from wz_table.dbtable import dbTable
 from wz_core.configuration import Paths
-
-
-class Users:
-    def __init__(self):
-        self.udb = dbTable(current_app.config['USERS'],
-                translate = CONF.TABLES.TEACHER_FIELDNAMES)
-
-    def valid(self, tid):
-        return tid in self.udb
-
-    def getHash(self, tid):
-        return self.udb[tid]['PASSWORD']
-
-    def permission(self, tid):
-        return self.udb[tid]['PERMISSION']
+from wz_core.teachers import Users
 
 
 # Set up Blueprint
@@ -113,7 +99,7 @@ def login():
                 os.remove(ff)
 
     if session.get('user_id'):
-        return redirect(url_for('index'))
+        return redirect(url_for('dispatch'))
     return render_template(os.path.join(_BPNAME, 'login.html'), form=form)
 
 

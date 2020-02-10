@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-02-08
+Last updated:  2020-02-10
 
 Flask Blueprint for grade reports
 
@@ -322,7 +322,7 @@ def make1(pid, rtype, rtag, kname):
                 if sid.startswith('__'):
                     gcalc.append(sid)
                     continue
-                sname = gdata.courses.subjectName(sid)
+                sname = gdata.sid2tlist[sid].subject
                 try:
                     grade = grades['GRADES'][sid]
                 except:

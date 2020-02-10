@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-02-07
+Last updated:  2020-02-10
 
 Handle the data for grade reports.
 
@@ -53,6 +53,7 @@ from wz_core.configuration import Paths
 from wz_core.db import DB, UpdateError
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
+from wz_core.subjectchoices import pupilFilter
 from wz_compat.template import getGradeTemplate, getTemplateTags
 from wz_table.dbtable import readPSMatrix
 
@@ -300,9 +301,10 @@ class GradeReportData:
 #        print("\n??? self.sgroup2indexes", self.sgroup2indexes)
 
         ### Sort the subject tags into ordered groups
-        self.courses = CourseTables(schoolyear)
-        subjects = self.courses.filterGrades(klass)
-        # Build a mapping: {subject group -> [(ordered) sid, ...]}
+        courses = CourseTables(schoolyear)
+        self.sid2tlist = courses.classSubjects(klass, 'GRADE', keep=True)
+        subjects = set(self.sid2tlist)
+        # Build a mapping {subject group -> [(ordered) sid, ...]}
         self.sgroup2sids = {}
         for group in self.sgroup2indexes:
             sidlist = []
@@ -311,18 +313,21 @@ class GradeReportData:
             for sid in CONF.GRADES.ORDERING[group]:
                 # Include only sids relevant for the klass.
                 try:
-                    del(subjects[sid])
-                    sidlist.append(sid)
-                except:
+                    subjects.remove(sid)
+                    if self.sid2tlist[sid] != None:
+                        sidlist.append(sid)
+                except KeyError:
                     pass
         # Entries remaining in <subjects> are not covered in ORDERING.
         for sid in subjects:
-            REPORT.Error(_UNGROUPED_SID, sid=sid, tfile=self.template.filename)
+            if self.sid2tlist[sid] != None:
+                # Report all subjects without a null entry
+                REPORT.Error(_UNGROUPED_SID, sid=sid, tfile=self.template.filename)
 
 
-    def getTagmap(self, grades, pname, grademap='GRADES'):
+    def getTagmap(self, grades, pdata, grademap='GRADES'):
         """Prepare tag mapping for substitution in the report template,
-        for the pupil <pname>.
+        for the pupil <pdata> (a <PupilData> instance).
         <grades> is a mapping {sid -> grade}, or something similar which
         can be handled by <dict(grades)>.
         <grademap> is the name of a configuration file (in 'GRADES')
@@ -341,14 +346,17 @@ class GradeReportData:
         # Copy the grade mapping, because it will be modified to keep
         # track of unused grade entries:
         gmap = dict(grades)     # this accepts a variety of input types
+        sid2tlist = pupilFilter(self.schoolyear, self.sid2tlist, pdata)
         for group, sidlist in self.sgroup2sids.items():
             # Copy the indexes because the list is modified here (<pop()>)
             indexes = self.sgroup2indexes[group].copy()
             for sid in sidlist:
+                if sid2tlist[sid] == None:
+                    continue
                 try:
                     g = gmap.pop(sid)
                 except:
-                    REPORT.Error(_MISSING_GRADE, pname=pname, sid=sid)
+                    REPORT.Error(_MISSING_GRADE, pname=pdata.name(), sid=sid)
                     g = '?'
                 if g == _INVALID:
                     continue
@@ -356,9 +364,9 @@ class GradeReportData:
                     i = indexes.pop()
                 except:
                     REPORT.Fail(_TOO_MANY_SUBJECTS, group=group,
-                            pname=pname, sids=repr(sidlist),
+                            pname=pdata.name(), sids=repr(sidlist),
                             template=self.template.filename)
-                sname = self.courses.subjectName(sid).split('|')[0].rstrip()
+                sname = self.sid2tlist[sid].subject.split('|')[0].rstrip()
                 tagmap["%s_%d_N" % (group, i)] = sname
                 g1 = g2text.get(g)
                 if not g1:
@@ -379,7 +387,8 @@ class GradeReportData:
             else:
                 unused.append("%s: %s" % (sid, g))
         if unused:
-            REPORT.Error(_UNUSED_GRADES, pname=pname, grades="; ".join(unused))
+            REPORT.Error(_UNUSED_GRADES, pname=pdata.name(),
+                    grades="; ".join(unused))
         return tagmap
 
 
@@ -412,7 +421,8 @@ def test_01 ():
         grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
         REPORT.Test("\nTemplate grade map for pupil %s (using %s)" %
                 (_pid, grademap))
-        tagmap = gradedata.getTagmap(pgrades[_pid], "Pupil_%s" % _pid, grademap)
+        pupils = Pupils(_testyear)
+        tagmap = gradedata.getTagmap(pgrades[_pid], pupils.pupil(_pid), grademap)
         REPORT.Test("  Grade tags:\n  %s" % repr(tagmap))
 
 def test_02():

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% set uplink = url_for('index') %}
-{% set uplink_help = "Startseite" %}
+{% set uplink = url_for('dispatch') %}
+{% set uplink_help = "Funktionswahl" %}
 
 {% block title %}Kurswahl{% endblock %}
 
@@ -21,10 +21,10 @@
         <div class="uploaddiv">
             {{ form.upload.label }}{{ form.upload }}
         </div>
-        <hr />
         <div class="formsubmit">
             <button type="submit" class="pure-button pure-button-primary">Einlesen</button>
         </div>
+        <hr />
     </form>
 
     <p>Wählen Sie hier eine Klasse, um für diese eine Kurswahl-Tabelle (xlsx)

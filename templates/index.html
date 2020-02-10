@@ -10,18 +10,10 @@
 {% block content %}
     <p><strong>Zeugs</strong> unterstützt Sie bei der Erstellung der Zeugnisse.
     </p>
-    <p>Aktuell sind folgende Bereiche möglich:
-    <p>
-    <ul class="modules">
-        <li><a href="{{url_for('bp_text_cover.index')}}">Mantelbögen für Textzeugnisse</a></li>
-        <li><a href="{{url_for('bp_text.summary')}}">Kontrolllisten für Textzeugnisse</a></li>
-        <li><a href="{{url_for('bp_grades.index')}}">Notenzeugnisse erstellen</a></li>
-        <li><a href="{{url_for('bp_grades.addgrades', termn='1')}}">(Notentabellen einlesen)</a></li>
-        <li><a href="{{url_for('bp_settings.choices')}}">Kurswahltabellen verwalten</a></li>
-    </ul>
-    <p>Über die Navigation sind Informationen zu den verschiedenen Bereiche
-    abrufbar.
-    Um mit dem Programm zu arbeiten, müssen Sie sich
+    <p>Hier sollte die Dokumentation abrufbar sein ...
+    </p>
+    <p>Über die Navigation gelangen Sie zu Informationen über die verschiedenen
+    Module. Um mit dem Programm zu arbeiten, müssen Sie sich
     <a href="{{url_for('bp_auth.login')}}">anmelden</a>.
     </p>
 {% endblock %}

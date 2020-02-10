@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2020-01-26
+Last updated:  2020-02-10
 
 Handler for the basic course info.
 
@@ -202,12 +202,27 @@ class CourseTables:
         return sorted (self._classes)
 
 
-    def classSubjects (self, klass):
+    def classSubjects(self, klass, filter_=None, keep=False):
         """Return the subject list for the given class.
         <klass> is a <Klass> instance.
             {[ordered] sid -> <TeacherList> instance}
+        <filter_> can be 'GRADE' or 'TEXT', optionally, to restrict the
+        entries to those relevant for the given report type.
+        If <keep> is true, filtered elements will be included, but with
+        value <None>.
+        The result also has the school-class as attribute <klass>.
         """
-        return self._classes [klass.klass]
+        sidmap = OrderedDict()
+        sidmap.klass = klass.klass
+        for sid, tlist in self._classes[klass.klass].items():
+            if filter_ and not getattr(tlist, filter_):
+                if keep:
+                    sidmap[sid] = None
+                continue
+            sidmap[sid] = tlist
+            # Include subject name (may have extension with '|')
+            tlist.subject = self.subjectName(sid)
+        return sidmap
 
 
     def subjectName (self, sid):
@@ -215,31 +230,6 @@ class CourseTables:
         """
         return self._names [sid]
 
-
-    def filterGrades (self, klass):
-        """Return the subject mapping for the given class including only
-        those subjects relevant for a grade report.
-        <klass> is a <Klass> instance.
-        Return {[ordered] sid -> teacher list}
-        """
-        sids = OrderedDict ()
-        for sid, tlist in self.classSubjects (klass).items ():
-            if tlist.GRADE:
-                sids [sid] = tlist
-        return sids
-
-
-    def filterText (self, klass):
-        """Return the subject mapping for the given class including only
-        those subjects relevant for a text report.
-        <klass> is a <Klass> instance.
-        Return {[ordered] sid -> teacher list}
-        """
-        sids = OrderedDict ()
-        for sid, tlist in self.classSubjects (klass).items ():
-            if tlist.TEXT:
-                sids [sid] = tlist
-        return sids
 
 
 

@@ -1,15 +1,15 @@
-### python >= 3.7
+# python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
-flask_app/text_cover/text.py
+flask_app/text/text.py
 
-Last updated:  2019-12-11
+Last updated:  2020-02-10
 
 Flask Blueprint for text reports
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -38,12 +38,10 @@ from wtforms.fields.html5 import DateField
 from wtforms.validators import InputRequired
 
 import os, datetime, io
-#from types import SimpleNamespace
 
 from wz_core.configuration import Dates
-#from wz_text.checksubjects import makeSheets as tSheets
+from wz_core.teachers import Users
 from wz_text.summary import tSheets, ksSheets
-#from wz_text.print_klass_subject_teacher import makeSheets as ksSheets
 
 # Filenames for downloading
 _TEACHER_TABLE = 'Lehrer-Klasse-Tabelle'
@@ -51,12 +49,6 @@ _KLASS_TABLE = 'Klasse-Fach-Tabelle'
 
 _HEADING = "Textzeugnis"
 
-#TODO: the date should be saved with the year ...
-_date = '2020-07-15'
-class DateForm(FlaskForm):
-    DATE_D = DateField('Ausgabedatum',
-                            default=datetime.date.fromisoformat(_date),
-                            validators=[InputRequired()])
 
 # Set up Blueprint
 _BPNAME = 'bp_text'
@@ -69,20 +61,12 @@ def index():
 #    p = Pupils(_schoolyear)
 #    klasses = [k for k in p.classes() if k >= '01' and k < '13']
 #TODO: Maybe a validity test for text report classes?
-#TODO: DATE_D
     return render_template(os.path.join(_BPNAME, 'index.html'),
                             heading=_HEADING,
-                            DATE_D=Dates.dateConv(_date),
-                            uplink=url_for('index'),
-                            uplink_help="Zeugs: Startseite")
+                            uplink=url_for('dispatch'),
+                            uplink_help="Zeugs: Funktionen")
 
 
-#TODO: Put something "like" this in the db?
-def getManager():
-    return {
-        "name": "Michael Towers",
-        "mail": "michael.towers@waldorfschule-bothfeld.de"
-    }
 
 @bp.route('/summary', methods=['GET','POST'])
 def summary():
@@ -94,14 +78,16 @@ def summary():
     form = RadioForm()
     if form.validate_on_submit():
         # POST
+        user = session['user_id']
+        name = Users().name(user)
         if form.choice.data == 'teachers':
             pdfBytes = tSheets(session['year'],
-                            getManager()['name'],
+                            name,
                             Dates.today())
             filename = _TEACHER_TABLE
         elif form.choice.data == 'classes':
             pdfBytes = ksSheets(session['year'],
-                            getManager()['name'],
+                            name,
                             Dates.today())
             filename = _KLASS_TABLE
         else:

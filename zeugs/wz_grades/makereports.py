@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-02-07
+Last updated:  2020-02-09
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -68,8 +68,8 @@ def makeReports(schoolyear, term, klass, date, pids=None):
     but it can also have a stream, or list of streams.
     """
     # <db2grades> returns a list: [(pid, pname, grade map), ...]
-    # <grades>: {pid -> (pname, grade map)}
-    grades = {pid: (pname, gmap)
+    # <grades>: {pid -> grade map}
+    grades = {pid: gmap
             for pid, pname, gmap in db2grades(schoolyear, term, klass)
     }
     pupils = Pupils(schoolyear)
@@ -101,9 +101,9 @@ def makeReports(schoolyear, term, klass, date, pids=None):
     pmaplist = []
     for pdata in plist:
         pid = pdata['PID']
-        pname, gmap = grades[pid]   # get pupil name and grade map
+        gmap = grades[pid]  # get grade map for pupil
         # Build a grade mapping for the tags of the template:
-        pdata.grades = reportData.getTagmap(gmap, pname, grademap)
+        pdata.grades = reportData.getTagmap(gmap, pdata, grademap)
         pmaplist.append(pdata)
         # Update grade database
         updateGradeReport(schoolyear, pid, term,
@@ -148,7 +148,6 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
     # Read database entry for the grades
     gradedata = getGradeData(schoolyear, pid, term)
     gmap = gradedata['GRADES']  # grade mapping
-    pname = pdata.name()
     # <GradeReportData> manages the report template, etc.:
     # From here on use klass and stream from <gradedata>
     klass = Klass.fromKandS(gradedata['CLASS'], gradedata['STREAM'])
@@ -156,7 +155,7 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
     # Get the name of the relevant configuration file in folder GRADES:
     grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
     # Build a grade mapping for the tags of the template:
-    pdata.grades = reportData.getTagmap(gmap, pname, grademap)
+    pdata.grades = reportData.getTagmap(gmap, pdata, grademap)
     # Update grade database
     if term != date:
         updateGradeReport(schoolyear, pid, term,
@@ -178,7 +177,7 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
     html = HTML(string=source,
             base_url=os.path.dirname(reportData.template.filename))
     pdfBytes = html.write_pdf(font_config=FontConfiguration())
-    REPORT.Info(_MADEPREPORT, pupil=pname)
+    REPORT.Info(_MADEPREPORT, pupil=pdata.name())
     return pdfBytes
 
 

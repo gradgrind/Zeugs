@@ -1,14 +1,14 @@
-#!/usr/bin/env python3
+### python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_core/teachers.py
 
-Last updated:  2019-12-08
+Last updated:  2020-02-10
 
 Access to the list of teachers.
 
 =+LICENCE=============================
-Copyright 2017-2019 Michael Towers
+Copyright 2017-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ Copyright 2017-2019 Michael Towers
 """
 
 ### Messages
-_MISSINGDBFIELD = "Feld fehlt in Lehrer-Tabelle {filepath}:\n  {field}"
+#_MISSINGDBFIELD = "Feld fehlt in Lehrer-Tabelle {filepath}:\n  {field}"
 _UNKNOWNTEACHER = "Unbekannte Lehrkraft. Kürzel: {tid}"
 
 
@@ -34,7 +34,7 @@ from collections import OrderedDict
 
 from wz_core.configuration import Paths
 # To read teacher table:
-from wz_table.dbtable import readDBTable
+from wz_table.dbtable import dbTable#, readDBTable
 
 
 class TeacherData (OrderedDict):
@@ -45,30 +45,32 @@ class TeacherData (OrderedDict):
         """Build a representation of the teacher table.
         """
         filepath = Paths.getYearPath (schoolyear, 'FILE_TEACHERDATA')
-        super ().__init__ ()
-
         # An exception is raised if there is no file:
-        table = readDBTable (filepath)
+        super ().__init__ (dbTable(filepath, CONF.TABLES.TEACHER_FIELDNAMES))
 
-# Not presently used
-#        self.info = table.info
-
-        # Associate the headers with columns indexes.
-        colmap = {}
-        for f, f1 in CONF.TABLES.TEACHER_FIELDNAMES.items ():
-            try:
-                colmap [f] = table.headers [f1]
-            except:
-                # Field not present
-                REPORT.Warn (_MISSINGDBFIELD, filepath=filepath,
-                        field=f1)
-
-        ### Read the row data
-        for row in table:
-            rowdata = {}
-            for f, col in colmap.items ():
-                rowdata [f] = row [col]
-            self [row [0]] = rowdata
+#############################
+#        super ().__init__ ()
+#        table = readDBTable (filepath)
+#
+## Not presently used
+##        self.info = table.info
+#
+#        # Associate the headers with columns indexes.
+#        colmap = {}
+#        for f, f1 in CONF.TABLES.TEACHER_FIELDNAMES.items ():
+#            try:
+#                colmap [f] = table.headers [f1]
+#            except:
+#                # Field not present
+#                REPORT.Warn (_MISSINGDBFIELD, filepath=filepath,
+#                        field=f1)
+#
+#        ### Read the row data
+#        for row in table:
+#            rowdata = {}
+#            for f, col in colmap.items ():
+#                rowdata [f] = row [col]
+#            self [row [0]] = rowdata
 
 
     def getTeacherName (self, tid):
@@ -86,6 +88,28 @@ class TeacherData (OrderedDict):
         if report:
             REPORT.Error (_UNKNOWNTEACHER, tid=tid)
         return False
+
+
+
+class Users:
+    """Handle user table for front-end (access control, etc.).
+    This probably uses the latest teachers table.
+    """
+    def __init__(self):
+        fpath = Paths.getUserFolder('users')
+        self.udb = dbTable(fpath, CONF.TABLES.TEACHER_FIELDNAMES)
+
+    def valid(self, tid):
+        return tid in self.udb
+
+    def getHash(self, tid):
+        return self.udb[tid]['PASSWORD']
+
+    def permission(self, tid):
+        return self.udb[tid]['PERMISSION']
+
+    def name(self, tid):
+        return self.udb[tid]['NAME']
 
 
 

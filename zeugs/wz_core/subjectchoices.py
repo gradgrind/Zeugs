@@ -1,7 +1,7 @@
 # python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_core/subjectchoices.py - last updated 2020-02-08
+wz_core/subjectchoices.py - last updated 2020-02-10
 
 Create subject choice tables.
 
@@ -25,18 +25,22 @@ _NEWCHOICES = "[{year}] Kurswahl für Klasse {klass} aktualisiert."
 _MISSING_SUBJECT_CHOICE = "Fach fehlt in Kurswahl-Tabelle für Klasse {klass}: {sid}"
 _REMOVED_SUBJECT_CHOICE = "Unerwartetes Fach in Kurswahl-Tabelle für Klasse {klass}: {sid}"
 _CHANGED_KLASS = ("Klassenwechsel des Schülers {pid}: {old} -> {new}.\n"
-        "  Die Kurswahl-Tabelle muss neu erstellt werden")
+        "  Die Kurswahl-Tabelle ist ungültig und wird nicht berücksichtigt.")
 _WRONG_YEAR = "Falsches Schuljahr: '{year}'"
-
+_BAD_TEACHER = ("In der Kurswahl-Tabelle für Klasse {klass}:\n"
+        "  Ungültiger Eintrag für Fach {sid}: {choice},\n"
+        "  Gültige Lehrerkürzel: {tlist}")
 
 from collections import OrderedDict
 
 from .configuration import Paths
 from .pupils import Pupils, Klass
-from .courses import CourseTables
+from .courses import CourseTables, TeacherList
 from .db import DB
 from wz_table.matrix import KlassMatrix
 from wz_table.dbtable import readPSMatrix
+
+_NOT_TAKEN = '/'        # marker for not-taken (not-chosen) subjects
 
 
 def choiceTable(schoolyear, klass):
@@ -170,63 +174,66 @@ def choices2db(schoolyear, table):
         REPORT.Warn(_NOPUPILS)
 
 
-
-def pupilSubjects(schoolyear, pid, filter_=None):
+def pupilFilter(schoolyear, sid2tlist, pdata):
     """Return a subject-teacher mapping for all subjects relevant for
     this pupil (in the subject table):
-        {[ordered] sid -> <TeacherList> instance}
-    <filter> can be 'TEXT', 'GRADE' or <None>, to include subjects for
-    text reports, grade reports or all entries.
+        {[ordered] sid -> <TeacherList> instance OR <None>}
+    <sid2tlist> is the {sid -> <TeacherList>} mapping which is to be
+    filtered for the given pupil, according to the CHOICES table,
+    which may not exist (leading to the whole mapping being returned).
+    If a subject is filtered out, the result will have <None> instead of
+    the <TeacherList> instance.
     """
-    pupils = Pupils(schoolyear)
-    pdata = pupils.pupil(pid)
-    klass = pdata['CLASS']
-    courses = CourseTables(schoolyear)
-    sidmap = courses.classSubjects(Klass(klass))
-#TODO: should <courses> be cached? Or should the subject
-# table be in the db?
-
-    ok = True   # flag to catch unrecoverable errors
+    pid = pdata['PID']
     db = DB(schoolyear)
     choices = db.select1('CHOICES', PID=pid)
+    klass = sid2tlist.klass
     if choices:
+        rewrite = False
         if choices['CLASS'] != klass:
-            REPORT.Error(_CHANGED_KLASS, pname=pdata.name(),
+            REPORT.Warn(_CHANGED_KLASS, pname=pdata.name(),
                     new=klass, old=choices['CLASS'])
-            return None
+            return sid2tlist
         cmap = choices2map(choices['CHOICES'])
         _cmap = cmap.copy()
         smap = OrderedDict()
-        for sid, tlist in sidmap.items():
+        smap.klass = klass
+        for sid, tlist in sid2tlist.items():
             try:
-                if _cmap.pop(sid):
-                    smap[sid] = tlist
+                choice = _cmap.pop(sid)
             except:
-                REPORT.Error(_MISSING_SUBJECT_CHOICE, klass=klass, sid=sid)
-                ok = False
+                REPORT.Warn(_MISSING_SUBJECT_CHOICE, klass=klass, sid=sid)
+                choice = ''
+                cmap[sid] = choice  # need to add to database
+                rewrite = True
+            if tlist == None or choice == _NOT_TAKEN:
+                smap[sid] = None
+                continue
+            elif choice:
+                if choice in tlist:
+                    smap[sid] = TeacherList(choice, None)   # None:
+                    # The flags in <TeacherList> are not important here.
+                    continue
+                else:
+                    REPORT.Error(_BAD_TEACHER, klass=klass, sid=sid,
+                            choice=choice, tlist=','.join(tlist))
+            smap[sid] = tlist
         # Check for removed subjects
         if _cmap:
             for sid in _cmap:
-                REPORT.Warning(_REMOVED_SUBJECT_CHOICE, klass=klass, sid=sid)
+                REPORT.Warn(_REMOVED_SUBJECT_CHOICE, klass=klass, sid=sid)
                 # Actually remove the subject
                 del(cmap[sid])
+            rewrite = True
+        if rewrite:
             # Rewrite the db entry
             cstring = ';'.join([sid + '=' + val
                     for sid, val in cmap.items()])
             db.update ('CHOICES', 'CHOICES', cstring, PID=pid)
-        if not ok:
-            return None
+        return smap
     else:
         ## No choice table.
-        smap = sidmap
-    # Filter the sid mapping for GRADE / TEXT
-    sidmap = OrderedDict()
-    for sid, val in smap.items():
-        if filter_ and not getattr(val, filter_):
-            continue
-        sidmap[sid] = val
-    return sidmap
-#TODO: Might want to redirect to choice editor if failed?
+        return sid2tlist
 
 
 
@@ -268,9 +275,13 @@ def test_02():
     choices2db(_testyear, table)
 
 def test_03():
-    _klass = 13
+    _klass = Klass('13')
     _pid='200305'
-    p2tlist = pupilSubjects(_testyear, _pid, 'GRADE')
+    pdata = Pupils(_testyear).pupil(_pid)
+    courses = CourseTables(_testyear)
+    sid2tlist = courses.classSubjects(_klass, 'GRADE', keep=True)
+    p2tlist = pupilFilter(_testyear, sid2tlist, pdata)
     print(_klass, _pid, "(GRADE)-->", p2tlist)
-    p2tlist = pupilSubjects(_testyear, _pid, 'TEXT')
+    sid2tlist = courses.classSubjects(_klass, 'TEXT', keep=True)
+    p2tlist = pupilFilter(_testyear, sid2tlist, pdata)
     print(_klass, _pid, "(TEXT)-->", p2tlist)

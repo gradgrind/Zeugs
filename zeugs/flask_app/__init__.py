@@ -1,4 +1,4 @@
-##### python >= 3.7
+# python >= 3.7
 # -*- coding: utf-8 -*-
 # Start only using run-zeugs.sh in top-level folder to use the production
 # server, or run-gui.sh for the development server.
@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-02-08
+Last updated:  2020-02-10
 
 The Flask application: zeugs front-end.
 
@@ -99,7 +99,6 @@ def create_app(test_config=None):
     app.config.from_mapping(
         SECRET_KEY = SECRET_KEY0,
 #        DATABASE = os.path.join(app.instance_path, 'flask.sqlite'),
-        USERS = os.path.join(app.instance_path, 'users'),
     )
     if test_config is None:
         # Load the config from the instance directory, if it exists, when not testing
@@ -174,7 +173,7 @@ def create_app(test_config=None):
 #        return response
 
 
-    @app.route('/', methods=['GET','POST'])
+    @app.route('/', methods=['GET'])
     def index():
         """The landing page.
         """
@@ -221,6 +220,12 @@ def create_app(test_config=None):
         return render_template('test1.html')
         """
         return render_template('index.html')
+
+
+    # Links to useful functions
+    @app.route('/dispatch', methods=['GET'])
+    def dispatch():
+        return render_template('dispatch.html')
 
 
     # Serve images (etc.?) from zeugs data

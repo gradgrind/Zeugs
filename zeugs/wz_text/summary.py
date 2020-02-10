@@ -3,7 +3,7 @@
 """
 wz_text/summary.py
 
-Last updated:  2020-01-26
+Last updated:  2020-02-09
 
 Prepare checklists of classes/subjects for the teachers.
 Prepare checklists of subjects/teachers for the classes.
@@ -45,7 +45,7 @@ def tSheets (schoolyear, manager, date):
     tidmap = {}
     for k in courses.classes ():
         klass = Klass(k)
-        sid2tids = courses.filterText (klass)
+        sid2tids = courses.classSubjects(klass, 'TEXT')
         for sid, tids in sid2tids.items ():
             if tids.TEXT:
                 if not tids:
@@ -107,7 +107,7 @@ def ksSheets (schoolyear, manager, date):
     for k in courses.classes ():
         klass = Klass(k)
         sidmap = {}
-        sid2tids = courses.filterText (klass)
+        sid2tids = courses.classSubjects(klass, 'TEXT')
         for sid, tids in sid2tids.items ():
             if tids.TEXT:
                 if not tids:
