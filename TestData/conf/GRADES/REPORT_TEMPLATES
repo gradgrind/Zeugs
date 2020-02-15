@@ -1,5 +1,5 @@
 ############## GRADES/REPORT_TEMPLATES
-############## Version: 2020-01-21
+############## Version: 2020-02-15
 
 ### Zuordnung der Zeugnisvorlagen zu den Klassen/Gruppen.
 ## Für Notenzeugnisse
@@ -24,7 +24,7 @@ Zeugnis =& 13*: Notenzeugnis/Notenzeugnis-13.html
          & 12.Gym: Notenzeugnis/Notenzeugnis-12_SII.html
          & 11<??.*: Notenzeugnis/Notenzeugnis-SI.html
 
-Abschluss =& 13*: Notenzeugnis/Abitur.html
+Abschluss =& 13*:
            & 12.Gym:
            & 12.*: Notenzeugnis/Notenzeugnis-SI.html
 

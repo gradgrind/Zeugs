@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-02-10
+Last updated:  2020-02-15
 
 Handle the data for grade reports.
 
@@ -234,10 +234,10 @@ def getGradeData(schoolyear, pid, term):
 
 def grades2map(gstring):
     """Convert a grade string from the database to a mapping:
-        {sid -> grade}
+        {[ordered] sid -> grade}
     """
     try:
-        grades = {}
+        grades = OrderedDict()
         for item in gstring.split(';'):
             k, v = item.split('=')
             grades[k.strip()] = v.strip()

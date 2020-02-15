@@ -3,7 +3,7 @@
 """
 wz_grades/makeabi.py
 
-Last updated:  2020-02-07
+Last updated:  2020-02-15
 
 Generate final grade reports for the Abitur.
 
@@ -11,6 +11,9 @@ Fields in the template file are replaced by the report information.
 
 The template has grouped and numbered slots for subject names
 and the corresponding grades.
+
+Some of this code is specific to the forms in Niedersachsen!
+Perhaps that can be exported to compat?
 
 =+LICENCE=============================
 Copyright 2020 Michael Towers
@@ -30,18 +33,10 @@ Copyright 2020 Michael Towers
 =-LICENCE========================================
 """
 
-#TODO: Where this differs from other grade reports:
-# - special calculations
-# - must determine which subjects are relevant for each pupil
-# - not really term-based? Maybe a special entry in the term field ("ABI")
-# - "Datum der Feststellung des Prüfungsergebnisses", so maybe rather individually
-# ...
-
-_INVALID_YEAR = "Ungültiges Schuljahr in Tabelle: '{val}'"
-_WRONG_YEAR = "Falsches Schuljahr in Tabelle: '{year}'"
-_INVALID_KLASS = "Ungültige Klasse in Tabelle: {klass}"
-_MISSING_PUPIL = "In Kurswahltabelle: keine Zeile für {pname}"
-_UNKNOWN_PUPIL = "In Notentabelle: unbekannte Schüler-ID – {pid}"
+_ABIGRADES = "Abiturnoten aktualisiert für {pname}"
+_NO_GRADES = "Keine Notendaten für {pname}"
+_MADEAREPORT = "Abiturzeugnis für {pupil} wurde erstellt"
+_MISSING_GRADES = "Abiturnoten fehlen für {pname}"
 
 
 import os
@@ -49,14 +44,78 @@ import os
 from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
-from wz_core.configuration import Paths#, Dates
+#TODO: Check imports
+from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, Klass
-#from wz_core.db import DB
-#?
-from wz_grades.gradedata import (GradeReportData,
-        db2grades, getGradeData, updateGradeReport)
+from wz_core.courses import CourseTables
+from wz_core.db import DB
+from wz_grades.gradedata import map2grades, getGradeData
+from wz_compat.gradefunctions import AbiCalc
+from wz_compat.template import openTemplate
 
 
+def saveGrades(schoolyear, pdata, grades, date):
+    """The given grade mapping is saved to the GRADES table, with
+    "term" = "Abitur".
+    """
+    db = DB(schoolyear)
+    gstring = map2grades(grades)
+    klass = pdata.getKlass()
+    term = '_Abitur'
+    pid = pdata['PID']
+    db.updateOrAdd('GRADES',
+            {   'CLASS': klass.klass, 'STREAM': pdata['STREAM'],
+                'PID': pid, 'TERM': term,
+                'REPORT_TYPE': 'Abschluss',
+                'DATE_D': date, 'GRADES': gstring
+            },
+            TERM = term,
+            PID = pid
+    )
+    REPORT.Info(_ABIGRADES, pname = pdata.name())
+    return True
+
+
+def makeAbi(schoolyear, pdata,):
+    """Make an Abitur report. Return it as a byte-stream (pdf).
+    """
+    # Get grade data: This needs to be an ordered mapping.
+    grades = getGradeData(schoolyear, pdata['PID'], '_Abitur')
+    try:
+        sid2grade = grades['GRADES']
+        date = grades['DATE_D']
+    except:
+        REPORT.Fail(_NO_GRADES, pname = pdata.name())
+
+    # Get an ordered list of (sid, sname) pairs
+    sid_name = []
+    courses = CourseTables(schoolyear)
+    for sid in sid2grade:
+        try:
+            sname = courses.subjectName(sid).split('|')[0].rstrip()
+        except:
+            continue
+        sid_name.append((sid, sname))
+    abiCalc = AbiCalc(sid_name, sid2grade)
+    try:
+        zgrades = abiCalc.getFullGrades()
+    except:
+        REPORT.Fail(_MISSING_GRADES, pname = pdata.name())
+    ### Generate html for the reports
+    # Get template
+    template = openTemplate('Abitur/Abitur.html')
+    source = template.render(
+            DATE_D = date,
+            todate = Dates.dateConv,
+            pupil = pdata,
+            grades = zgrades
+        )
+    # Convert to pdf
+    html = HTML(string=source,
+            base_url=os.path.dirname(template.filename))
+    pdfBytes = html.write_pdf(font_config=FontConfiguration())
+    REPORT.Info(_MADEAREPORT, pupil=pdata.name())
+    return pdfBytes
 
 
 
@@ -65,3 +124,4 @@ from wz_grades.gradedata import (GradeReportData,
 ############### TEST functions ###############
 _testyear = 2016
 def test_01():
+    pass

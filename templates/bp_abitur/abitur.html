@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_abitur.pupils', klass=klass) %}
+{% set uplink_help = "Klasse " + klass %}
+
+{% block imports %}
+<style>
+    .subject {
+        display: inline-block;
+        margin: inherit;
+        width: 16em;
+    }
+    .subjectM {
+        display: inline-block;
+        margin: inherit;
+    }
+
+    .pure-form-aligned .pure-control-group .subjectM label {
+        width: 5em;
+    }
+</style>
+{% endblock %}
+{% block title %}Prüfungsnoten{% endblock %}
+
+{% block content %}
+    <h3>für {{pname}}</h3>
+    <p>Geben Sie alle Daten ein, die für das Zeugnis nötig sind, dann
+    klicken Sie auf „Speichern“ oder „Erstellen“ (ganz unten).
+    </p>
+
+    <form id="dataform" class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+
+        <fieldset>
+            {% for sid, sname in sids %}
+            <div class="pure-control-group">
+                <div class="subject">
+<!-- Hier sollten die Fachnamen deren Zusätze (eA, usw.) beibehalten -->
+                    {{ form[sid].label }}{{ form[sid] }}
+                </div>
+<!-- Für schriftliche Fächer kann es auch eine mündliche Nachprüfung geben -->
+                {% if not sid.endswith('.m') %}
+                {% set sn = sid + 'N' %}
+                <div class="subjectM">
+                    {{ form[sn].label }}{{ form[sn] }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </fieldset>
+        <div class="pure-control-group" style="margin-bottom: 1rem;">
+            {{ form.DATE_D.label }}{{ form.DATE_D }}
+        </div>
+        <hr />
+        <button type="submit" name="action" value="update"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">Speichern</button>
+        <button type="submit" name="action" value="build"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">Erstellen</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Notenzeugnisse: Startseite" %}
+
+{% block title %}Einzelzeugnisse{% endblock %}
+
+{% block content %}
+    <p>Wählen Sie hier die Klasse der Schülerin, für die das Zeugnisse zu
+    erstellen ist.
+    </p>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for k in klasses %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_abitur.pupils', klass=k)}}"
+                        class="pure-menu-link">
+                    Klasse {{ k }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+{% endblock %}

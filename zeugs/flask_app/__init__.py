@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-02-10
+Last updated:  2020-02-14
 
 The Flask application: zeugs front-end.
 
@@ -248,6 +248,9 @@ def create_app(test_config=None):
 
     from .grades import grades
     app.register_blueprint(grades.bp, url_prefix='/grade_report')
+
+    from .grades import abitur
+    app.register_blueprint(abitur.bp, url_prefix='/abitur')
 
 
     ### Handle download link for generated files.

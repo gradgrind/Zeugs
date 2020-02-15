@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-02-10
+Last updated:  2020-02-15
 
 Flask Blueprint for grade reports
 
@@ -195,6 +195,7 @@ def klasses():
             klasses = klasslist
     )
 
+
 ### Select pupil
 @bp.route('/pupils/<klass>', methods=['GET'])
 def pupils(klass):
@@ -217,6 +218,7 @@ def pupils(klass):
             pupils = plist,
             dfile = dfile
     )
+
 
 ### For the given pupil select report type, edit / make new, etc.
 @bp.route('/pupil/<pid>', methods=['GET','POST'])
@@ -249,7 +251,9 @@ def pupil(pid):
     rows = db.select('GRADES', PID=pid)
     dates = [_NEWDATE]
     for row in db.select('GRADES', PID=pid):
-        dates.append(row['TERM'])
+        t = row['TERM']
+        if t[0] != '_':
+            dates.append(t)
     # If the stream, or even school-class have changed since an
     # existing report, the templates and available report types may be
     # different. To keep it simple, a list of all report types from the
@@ -294,6 +298,7 @@ def pupil(pid):
                             heading = _HEADING,
                             klass = kname,
                             pname = pname)
+
 
 ### Edit grades, date-of-issue, etc., then generate report.
 @bp.route('/make1/<pid>/<rtype>/<rtag>/<kname>', methods=['GET','POST'])
