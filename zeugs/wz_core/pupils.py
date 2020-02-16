@@ -1,8 +1,8 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-01-26
+wz_core/pupils.py - last updated 2020-02-16
 
 Database access for reading pupil data.
 
@@ -122,7 +122,7 @@ class Klass:
 
 
 
-class PupilData (list):
+class PupilData(list):
     """A list which allows keyed access to its fields.
     As the fields are a class attribute, this class can only be used for
     one type of list. It is used to hold the fields of the pupil data.
@@ -132,43 +132,46 @@ class PupilData (list):
     _fields = None
 
     @staticmethod
-    def fieldNames ():
-        return CONF.TABLES.PUPILS_FIELDNAMES
+    def fieldNames():
+        """Return a field name mapping:
+            {[ordered] internal field name -> external (localized) fieldname}
+        """
+        return DB.pupilFields()
 
     @classmethod
-    def fields (cls):
+    def fields(cls):
         if cls._fields == None:
-            cls._fields = OrderedDict ()
+            cls._fields = OrderedDict()
             i = 0
-            for f in cls.fieldNames ():
-                cls._fields [f] = i
+            for f in cls.fieldNames():
+                cls._fields[f] = i
                 i += 1
         return cls._fields
 
     #### The main part of the class, dealing with instances:
 
-    def __init__ (self, values):
-        if len (values) != len (self._fields):
-            REPORT.Fail (_WRONGLENGTH, fields=repr (self._fields),
-                    values=repr (values))
-        super ().__init__ (values)
+    def __init__(self, values):
+        if len(values) != len(self._fields):
+            REPORT.Fail(_WRONGLENGTH, fields = repr(self._fields),
+                    values = repr(values))
+        super().__init__(values)
 
-    def __getitem__ (self, key):
-        if type (key) == str:
-            return super (). __getitem__ (self._fields [key])
+    def __getitem__(self, key):
+        if type(key) == str:
+            return super().__getitem__(self._fields[key])
         else:
-            return super (). __getitem__ (key)
+            return super().__getitem__(key)
 
-    def __setitem__ (self, key, value):
-        if type (key) == str:
-            return super (). __setitem__ (self._fields [key], value)
+    def __setitem__(self, key, value):
+        if type(key) == str:
+            return super().__setitem__(self._fields[key], value)
         else:
-            return super (). __setitem__ (key, value)
+            return super().__setitem__(key, value)
 
-    def name (self):
+    def name(self):
         """Return the (short form of) pupil's name.
         """
-        return self ['FIRSTNAME'] + ' ' + self ['LASTNAME']
+        return self['FIRSTNAME'] + ' ' + self['LASTNAME']
 
     def getKlass(self, withStream=False):
         """Return a <Klass> object for this pupil.
@@ -200,6 +203,12 @@ class Pupils:
         if pdata:
             return PupilData(pdata)
         return None
+
+#    def pid2klass(self):
+#        """Return a mapping {pid -> school-class} for all pids.
+#        """
+#        return {pdata['PID']: pdata['CLASS']
+#                for pdata in self.db.getTable('PUPILS')}
 
     def classPupils (self, klass, date=None):
         """Read the pupil data for the given school-class (possibly with

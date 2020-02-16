@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-02-07
+Last updated:  2020-02-16
 
 This module handles access to an sqlite database.
 
@@ -91,13 +91,23 @@ class DB0:
     def _checkDB (self):
         """Check that all necessary tables are present.
         """
-        if not self.tableExists ('INFO'):
-            self.makeTable2 ('INFO', ('K', 'V'), index=['K'])
-        if not self.tableExists ('GRADES'):
-            self.makeTable2 ('GRADES', GRADE_FIELDS, index=GRADE_UNIQUE)
-        if not self.tableExists ('CHOICES'):
-            self.makeTable2 ('CHOICES', CHOICE_FIELDS, index=CHOICE_UNIQUE)
+        if not self.tableExists('INFO'):
+            self.makeTable2('INFO', ('K', 'V'), index=['K'])
+        if not self.tableExists('GRADES'):
+            self.makeTable2('GRADES', GRADE_FIELDS, index=GRADE_UNIQUE)
+        if not self.tableExists('CHOICES'):
+            self.makeTable2('CHOICES', CHOICE_FIELDS, index=CHOICE_UNIQUE)
+        if not self.tableExists('PUPILS'):
+            # Use (CLASS, PSORT) as primary key, with additional index
+            # on PID. This makes quite a small db (without rowid).
+            db.makeTable2('PUPILS', self.pupilFields(),
+                    pk = ('CLASS', 'PSORT'), index = ('PID',))
 #TODO ...
+
+
+    @staticmethod
+    def pupilFields():
+        return CONF.TABLES.PUPILS_FIELDNAMES
 
 
     def makeTable (self, name, fields, data=None):
@@ -435,6 +445,29 @@ class DB0:
                             ','.join (fields),
                             ','.join (['?']*len (fields)))
             cur.execute (cmd, vlist)
+
+
+    def addRows(self, table, fields, data, clear=False):
+        """Add rows to the given table.
+        <data> is a list of rows. Each row is a list of values
+        corresponding to the field names provided in the list
+        <fields>. Should any table fields not be provided, these
+        will take on the default value (normally NULL).
+        If <clear> is true, all entries will be removed before adding
+        the new rows.
+        """
+        if clear:
+            with self._dbcon as con:
+                con.execute('DELETE FROM {}'.format(table))
+            with self._dbcon as con:
+                con.execute('VACUUM')
+        with self._dbcon as con:
+            cur = con.cursor ()
+            cur.executemany ('INSERT INTO {} ({})\n  VALUES ({})'.format (
+                        table,
+                        ', '.join (fields),
+                        ', '.join (['?']*len (fields))),
+                    data)
 
 
     def deleteEntry (self, table, **criteria):
