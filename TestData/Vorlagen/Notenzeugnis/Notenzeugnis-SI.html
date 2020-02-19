@@ -358,44 +358,52 @@
 
         <!-- Bemerkungen, Gleichstellungsvermerke, usw. -->
         <div style="height: 60mm;
-                display: flex; flex-direction: column;
-                justify-content: space-between;">
+                position: relative;">
+          <!-- Centre the content vertically in the surrounding div -->
+          <div style="position: absolute;
+                top: 50%; transform: translateY(-50%);">
+            {% set remarks = False %}
             <p></p>
+            <p style="margin: 5mm 0 0 0; font-size: 11pt;">
+                <strong>Bemerkungen:</strong>
+            </p>
+            {% if pupil.REMARKS %}
+            {% set remarks = True %}
+            {% for line in pupil.REMARKS.splitlines() %}
+            <p style="margin: 2mm 5mm; font-size: 11pt;">{{ line }}</p>
+            {% endfor %}
+            {% endif %}
             <!-- Versetzung -->
             {% if report_type == 'Zeugnis' and grades._V_D %}
-                <div>
-                    <p style="margin: 5mm 0 0 0; font-size: 11pt;">
-                        <strong>Bemerkungen:</strong>
-                    </p>
-                    <p style="margin: 2mm 5mm; font-size: 11pt;">
-                        Durch Konferenzbeschluss vom {{todate(grades._V_D)}}
-                        in die Qualifikationsphase versetzt.
-                    </p>
-                </div>
+            {% set remarks = True %}
+            <p style="margin: 2mm 5mm; font-size: 11pt;">
+                Durch Konferenzbeschluss vom {{todate(grades._V_D)}}
+                in die Qualifikationsphase versetzt.
+            </p>
             {% elif report_type == 'Abgang' and grades._GS %}
-                <!-- Gleichstellungsvermerk -->
-                <div>
-                    <p style="margin: 10mm 0 0 0; font-size: 11pt;">
-                        <strong>Gleichstellungsvermerk:</strong>
-                    </p>
-                    <p style="margin: 2mm 5mm; font-size: 11pt;">
+            <!-- Gleichstellungsvermerk -->
+            <p style="margin: 2mm 5mm; font-size: 11pt;">
 <!-- Im Sek-I ist eigentlich nur 'HS' möglich -->
-                        {% if grades._GS == 'Erw' %}
-                        Dieses Zeugnis ist dem Erweiterten Sekundarabschluss I
-                        gleichgestellt. Es vermittelt die gleiche Berechtigung
-                        wie das Zeugnis über den Erweiterten Sekundarabschluss I.
-                        {% elif grades._GS == 'RS' %}
-                        Dieses Zeugnis ist dem Sekundarabschluss I – Realschulabschluss
-                        gleichgestellt. Es vermittelt die gleiche Berechtigung
-                        wie das Zeugnis über den Sekundarabschluss I – Realschulabschluss.
-                        {% elif grades._GS == 'HS' %}
-                        Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss
-                        gleichgestellt. Es vermittelt die gleiche Berechtigung
-                        wie das Zeugnis über den Sekundarabschluss I – Hauptschulabschluss.
-                        {% endif %}
-                    </p>
-                </div>
+                {% if grades._GS == 'Erw' %}
+                Dieses Zeugnis ist dem Erweiterten Sekundarabschluss I
+                gleichgestellt. Es vermittelt die gleiche Berechtigung
+                wie das Zeugnis über den Erweiterten Sekundarabschluss I.
+                {% elif grades._GS == 'RS' %}
+                Dieses Zeugnis ist dem Sekundarabschluss I – Realschulabschluss
+                gleichgestellt. Es vermittelt die gleiche Berechtigung
+                wie das Zeugnis über den Sekundarabschluss I – Realschulabschluss.
+                {% elif grades._GS == 'HS' %}
+                Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss
+                gleichgestellt. Es vermittelt die gleiche Berechtigung
+                wie das Zeugnis über den Sekundarabschluss I – Hauptschulabschluss.
+                {% endif %}
+                {% set remarks = True %}
+            </p>
             {% endif %}
+            {% if not remarks %}
+            <p style="margin: 2mm 5mm; font-size: 11pt;">––––––––––</p>
+            {% endif %}
+          </div>
         </div>
 
         <!-- Ort, Datum -->

@@ -3,7 +3,7 @@
 """
 test_gui.py
 
-Last updated:  2020-02-01
+Last updated:  2020-02-18
 
 Gui-wrapper for the flask server and browser starter.
 
@@ -82,7 +82,7 @@ class RunExtern:
         #? , daemon=True)
         self.thread.start()
         # Start polling queue
-        self.feedback.wait(500, self.poll)    # delay in ms.
+        self.feedback.wait(2000, self.poll)    # delay in ms.
 
 
     def readoutput(self):

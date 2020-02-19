@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-02-15
+Last updated:  2020-02-19
 
 Handle the data for grade reports.
 
@@ -115,7 +115,8 @@ def grades2db(schoolyear, gtable, term=None):
             db.updateOrAdd('GRADES',
                     {   'CLASS': klass.klass, 'STREAM': p2stream[pid],
                         'PID': pid, 'TERM': rtag, 'REPORT_TYPE': None,
-                        'DATE_D': None, 'GRADES': gstring
+                        'DATE_D': None, 'GRADES': gstring,
+                        'REMARKS': None
                     },
                     TERM=rtag,
                     PID=pid
@@ -127,11 +128,15 @@ def grades2db(schoolyear, gtable, term=None):
 
 
 
-def singleGrades2db(schoolyear, pid, klass, term, date, rtype, grades):
+def singleGrades2db(schoolyear, pid, klass, term, date, rtype, grades,
+        remarks=None):
     """Add or update GRADES table entry for a single pupil and date.
-    <term> is the date of the entry, which may already exist: the TERM field.
+    <term> may be a small integer – the term – or, for irregular entries,
+    the date of issue, which may already exist: the TERM field in the
+    GRADES table.
     <date> is the new date, which may be the same as <term>, but can also
-    indicate a change, in which case also the TERM field will be changed.
+    indicate a change, in which case also the TERM field will be changed
+    (only if it is a date).
     <rtype> is the report type.
     <grades> is a mapping {sid -> grade}.
     """
@@ -140,7 +145,8 @@ def singleGrades2db(schoolyear, pid, klass, term, date, rtype, grades):
     db.updateOrAdd('GRADES',
             {   'CLASS': klass.klass, 'STREAM': klass.stream, 'PID': pid,
                 'TERM': term if term.isdigit() else date,
-                'REPORT_TYPE': rtype, 'DATE_D': date, 'GRADES': gstring
+                'REPORT_TYPE': rtype, 'DATE_D': date, 'GRADES': gstring,
+                'REMARKS': remarks
             },
             TERM=term,
             PID=pid

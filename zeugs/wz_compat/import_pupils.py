@@ -32,23 +32,18 @@ Copyright 2019-2020 Michael Towers
 #locale.setlocale (locale.LC_COLLATE, 'de_DE.UTF-8')
 
 # Messages
-_BADSCHOOLYEAR  = "Falsches Jahr in Tabelle {filepath}"
-_MISSINGDBFIELD = "Feld fehlt in Schüler-Tabelle {filepath}:\n  {field}"
 _FIELDMISSING = "Benötigtes Feld {field} fehlt in Rohdatentabelle:\n  {path}"
 _WRONGLENGTH = ("Tabellenzeile hat die falsche Länge.\n  Felder: {fields}"
                 "\n  Werte: {values}")
-_CLASSGONE = "Klasse '{klass}' nicht mehr in der Schuldatenbank"
-_NEWCLASS = "Kasse '{klass}' wird hinzugefügt"
-_NOUPDATES = "Keine Änderungen in der Schülertabelle für Schuljahr {year}"
-_REBUILDPUPILS = "Schülertabelle für Schuljahr {year} wird aktualisiert"
-_NEWPUPILS = "Neue Schüler in Klasse {klass}:\n  {pids}"
-_PUPILCHANGES = "Änderungen in Klasse {klass}:\n  {data}"
-_OLDPUPILS = "Abmeldungen in Klasse {klass}:\n  {pids}"
+_BADCLASSNAME = "Ungülitige Klassenname: {name}"
+_BAD_DATE = "Ungültiges Datum: Feld {tag}, Wert {val} in:\n  {path}"
+
+#???
+_BADSCHOOLYEAR  = "Falsches Jahr in Tabelle {filepath}"
+_MISSINGDBFIELD = "Feld fehlt in Schüler-Tabelle {filepath}:\n  {field}"
 _DB_FIELD_MISSING = "PUPILS-Tabelle ohne Feld {field}"
 _DB_FIELD_LOST = "PUPILS-Tabelle: Feld {field} wird nicht exportiert"
 _IMPORT_FROM = "Importiere Schüler von Datei:\n  {path}"
-_BADCLASSNAME = "Ungülitige Klassenname: {name}"
-_BAD_DATE = "Ungültiges Datum: Feld {tag}, Wert {val} in:\n  {path}"
 
 # Info tag in spreadsheet table
 _SCHOOLYEAR = "Schuljahr"
@@ -60,7 +55,7 @@ import os, datetime
 from collections import OrderedDict, UserDict
 from glob import glob
 
-from wz_core.configuration import Dates, Paths
+from wz_core.configuration import Paths
 from wz_core.db import DB
 # To read/write spreadsheet tables:
 from wz_table.dbtable import readDBTable, makeDBTable
@@ -296,173 +291,82 @@ def readRawPupils(schoolyear, filepath, startdate):
     return classes
 
 
-#TODO: Make this a two-stage process. First get a list of the changes:
+# Handling updates to the PUPILS table is a two- or three-stage process.
+# First get a list of the changes:
 #  - New pid
 #  - Removed pid
 #  - Field change
-# Then (a separate function) apply a subset of these changes.
+# Decide which changes to apply.
+# Then (a separate function) apply this subset of the changes.
 _ADD = "+++"
 _REMOVE = "---"
 _CHANGE = ">>>"
-def deltaRaw(schoolyear, rawdata):
-    """Compare the existing pupil data with the supplied raw data.
-    Return a list of differences, which can be used to perform an update.
-    The differences can be of the following kinds:
-        - a new pid
-        - a pid has been removed
-        - a field value for one pid has changed
-    """
-    fields = rawdata.fields     # fields to compare
-    delta = []
-    db = DB(schoolyear, flag = 'CANCREATE')
-    oldpdata = {pdata['PID']: pdata for pdata in db.getTable('PUPILS')}
-    for k, plistR in rawdata.items():
-        for pdataR in plistR:
-            pid = pdataR['PID']
-            try:
-                pdata = oldpdata.pop(pid)
-            except:
-                # Pupil not in old data: list for addition
-                delta.append((_ADD, pdataR))
-                continue
-            for f in fields:
-                val = pdata[f]
-                if val != pdataR[f]:
-                    # Field changed
-                    delta.append((_CHANGE, pdataR, f, val))
-    for pid, pdata in oldpdata.items():
-        # Pupil not in new data: list for removal
-        delta.append((_REMOVE, pdata))
-    return delta
+_BADOP = "PUPILS operation must be %s, %s or %s: not {op}" % (_REMOVE,
+        _CHANGE, _ADD)
+class DeltaRaw:
+    def __init__(self, schoolyear, rawdata):
+        """Compare the existing pupil data with the supplied raw data.
+        Return a list of differences, which can be used to perform an update.
+        The differences can be of the following kinds:
+            - a new pid
+            - a pid has been removed
+            - a field value for one pid has changed
+        """
+        self.schoolyear = schoolyear
+        self.fields = rawdata.fields    # fields to compare
+        self.delta = []                 # the list of changes
+        db = DB(schoolyear, flag = 'CANCREATE')
+        oldpdata = {pdata['PID']: pdata for pdata in db.getTable('PUPILS')}
+        for k, plistR in rawdata.items():
+            for pdataR in plistR:
+                pid = pdataR['PID']
+                try:
+                    pdata = oldpdata.pop(pid)
+                except:
+                    # Pupil not in old data: list for addition
+                    self.delta.append((_ADD, pdataR))
+                    continue
+                for f in self.fields:
+                    val = pdata[f]
+                    if val != pdataR[f]:
+                        # Field changed
+                        self.delta.append((_CHANGE, pdataR, f, val))
+        for pid, pdata in oldpdata.items():
+            # Pupil not in new data: list for removal
+            self.delta.append((_REMOVE, pdata))
 
 
-def updateFromDelta(schoolyear, delta):
-    """Update the PUPILS table from the supplied raw pupil data.
-    Only the fields supplied in the input delta will be affected.
-    If there is no PUPILS table, create it, leaving fields for which no
-    data is supplied empty.
-    <delta> is as generated by <deltaRaw>.
-    """
-
-    pass
-
-
-
-
-def updateFromRaw (schoolyear, rawdata):
-    """Update the PUPILS table from the supplied raw pupil data.
-    Only the fields supplied in the raw data will be affected.
-    If there is no PUPILS table, create it, leaving fields for which no
-    data is supplied empty.
-    <rawdata>: {klass -> [<_IndexedData> instance, ...]}
-    """
-    updated = False
-    allfields = list (CONF.TABLES.PUPILS_FIELDNAMES)
-    db = DB (schoolyear, flag='CANCREATE')
-    # Build a pid-indexed mapping of the existing (old) pupil data.
-    # Note that this is read in as <sqlite3.Row> instances!
-    oldclasses = {}
-    classes = set (rawdata) # collect all classes, old and new
-    if db.tableExists ('PUPILS'):
-        for pmap in db.getTable ('PUPILS'):
-            pid = pmap ['PID']
-            klass = pmap ['CLASS']
-            classes.add (klass)
-            try:
-                oldclasses [klass] [pid] = pmap
-            except:
-                oldclasses [klass] = {pid: pmap}
-
-    # Collect rows for the new PUPILS table:
-    newpupils = []
-    # Run through the new data, class-by-class
-    for klass in sorted (classes):
-        changed = OrderedDict ()    # pids with changed fields
-        try:
-            plist = rawdata [klass]
-        except:
-            # Class not in new data
-            updated = True
-#TODO: do I want to record this (with pupil names??)?
-            REPORT.Warn (_CLASSGONE, klass=klass)
-            continue
-
-        try:
-            oldpids = oldclasses [klass]
-        except:
-            # A new class
-            updated = True
-            oldpids = {}
-#?
-            REPORT.Warn (_NEWCLASS, klass=klass)
-
-#TODO: only the PIDs are stored, I would need at least their names, for reporting
-        added = []
-        for pdata in plist:
-            pid = pdata ['PID']
-            prow = []
-            try:
-                pmap0 = oldpids [pid]
-            except:
-                # A new pupil
-                for f in allfields:
-                    try:
-                        val = pdata [f]
-                    except:
-                        val = None
-                    prow.append (val)
-                updated = True
-                added.append (pid)
-
+    def updateFromDelta(self, updates = None):
+        """Update the PUPILS table from the supplied raw pupil data.
+        Only the fields in the delta list (<self.fields>) will be affected.
+        If <updates> is not supplied, <self.delta> is used.
+        """
+        if updates == None:
+            updates = self.delta
+        # Sort into deletions, changes and additions
+        d, c, a = [], [], []
+        for line in updates:
+            op, pdata = line[0:2]
+            pid = pdata['PID']
+            if op == _REMOVE:
+                d.append(pid)
+            elif op == _CHANGE:
+                f = line[2]
+                c.append((pid, f, pdata[f]))
+            elif op == _ADD:
+                a.append(pdata)
             else:
-                del (oldpids [pid])     # remove entry for this pid
-                diff = {}
-                # Compare fields
-                for f in allfields:
-                    oldval = pmap0 [f]
-                    try: # Allow for this field not being present in the
-                        # new data.
-                        val = pdata [f]
-                        # Record changed fields
-                        if val != oldval:
-                            diff [f] = val
-                    except:
-                        val = oldval
-                    prow.append (val)
-                if diff:
-                    updated = True
-                    changed [pid] = diff
-
-            newpupils.append (prow)
-
-        if added:
-            REPORT.Info (_NEWPUPILS, klass=klass, pids=repr (added))
-        if changed:
-            REPORT.Info (_PUPILCHANGES, klass=klass, data=repr (changed))
-        if oldpids:
-            REPORT.Info (_OLDPUPILS, klass=klass, pids=repr (list (oldpids)))
-
-    if updated:
-        REPORT.Info (_REBUILDPUPILS, year=schoolyear)
-    else:
-        REPORT.Warn (_NOUPDATES, year=schoolyear)
-        return
-    # Build database table NEWPUPILS.
-    # Use (CLASS, PSORT) as primary key, with additional index on PID.
-    # This makes quite a small db (without rowid).
-    indexes = db.makeTable2 ('NEWPUPILS', allfields, data=newpupils,
-            force=True,
-            pk=('CLASS', 'PSORT'), index=('PID',))
-
-    db.deleteTable ('OLDPUPILS')
-    if db.tableExists ('PUPILS'):
-        db.renameTable ('PUPILS', 'OLDPUPILS')
-    db.renameTable ('NEWPUPILS', 'PUPILS')
-    db.deleteIndexes ('PUPILS')
-    db.makeIndexes ('PUPILS', indexes)
+                REPORT.Bug(_BADOP, op = op)
+        db = DB(self.schoolyear)
+        for pid in d:
+            db.deleteEntry('PUPILS', PID = pid)
+        for pid, f, val in c:
+            db.update('PUPILS', f, val, PID = pid)
+        if a:
+            db.addRows('PUPILS', self.fields, a)
 
 
-
+###########?????
 def importPupils(schoolyear, filepath):
     """Import the pupils data for the given year from the given file.
     The file must be a 'dbtable' spreadsheet with the correct school-year.
@@ -514,7 +418,7 @@ def importPupils(schoolyear, filepath):
     return classes
 
 
-
+#TODO: Maybe rather as ByteStream?
 def exportPupils (schoolyear, filepath):
     """Export the pupil data for the given year to a spreadsheet file,
     formatted as a 'dbtable'.
@@ -560,14 +464,12 @@ def exportPupils (schoolyear, filepath):
             [(_SCHOOLYEAR, schoolyear)])
 
 
-
-def importLatestRaw (schoolyear):
-    allfiles = glob (Paths.getYearPath (schoolyear, 'FILE_PUPILS_RAW'))
-    fpath = sorted (allfiles) [-1]
-    REPORT.Info (_IMPORT_FROM, path=fpath)
-    rpd = readRawPupils (schoolyear, fpath)
-    updateFromRaw (schoolyear, rpd)
-    return rpd
+# Only for testing?
+def getLatestRaw(schoolyear):
+    allfiles = glob(Paths.getYearPath(schoolyear, 'FILE_PUPILS_RAW'))
+    fpath = sorted(allfiles)[-1]
+    REPORT.Info(_IMPORT_FROM, path=fpath)
+    return readRawPupils(schoolyear, fpath)
 
 
 
@@ -602,8 +504,8 @@ def test_02 ():
 #    db.deleteIndexes ('PUPILS0')
 #    REPORT.Test ("Saved in table PUPILS0")
     REPORT.Test("\n\n *** DELTA ***\n")
-    delta = deltaRaw(_testyear, rpd)
-    for line in delta:
+    delta = DeltaRaw(_testyear, rpd)
+    for line in delta.delta:
         op, pdata = line[0], line[1]
         if op == _CHANGE:
             f = line[2]
@@ -613,6 +515,8 @@ def test_02 ():
         REPORT.Test("  %s %s: %s%s" % (op, pdata['CLASS'],
                 RawPupilData.name(pdata), x))
 
+#    REPORT.Test("\n\n *** updating ***\n")
+#    delta.updateFromDelta()
 
 
 def test_03 ():

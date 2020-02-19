@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-02-15
+Last updated:  2020-02-19
 
 Flask Blueprint for grade reports
 
@@ -44,7 +44,7 @@ from flask import (Blueprint, render_template, request, session,
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
-from wtforms import SelectField
+from wtforms import SelectField, TextAreaField
 from wtforms.fields.html5 import DateField
 from wtforms.validators import InputRequired, Optional #, Length
 from flask_wtf.file import FileField, FileRequired, FileAllowed
@@ -388,6 +388,13 @@ def make1(pid, rtype, rtag, kname):
                 xfields.append(key)
         if xfields:
             groups.append((None, xfields))
+        if 'pupil.REMARKS' in gdata.alltags:
+            try:
+                remarks = grades['REMARKS']
+            except:
+                remarks = ''
+            tfield = TextAreaField(default = remarks)
+            setattr(_Form, 'REMARKS', tfield)
         return groups
 
     def enterGrades():
@@ -395,7 +402,8 @@ def make1(pid, rtype, rtag, kname):
         gradeCalc(gmap, gcalc)
         # Enter grade data into db
         singleGrades2db(schoolyear, pid, klass, term = rtag,
-                date = DATE_D, rtype = rtype, grades = gmap)
+                date = DATE_D, rtype = rtype, grades = gmap,
+                remarks = REMARKS)
         return True
 
     schoolyear = session['year']
@@ -419,9 +427,14 @@ def make1(pid, rtype, rtag, kname):
         for g, keys in groups:
             for key in keys:
                 gmap[key.split('_', 1)[1]] = form[key].data
+        try:
+            REMARKS = form['REMARKS'].data
+        except:
+            REMARKS = None
         if REPORT.wrap(enterGrades, suppressok=True):
             pdfBytes = REPORT.wrap(makeOneSheet,
-                    schoolyear, DATE_D, pdata, rtag, rtype)
+                    schoolyear, DATE_D, pdata,
+                    rtag if rtag.isdigit() else DATE_D, rtype)
             session['filebytes'] = pdfBytes
             session['download'] = 'Notenzeugnis_%s.pdf' % (
                     pdata['PSORT'].replace(' ', '_'))

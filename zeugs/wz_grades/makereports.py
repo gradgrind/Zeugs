@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-02-09
+Last updated:  2020-02-18
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -56,6 +56,7 @@ from wz_grades.gradedata import (GradeReportData,
         db2grades, getGradeData, updateGradeReport)
 
 
+#TODO: The REMARKS field of the GRADES table is not used here
 def makeReports(schoolyear, term, klass, date, pids=None):
     """Build a single file containing reports for the given pupils.
     This only works for groups with the same report type and template.
@@ -156,6 +157,7 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
     grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
     # Build a grade mapping for the tags of the template:
     pdata.grades = reportData.getTagmap(gmap, pdata, grademap)
+    pdata.REMARKS = gradedata['REMARKS']
     # Update grade database
     if term != date:
         updateGradeReport(schoolyear, pid, term,
