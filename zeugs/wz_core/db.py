@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-02-18
+Last updated:  2020-02-23
 
 This module handles access to an sqlite database.
 
@@ -100,7 +100,7 @@ class DB0:
         if not self.tableExists('PUPILS'):
             # Use (CLASS, PSORT) as primary key, with additional index
             # on PID. This makes quite a small db (without rowid).
-            db.makeTable2('PUPILS', self.pupilFields(),
+            self.makeTable2('PUPILS', self.pupilFields(),
                     pk = ('CLASS', 'PSORT'), index = ('PID',))
 #TODO ...
 

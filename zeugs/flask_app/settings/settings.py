@@ -4,7 +4,7 @@
 """
 flask_app/settings/settings.py
 
-Last updated:  2020-02-08
+Last updated:  2020-02-23
 
 Flask Blueprint for application settings.
 
@@ -26,28 +26,25 @@ Copyright 2020 Michael Towers
 =-LICENCE========================================
 """
 
-from flask import (Blueprint, render_template, request, session,
-        url_for, flash, abort, redirect)
-from flask import current_app as app
+from flask import (Blueprint, render_template, session,
+        url_for, flash, redirect)
+#from flask import current_app as app
 
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, SelectField
+from wtforms import SelectField
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
-#from wtforms.fields.html5 import DateField
-#from wtforms.validators import InputRequired, Length
+from wtforms.fields.html5 import DateField
+from wtforms.validators import InputRequired
 
-import os
-#from types import SimpleNamespace
+import os, datetime
 
-from wz_core.configuration import Paths
-#from wz_core.db import DB
+from wz_core.configuration import Paths, Dates
+from wz_core.db import DB
 from wz_table.dbtable import readPSMatrix
 from wz_core.pupils import Pupils, Klass
 from wz_core.subjectchoices import choices2db, choiceTable
-#from wz_compat.config import sortingName
-#from wz_compat.template import getTemplate, getTemplateTags, pupilFields
-#from wz_text.coversheet import makeSheets, makeOneSheet
+
 
 _HEADING = "Einstellungen"
 
@@ -83,6 +80,58 @@ def index():
 @bp.route('/newyear', methods=['GET','POST'])
 def newyear():
     return "'newyear' not yet implemented"
+
+
+#TODO
+@bp.route('/calendar', methods=['GET','POST'])
+def calendar():
+    class _Form(FlaskForm):
+        START_D = DateField("Erster Schultag", validators=[InputRequired()])
+        END_D = DateField("Letzter Schultag", validators=[InputRequired()])
+
+    schoolyear = session['year']
+    db = DB(schoolyear)
+    form = _Form()
+    if form.validate_on_submit():
+        # POST
+        START_D = form.START_D.data
+        END_D = form.END_D.data
+        # Check start and end dates
+        ystart = datetime.date.fromisoformat(Dates.day1(schoolyear))
+        nystart = datetime.date.fromisoformat(Dates.day1(schoolyear+1))
+        tdelta = datetime.timedelta(days=60)
+        ok = True
+        if START_D < ystart:
+            ok = False
+            flash("Erster Tag vor Schuljahresbeginn", "Error")
+        elif START_D > ystart + tdelta:
+            ok = False
+            flash("Erster Tag > 60 Tage nach Schuljahresbeginn", "Error")
+        if START_D >= nystart:
+            ok = False
+            flash("Letzter Tag nach Schuljahresende", "Error")
+        elif END_D < nystart - tdelta:
+            ok = False
+            flash("Letzter Tag > 60 Tage vor Schuljahresende", "Error")
+        if ok:
+            db.setInfo("CALENDAR_FIRST_DAY", START_D.isoformat())
+            db.setInfo("CALENDAR_LAST_DAY", END_D.isoformat())
+            nextpage = session.pop('nextpage', None)
+            if nextpage:
+                return redirect(url_for(nextpage))
+
+    # GET
+    START_D = db.getInfo("CALENDAR_FIRST_DAY")
+    if START_D:
+        form.START_D.data = datetime.date.fromisoformat(START_D)
+    END_D = db.getInfo("CALENDAR_LAST_DAY")
+    if END_D:
+        form.END_D.data = datetime.date.fromisoformat(END_D)
+    return render_template(os.path.join(_BPNAME, 'calendar.html'),
+                            form=form,
+                            heading=_HEADING)
+
+
 
 
 @bp.route('/choices', methods=['GET','POST'])

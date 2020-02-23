@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% set uplink = url_for('index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}Schülerdaten aktualisieren{% endblock %}
+
+{% block content %}
+    <p>Sie können hier die Aktualisierungen wählen, die übernommen werden.
+    </p>
+
+    <form id="dataform" class="pure-form" method="POST">
+        {{ form.csrf_token }}
+
+        {% for change in changes %}
+        <div class="form-group">
+            <input name="Change" type="checkbox" value="{{loop.index0}}" checked>
+            <span class="menu-item">{{change}}</span>
+        </div>
+        {% endfor %}
+
+        <hr />
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Aktualisieren</button>
+        </div>
+    </form>
+{% endblock %}

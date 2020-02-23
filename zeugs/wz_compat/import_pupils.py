@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-02-16
+wz_compat/import_pupils.py - last updated 2020-02-23
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -171,6 +171,21 @@ class RawPupilData(list):
 
 
 
+class MiniPupilData(dict):
+    """A subset of a pupil's data, used for pupils who are to be removed
+    from the database.
+    """
+    def __init__(self, pdata):
+        self['PID'] = pdata['PID']
+        self['CLASS'] = pdata['CLASS']
+        self['FIRSTNAME'] = pdata['FIRSTNAME']
+        self['LASTNAME'] = pdata['LASTNAME']
+
+    def name(self):
+        return self.shortname
+
+
+
 def readRawPupils(schoolyear, filepath, startdate):
     """Read in a table containing raw pupil data for the whole school
     from the given file (ods or xlsx, the file ending can be omitted).
@@ -306,11 +321,12 @@ _BADOP = "PUPILS operation must be %s, %s or %s: not {op}" % (_REMOVE,
 class DeltaRaw:
     def __init__(self, schoolyear, rawdata):
         """Compare the existing pupil data with the supplied raw data.
-        Return a list of differences, which can be used to perform an update.
+        Create a list of differences, which can be used to perform an update.
         The differences can be of the following kinds:
             - a new pid
             - a pid has been removed
             - a field value for one pid has changed
+        The list is available as attribute <delta>.
         """
         self.schoolyear = schoolyear
         self.fields = rawdata.fields    # fields to compare
@@ -332,20 +348,25 @@ class DeltaRaw:
                         # Field changed
                         self.delta.append((_CHANGE, pdataR, f, val))
         for pid, pdata in oldpdata.items():
-            # Pupil not in new data: list for removal
-            self.delta.append((_REMOVE, pdata))
+            # Pupil not in new data: list for removal.
+            # Just the necessary fields are retained (<MiniPupilData>).
+            self.delta.append((_REMOVE, MiniPupilData(pdata)))
 
 
     def updateFromDelta(self, updates = None):
         """Update the PUPILS table from the supplied raw pupil data.
         Only the fields in the delta list (<self.fields>) will be affected.
-        If <updates> is not supplied, <self.delta> is used.
+        <updates> is a list of indexes into the delta list – the
+        updates to be applied (the others are ignored).
+        If <updates> is not supplied, all updates are applied.
         """
         if updates == None:
-            updates = self.delta
+            lines = self.delta
+        else:
+            lines = [self.delta[int(i)] for i in updates]
         # Sort into deletions, changes and additions
         d, c, a = [], [], []
-        for line in updates:
+        for line in lines:
             op, pdata = line[0:2]
             pid = pdata['PID']
             if op == _REMOVE:
@@ -364,6 +385,8 @@ class DeltaRaw:
             db.update('PUPILS', f, val, PID = pid)
         if a:
             db.addRows('PUPILS', self.fields, a)
+        return lines
+
 
 
 ###########?????

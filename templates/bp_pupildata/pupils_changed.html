@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% set uplink = url_for('index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}aktualisierte Schülerdaten{% endblock %}
+
+{% block content %}
+    <p>Die folgenden Aktualisierungen wurden übernommen:
+    </p>
+
+    {% for change in changes %}
+    <ul>
+        <li>{{change}}</li>
+    </ul>
+    {% endfor %}
+{% endblock %}
