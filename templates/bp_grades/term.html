@@ -11,6 +11,25 @@
     <hr />
     {% endif %}
 
+    <h2>Notentabellen</h2>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.termtable', termn=termn)}}"
+                    class="pure-menu-link">
+                    Notentabellen herunterladen (für die Noteneingabe)
+                </a>
+            </li>
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.addgrades', termn=termn)}}"
+                    class="pure-menu-link">
+                    fertige Notentabellen hochladen
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <h2>Zeugnisse erstellen</h2>
     <p>Wählen Sie hier die Klasse/Gruppe, für die die Zeugnisse zu
     erstellen sind. Das Ausgabedatum können Sie ggf. bei der
     Erstellung anpassen.

@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-02-19
+Last updated:  2020-02-25
 
 Flask Blueprint for grade reports
 
@@ -56,6 +56,7 @@ from wz_table.dbtable import readPSMatrix
 from wz_grades.gradedata import (grades2db, db2grades,
         getGradeData, GradeReportData, singleGrades2db)
 from wz_grades.makereports import makeReports, makeOneSheet
+from wz_grades.gradetable import stripTable, makeGradeTable
 from wz_compat.grade_classes import gradeGroups
 from wz_compat.gradefunctions import gradeCalc
 
@@ -99,8 +100,54 @@ def term(termn):
                             dfile=dfile)
 
 
-### Select date-of-issue and which pupils should be included. Generate
-### reports.
+#TODO
+### View for a term, select school-class
+@bp.route('/termtable/<termn>/<ks>', methods = ['GET'])
+@bp.route('/termtable/<termn>', methods = ['GET'])
+def termtable(termn, ks = None):
+    """View: select school-class (group grade-table generation).
+    """
+    schoolyear = session['year']
+    try:
+        kmap = CONF.GRADES.REPORT_TEMPLATES['_' + termn]
+    except:
+        abort(404)
+    klasses = REPORT.wrap(gradeGroups, termn, suppressok=True)
+    if not klasses:
+        flash(_NO_CLASSES.format(term = termn), "Error")
+        return redirect(url_for('bp_grades.index'))
+
+    dfile = None
+    if ks:
+        # Generate the table
+        if ks in klasses:
+            xlsxbytes = REPORT.wrap(stripTable, schoolyear, termn,
+                    Klass(ks), "Noten: %s. Halbjahr" % termn)
+            if xlsxbytes:
+                session['filebytes'] = xlsxbytes
+                dfile = 'Noten_%s.xlsx' % ks
+        else:
+            abort(404)
+
+    return render_template(os.path.join(_BPNAME, 'termtable.html'),
+                            heading=_HEADING,
+                            termn=termn,
+                            klasses=klasses,
+                            dfile=dfile)
+#TODO: It might be better to do it using a form, as there are the two
+# types of table: 1) for distributing to teachers, 2) for collating
+# results.
+# Perhaps multiple files could be generated at once, with checkboxes
+# to select the groups (default: all). Package as zip.
+#TODO: It might be desirable to do collation in the web app! The entry
+# of special fields would also need to be handled. At present this is
+# possible for single reports only. Perhaps there should be the choice
+# of generating a report or just storing the changes.
+
+
+
+### Select date-of-issue and which pupils should be included.
+### Generate reports.
 @bp.route('/klass/<termn>/<klass_stream>', methods=['GET','POST'])
 def klassview(termn, klass_stream):
     """View: Handle report generation for a group of pupils.

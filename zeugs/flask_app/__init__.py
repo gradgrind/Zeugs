@@ -1,4 +1,4 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 # Start only using run-zeugs.sh in top-level folder to use the production
 # server, or run-gui.sh for the development server.
@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-02-19
+Last updated:  2020-02-25
 
 The Flask application: zeugs front-end.
 
