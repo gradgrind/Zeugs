@@ -1,7 +1,7 @@
 # python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_table/matrix.py - last updated 2020-02-04
+wz_table/matrix.py - last updated 2020-02-28
 
 Edit a table template (xlsx).
 
@@ -163,9 +163,17 @@ class KlassMatrix(Table):
         self.headers = row
         # <i> is the row index of the next row (0-based),
         # initially immediately after the headers
+        self._header_rowindex = i - 1
         self.rowindex = i
         # column index for header column iteration
         self.hcol = 0
+
+
+    def row0(self):
+        """Return the index (0-based) of the header row – the first row
+        with a non-empty, non-'#' first cell.
+        """
+        return self._header_rowindex
 
 
     def hideCol(self, index, clearheader=False):

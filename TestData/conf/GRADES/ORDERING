@@ -1,5 +1,9 @@
 ############## GRADES/ORDERING
-############## Version: 2020-01-29
+############## Version: 2020-02-28
+
+CLASSES =& 13*: E G
+         & 12.Gym: A B C D X
+         & *: S K
 
 ### Abitur (12. Kl.)
 A =& De

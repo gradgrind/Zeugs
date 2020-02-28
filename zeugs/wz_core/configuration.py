@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2020-01-25
+Last updated:  2020-02-28
 
 Configuration items and the handler for the configuration files.
 
@@ -172,11 +172,17 @@ class _ConfigString (str):
             REPORT.Fail (_CONFIGFLOATVAL, k=self._ckey, val=self,
                     path=self._cfile)
 
-    def split (self, splitch = ','):
+#TODO: <csplit> was called <split>, but that is probably a BAD idea because
+# of potential confusion with the normal <split> method for strings.
+# The old method may still be used somewhere, so trap it:
+    def split(self, splitch = ','):
+        REPORT.Bug("DEPRECATED: use <csplit>")
+
+    def csplit (self, splitch = ','):
         """Split the string at <splitch> (default is ',').
         The resulting items are stripped of whitespace left and right.
         """
-        return [i.strip () for i in super ().split (splitch)]
+        return [i.strip () for i in self.split (splitch)]
 
 
 

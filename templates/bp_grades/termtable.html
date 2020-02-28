@@ -11,6 +11,21 @@
     <hr />
     {% endif %}
 
+    <h2>Noteneingabe-Tabelle einlesen (hochladen)</h2>
+    <p>Die Tabelle kann für jede Klasse/Gruppe sein, das Halbjahr muss
+    aber übereinstimmen. Das Format darf 'xlsx' oder 'ods' sein.
+    </p>
+    <form id="dataform" class="pure-form pure-form-stacked" method="POST" enctype="multipart/form-data">
+        {{ form.csrf_token }}
+        <div class="uploaddiv">
+            {{ form.upload.label }}{{ form.upload }}
+        </div>
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Einlesen</button>
+        </div>
+        <hr />
+    </form>
+
     <h2>Noteneingabe-Tabelle erstellen</h2>
     <p>Wählen Sie hier die Klasse/Gruppe, für die die Tabelle zu
     erstellen ist.

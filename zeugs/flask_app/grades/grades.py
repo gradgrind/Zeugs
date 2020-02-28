@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-02-25
+Last updated:  2020-02-28
 
 Flask Blueprint for grade reports
 
@@ -56,7 +56,7 @@ from wz_table.dbtable import readPSMatrix
 from wz_grades.gradedata import (grades2db, db2grades,
         getGradeData, GradeReportData, singleGrades2db)
 from wz_grades.makereports import makeReports, makeOneSheet
-from wz_grades.gradetable import stripTable, makeGradeTable
+from wz_grades.gradetable import makeBasicGradeTable
 from wz_compat.grade_classes import gradeGroups
 from wz_compat.gradefunctions import gradeCalc
 
@@ -100,13 +100,23 @@ def term(termn):
                             dfile=dfile)
 
 
-#TODO
 ### View for a term, select school-class
 @bp.route('/termtable/<termn>/<ks>', methods = ['GET'])
 @bp.route('/termtable/<termn>', methods = ['GET'])
 def termtable(termn, ks = None):
     """View: select school-class (group grade-table generation).
+    The "POST" method allows uploading a completed grade-table.
     """
+    class UploadForm(FlaskForm):
+        upload = FileField('Notentabelle:', validators=[
+            FileRequired(),
+            FileAllowed(['xlsx', 'ods'], 'Notentabelle')
+        ])
+
+    def readdata(f):
+        gtbl = readPSMatrix(f)
+        grades2db(session['year'], gtbl, term=termn)
+
     schoolyear = session['year']
     try:
         kmap = CONF.GRADES.REPORT_TEMPLATES['_' + termn]
@@ -117,28 +127,40 @@ def termtable(termn, ks = None):
         flash(_NO_CLASSES.format(term = termn), "Error")
         return redirect(url_for('bp_grades.index'))
 
+    form = UploadForm()
     dfile = None
-    if ks:
-        # Generate the table
-        if ks in klasses:
-            xlsxbytes = REPORT.wrap(stripTable, schoolyear, termn,
-                    Klass(ks), "Noten: %s. Halbjahr" % termn)
-            if xlsxbytes:
-                session['filebytes'] = xlsxbytes
-                dfile = 'Noten_%s.xlsx' % ks
-        else:
-            abort(404)
+    if form.validate_on_submit():
+        # POST
+        REPORT.wrap(readdata, form.upload.data)
+
+    else:
+        # GET
+        if ks:
+            # Generate the table
+            if ks in klasses:
+                xlsxbytes = REPORT.wrap(makeBasicGradeTableTable,
+                        schoolyear, termn,
+                        Klass(ks), "Noten: %s. Halbjahr" % termn,
+                        suppressok = True)
+                if xlsxbytes:
+                    dfile = 'Noten_%s.xlsx' % ks
+                    session['filebytes'] = xlsxbytes
+#WARNING: This is not part of the official flask API, it might change!
+                    if not session.get("_flashes"):
+                        # There are no messages: send the file for downloading.
+                        return redirect(url_for('download', dfile = dfile))
+                    # If there are messages, the template will show these
+                    # and then make the file available for downloading.
+            else:
+                abort(404)
 
     return render_template(os.path.join(_BPNAME, 'termtable.html'),
-                            heading=_HEADING,
-                            termn=termn,
-                            klasses=klasses,
-                            dfile=dfile)
-#TODO: It might be better to do it using a form, as there are the two
-# types of table: 1) for distributing to teachers, 2) for collating
-# results.
-# Perhaps multiple files could be generated at once, with checkboxes
-# to select the groups (default: all). Package as zip.
+                            heading = _HEADING,
+                            form = form,
+                            termn = termn,
+                            klasses = klasses,
+                            dfile = dfile)
+
 #TODO: It might be desirable to do collation in the web app! The entry
 # of special fields would also need to be handled. At present this is
 # possible for single reports only. Perhaps there should be the choice
@@ -190,33 +212,6 @@ def klassview(termn, klass_stream):
 # It might be helpful to a a little javascript to implement a pupil-
 # selection toggle (all/none) – or else (without javascript) a redisplay
 # with all boxes unchecked?
-
-
-### Upload a grade table for a group (for the selected term).
-@bp.route('/upload/<termn>', methods=['GET','POST'])
-def addgrades(termn):
-    """View: allow a file (grade table) to be uploaded to the server.
-    The grades will be entered into the database, overwriting all
-    existing grades for the pupils in the table.
-    """
-    class UploadForm(FlaskForm):
-        upload = FileField('Notentabelle:', validators=[
-            FileRequired(),
-            FileAllowed(['xlsx', 'ods'], 'Notentabelle')
-        ])
-
-    def readdata(f):
-        gtbl = readPSMatrix(f)
-        grades2db(session['year'], gtbl, term=termn)
-
-    form = UploadForm()
-    if form.validate_on_submit():
-        REPORT.wrap(readdata, form.upload.data)
-
-    return render_template(os.path.join(_BPNAME, 'grades_upload.html'),
-                            heading=_HEADING,
-                            termn=termn,
-                            form=form)
 
 ########### END: views for group reports ###########
 
