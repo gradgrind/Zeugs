@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2020-02-28
+Last updated:  2020-02-29
 
 Configuration items and the handler for the configuration files.
 
@@ -413,6 +413,17 @@ class Dates:
         month1 = CONF.MISC.SCHOOLYEAR_MONTH_1.nat (imax=12, imin=1)
         return '%d-%02d-01' % (schoolyear if month1 == 1 else schoolyear - 1,
                 month1)
+
+
+    @classmethod
+    def checkschoolyear(cls, schoolyear, d):
+        """Test whether the given date <d> lies within the schoolyear.
+        Return true/false.
+        """
+        print("§§§DATECHECK", d, schoolyear, cls.day1(schoolyear), cls.day1(schoolyear + 1))
+        if d < cls.day1(schoolyear):
+            return False
+        return d < cls.day1(schoolyear + 1)
 
 
     @staticmethod

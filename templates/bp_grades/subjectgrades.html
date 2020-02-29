@@ -1,0 +1,30 @@
+<!-- Edit grades for a single subject for all pupils in a class/group -->
+{% extends "base.html" %}
+#TODO: This editor should be available for all teachers ...
+{% set uplink = url_for('bp_grades.pupils', klass=klass) %}
+{% set uplink_help = "Klasse " + klass %}
+
+{% block title %}Noten: {{ subject }}{% endblock %}
+
+{% block content %}
+    <h3>für {{klass_stream}}, Halbjahr {{ termn }}</h3>
+
+    <p>Solange diese Seite zugänglich ist, können Sie auch nach dem
+    Abgabetermin Noten eingeben.</p>
+
+    <form id="dataform" class="pure-form pure-form-aligned widelabel" method="POST">
+        {{ form.csrf_token }}
+
+        <fieldset>
+#TODO
+        {% for pid, pname, grade, tid in grades %}
+            <div class="pure-control-group">
+            {{ form[field].label }}{{ form[field] }}
+            </div>
+        {% endfor %}
+        </fieldset>
+        <hr />
+        <button type="submit" class="pure-button submit-button"
+                    style="margin: 0 1rem;">Speichern</button>
+    </form>
+{% endblock %}
