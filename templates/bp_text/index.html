@@ -3,5 +3,9 @@
 {% block title %}Startseite{% endblock %}
 
 {% block content %}
-Nothing here yet ...
+<p>Aktuell stehen folgende Funktionen zur Verfügung:</p>
+<ul class="modules">
+    <li><a href="{{url_for('bp_text_cover.index')}}">Mantelbögen für Textzeugnisse</a></li>
+    <li><a href="{{url_for('bp_text.summary')}}">Kontrolllisten für Textzeugnisse</a></li>
+</ul>
 {% endblock %}

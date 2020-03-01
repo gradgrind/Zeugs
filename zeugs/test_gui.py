@@ -3,7 +3,7 @@
 """
 test_gui.py
 
-Last updated:  2020-02-18
+Last updated:  2020-03-01
 
 Gui-wrapper for the flask server and browser starter.
 
@@ -153,7 +153,8 @@ xenv = {
     "FLASK_APP": "flask_app",
     "FLASK_ENV": "development",
     "FLASK_RUN_PORT": PORT,
-    "ZEUGS_BASE": basedir
+    "ZEUGS_BASE": basedir,
+    "ZEUGS_USER": "X/s"
 }
 
 pexec = os.path.join(basedir, "venv", "bin", "python")

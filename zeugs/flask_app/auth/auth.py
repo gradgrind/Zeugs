@@ -1,10 +1,10 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 flask_app/auth/auth.py
 
-Last updated:  2020-02-10
+Last updated:  2020-03-01
 
 Flask Blueprint for user authentication (login).
 
@@ -73,33 +73,59 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Einloggen')
 
 
+def dologin(user, perms):
+    session.clear()
+    session['user_id'] = user
+    session['permission'] = perms
+    # The logging handler will be set when needed, see the start module
+    # (<flask_app.__init__>, method <logger>):
+    session['logger'] = None
+#TODO: really? It is good for development work, but maybe in production
+# it would be better to have non-permanent sessions?
+#    session.permanent = True
+    session.permanent = False
+
+    # Delete old session files
+    sdir = current_app.config['SESSION_FILE_DIR']
+    now = time.time()
+    for f in os.listdir(sdir):
+        ff = os.path.join(sdir, f)
+        delta = (now - os.path.getmtime(ff))/86400
+        if delta > 2:
+            os.remove(ff)
+
+    # Set the school-year to the latest one:
+    years = Paths.getYears()
+    if years:
+        session['year'] = years[0]
+        return True
+    return False
+
+
 @bp.route('/login', methods=('GET', 'POST'))
 def login():
+    try:
+        endpoint = session['redirect_login']
+    except KeyError:
+        endpoint = 'dispatch'
+    try:
+        zeugs_user = os.environ['ZEUGS_USER']
+    except KeyError:
+        pass
+    else:
+        if dologin(*zeugs_user.split('/')):
+            return redirect(url_for(endpoint))
+        else:
+            return redirect(url_for('bp_settings.newyear'))
     form = LoginForm()
     if form.validate_on_submit():
-        session.clear()
         tid = form.USER.data
         permission = Users().permission(tid)
-        session['user_id'] = tid
-        session['permission'] = permission
-        # The logging handler will be set when needed, see the start module
-        # (<flask_app.__init__>, method <logger>):
-        session['logger'] = None
-        # Set the school-year to the latest one:
-        session['year'] = Paths.getYears()[0]
-        session.permanent = True
-
-        # Delete old session files
-        sdir = current_app.config['SESSION_FILE_DIR']
-        now = time.time()
-        for f in os.listdir(sdir):
-            ff = os.path.join(sdir, f)
-            delta = (now - os.path.getmtime(ff))/86400
-            if delta > 2:
-                os.remove(ff)
-
+        if not dologin(tid, permission):
+            # No school-years known
+            return redirect(url_for('bp_settings.newyear'))
     if session.get('user_id'):
-        return redirect(url_for('dispatch'))
+        return redirect(url_for(endpoint))
     return render_template(os.path.join(_BPNAME, 'login.html'), form=form)
 
 

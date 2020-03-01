@@ -2,26 +2,20 @@
 {% set uplink = url_for('index') %}
 {% set uplink_help = "Startseite" %}
 
-{% block title %}Einstellungen: Startseite{% endblock %}
+{% block title %}Startseite{% endblock %}
 
 {% block content %}
     <p>Wählen Sie eine Einstellungsseite.
     </p>
-
-    <ul class="pure-menu-list">
-        <li class="pure-menu-item">
-            <a class="pure-menu-link"
-                href="{{url_for('bp_settings.year')}}">
-                „Aktuelles“ Schuljahr verwalten / ändern
-            </a>
-        </li>
-        <li class="pure-menu-item">
-            <a class="pure-menu-link"
-                href="{{url_for('bp_settings.closingdates')}}">
-                Abgabetermine für Noten und Textzeugnisse
-            </a>
-        </li>
+    <ul class="modules">
+        <li><a href="{{url_for('bp_settings.year')}}">
+            Aktuelles“ Schuljahr verwalten / ändern
+        </a></li>
+        <li><a href="{{url_for('bp_settings.closingdates')}}">
+            Abgabetermine für Noten und Textzeugnisse
+        </a></li>
+        <li><a href="{{url_for('bp_settings.choices')}}">
+            Kurswahltabellen verwalten
+        </a></li>
     </ul>
-
-
 {% endblock %}

@@ -4,7 +4,7 @@
 """
 flask_app/grades/abitur.py
 
-Last updated:  2020-02-15
+Last updated:  2020-02-29
 
 Flask Blueprint for abitur reports
 
@@ -146,7 +146,7 @@ def grades(pid):
 
         courses = CourseTables(schoolyear)
         sid2tlist0 = courses.classSubjects(klass, 'GRADE', keep=True)
-        sid2tlist = pupilFilter(schoolyear, sid2tlist0, pdata)
+        sid2tlist = pupilFilter(schoolyear, sid2tlist0, pid)
         i = 0
         for sid, tlist in sid2tlist.items():
             if tlist:

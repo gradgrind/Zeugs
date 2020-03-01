@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-02-25
+Last updated:  2020-03-01
 
 The Flask application: zeugs front-end.
 
@@ -160,6 +160,7 @@ def create_app(test_config=None):
             return None
         if 'u' in perms and request_path.startswith ('/user/'):
             return None
+        session['redirect_login'] = request_endpoint
         return redirect(url_for('bp_auth.login'))
 
 

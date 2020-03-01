@@ -1,7 +1,7 @@
 # python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_core/subjectchoices.py - last updated 2020-02-10
+wz_core/subjectchoices.py - last updated 2020-02-29
 
 Create subject choice tables.
 
@@ -174,7 +174,7 @@ def choices2db(schoolyear, table):
         REPORT.Warn(_NOPUPILS)
 
 
-def pupilFilter(schoolyear, sid2tlist, pdata):
+def pupilFilter(schoolyear, sid2tlist, pid):
     """Return a subject-teacher mapping for all subjects relevant for
     this pupil (in the subject table):
         {[ordered] sid -> <TeacherList> instance OR <None>}
@@ -184,14 +184,13 @@ def pupilFilter(schoolyear, sid2tlist, pdata):
     If a subject is filtered out, the result will have <None> instead of
     the <TeacherList> instance.
     """
-    pid = pdata['PID']
     db = DB(schoolyear)
     choices = db.select1('CHOICES', PID=pid)
     klass = sid2tlist.klass
     if choices:
         rewrite = False
         if choices['CLASS'] != klass:
-            REPORT.Warn(_CHANGED_KLASS, pname=pdata.name(),
+            REPORT.Warn(_CHANGED_KLASS, pname=Pupils.pid2name(schoolyear, pid),
                     new=klass, old=choices['CLASS'])
             return sid2tlist
         cmap = choices2map(choices['CHOICES'])
@@ -277,11 +276,10 @@ def test_02():
 def test_03():
     _klass = Klass('13')
     _pid='200305'
-    pdata = Pupils(_testyear).pupil(_pid)
     courses = CourseTables(_testyear)
     sid2tlist = courses.classSubjects(_klass, 'GRADE', keep=True)
-    p2tlist = pupilFilter(_testyear, sid2tlist, pdata)
+    p2tlist = pupilFilter(_testyear, sid2tlist, _pid)
     print(_klass, _pid, "(GRADE)-->", p2tlist)
     sid2tlist = courses.classSubjects(_klass, 'TEXT', keep=True)
-    p2tlist = pupilFilter(_testyear, sid2tlist, pdata)
+    p2tlist = pupilFilter(_testyear, sid2tlist, _pid)
     print(_klass, _pid, "(TEXT)-->", p2tlist)

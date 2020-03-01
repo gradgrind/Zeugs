@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-02-19
+Last updated:  2020-02-29
 
 Handle the data for grade reports.
 
@@ -352,7 +352,7 @@ class GradeReportData:
         # Copy the grade mapping, because it will be modified to keep
         # track of unused grade entries:
         gmap = dict(grades)     # this accepts a variety of input types
-        sid2tlist = pupilFilter(self.schoolyear, self.sid2tlist, pdata)
+        sid2tlist = pupilFilter(self.schoolyear, self.sid2tlist, pdata['PID'])
         for group, sidlist in self.sgroup2sids.items():
             # Copy the indexes because the list is modified here (<pop()>)
             indexes = self.sgroup2indexes[group].copy()

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-02-16
+wz_core/pupils.py - last updated 2020-02-29
 
 Database access for reading pupil data.
 
@@ -186,6 +186,13 @@ class PupilData(list):
 
 
 class Pupils:
+    @classmethod
+    def pid2name(cls, schoolyear, pid):
+        """Return the short name of a pupil.
+        """
+        return cls(schoolyear).pupil(pid).name()
+
+
     def __init__ (self, schoolyear):
         self.schoolyear = schoolyear
         self.db = DB (schoolyear)
