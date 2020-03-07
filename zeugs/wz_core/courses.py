@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2020-02-10
+Last updated:  2020-03-04
 
 Handler for the basic course info.
 
@@ -126,23 +126,31 @@ class TeacherList(list):
     There are also flag attributes to indicate whether the list is
     relevant for particular report types: <TEXT> and <GRADE>.
     """
-    def __init__(self, commasep, rowflag):
+    def __init__(self, commasep, teacherData, rowflag):
         """Convert a comma-separated string into a list.
         <rowflag> is the default flag for the subject:
             <None>, <_NOTTEXT>, <_NOTGRADE> or <_NOREPORT>
         """
+        if not commasep:
+            REPORT.Bug("<TeacherList> called with empty string")
         super().__init__()
-        for item in commasep.split (','):
-            i = item.strip ()
-            if i:
-                self.append (i)
-        i0 = self[0][0]
+        self.COMPOSITE = None
+        i0 = commasep[0]
         if i0.isalpha():
             i0 = rowflag
         else:
-            self[0] = self[0][1:]
+            if commasep.startswith('$$'):
+                self.COMPOSITE = commasep[2:]
+                self.TEXT = False
+                self.GRADE = True
+                return
+            commasep = commasep[1:]
         self.TEXT = i0 not in (_NOTTEXT, _NOREPORT)
         self.GRADE = i0 not in (_NOTGRADE, _NOREPORT)
+        for item in commasep.split(','):
+            i = item.strip()
+            if teacherData.checkTeacher(i):
+                self.append(i)
 
 
 _CLASSESCOL = 3 # First column with class-info
@@ -189,7 +197,7 @@ class CourseTables:
                 # Handle the teacher tags
                 val = row [col]
                 if val:
-                    tlist = TeacherList(val, flag)
+                    tlist = TeacherList(val, self.teacherData, flag)
                     try:
                         self._classes [klass] [sid] = tlist
                     except:
@@ -257,11 +265,11 @@ def test_01 ():
                 sid, sinfo))
 
     REPORT.Test ("\nClass %s, grade subjects:" % klass)
-    for sid, sinfo in ctables.filterGrades (Klass(klass)).items ():
+    for sid, sinfo in ctables.classSubjects(Klass(klass), 'GRADE').items ():
         REPORT.Test ("  ++ %s (%s): %s" % (ctables.subjectName (sid),
                 sid, sinfo))
 
     REPORT.Test ("\nClass %s, text subjects:" % klass)
-    for sid, sinfo in ctables.filterText (Klass(klass)).items ():
+    for sid, sinfo in ctables.classSubjects(Klass(klass), 'TEXT').items ():
         REPORT.Test ("  ++ %s (%s): %s" % (ctables.subjectName (sid),
                 sid, sinfo))

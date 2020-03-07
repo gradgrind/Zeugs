@@ -1,11 +1,25 @@
 {% extends "base.html" %}
+{% block imports %}
+<style>
+    #upbtn { display: none; }
+</style>
+{% endblock %}
 
 {% block title %}Startseite{% endblock %}
 
 {% block content %}
+<p>Textzeugnisse werden am Ende des Schuljahres ausgestellt.</p>
 <p>Aktuell stehen folgende Funktionen zur Verfügung:</p>
 <ul class="modules">
-    <li><a href="{{url_for('bp_text_cover.index')}}">Mantelbögen für Textzeugnisse</a></li>
-    <li><a href="{{url_for('bp_text.summary')}}">Kontrolllisten für Textzeugnisse</a></li>
+    <li><a href="{{url_for('bp_text_cover.index')}}">
+        Mantelbögen für Textzeugnisse
+    </a></li>
+    <li><a href="{{url_for('bp_text.summary')}}">
+        Kontrolllisten für Textzeugnisse
+    </a></li>
 </ul>
+    <h3>Einstellungen</h3>
+    <ul class="modules">
+        <li><a href="{{url_for('bp_text.closingdate')}}">Abgabetermin</a></li>
+    </ul>
 {% endblock %}

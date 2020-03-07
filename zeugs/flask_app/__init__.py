@@ -145,6 +145,7 @@ def create_app(test_config=None):
         session.modified = True     # to hinder session expiry
         request_endpoint = request.endpoint
         request_path = request.path
+#TODO: remove
         print ("--->", request_endpoint)
         print (" @@@", request_path)
 
@@ -154,6 +155,7 @@ def create_app(test_config=None):
             return None
 #        print ("SESSION:", session)
         perms = session.get('permission', '')
+#TODO: remove
         print("ACCESS:", perms, request_endpoint, request_path)
 #TODO: more elaborate access controls ...
         if 's' in perms:

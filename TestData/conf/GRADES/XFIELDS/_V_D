@@ -1,9 +1,14 @@
 ############## GRADES/XFIELDS/_V_D
-############## Version: 2020-01-25
+############## Version: 2020-03-01
 
-### Zeugnis, 12. Klasse, Gym: Datum der Versetzungskonferenz
+### Zeugnis, 11. und 12. Klasse, Gym: Datum der Versetzungskonferenz
 
 NAME = Versetzungsdatum
+
+FUNCTION = VERSETZUNG
+
+# Abhängigkeit eigentlich nur für 11. Klasse
+DEPENDS =& _AVE
 
 # DATUM: keine Optionswerte
 VALUES = 

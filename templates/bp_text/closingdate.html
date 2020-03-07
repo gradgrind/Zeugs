@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_text.index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}Abgabetermin{% endblock %}
+
+{% block content %}
+    <form class="pure-form pure-form-aligned widelabel" method="POST">
+        {{ form.csrf_token }}
+        <fieldset>
+            <p>Um die Eingabe der Textzeugnisse durch unprivilegierte Benutzer
+            zu ermöglichen, muss der Abgabetermin gesetzt werden. Dieser Termin
+            wird allerdings nicht vom Programm kontrolliert: Um Eingaben
+            zu sperren, muss das Datum auf Null gesetzt werden!
+            </p>
+            <div class="pure-control-group">
+                {{ form.TEXT_CLOSING_D.label }}{{ form.TEXT_CLOSING_D }}
+            </div>
+            <hr />
+            <button type="submit" class="pure-button submit-button"
+                    style="margin: 0;">
+                Übernehmen
+            </button>
+        </fieldset>
+    </form>
+{% endblock %}

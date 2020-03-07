@@ -4,7 +4,7 @@
 """
 flask_app/sttings/pupildata.py
 
-Last updated:  2020-02-23
+Last updated:  2020-03-07
 
 Flask Blueprint for updating pupil data.
 
@@ -94,7 +94,7 @@ def upload():
     startdate = DB(schoolyear).getInfo("CALENDAR_FIRST_DAY")
     if not startdate:
         flash("Sie müssen den ersten Schultag setzen.")
-        session['nextpage'] = 'bp_pupildata.upload'
+        session['nextpage'] = url_for('bp_pupildata.upload')
         return redirect(url_for('bp_settings.calendar'))
 
     form = UploadForm()

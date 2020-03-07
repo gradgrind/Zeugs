@@ -1,6 +1,9 @@
 {% extends "base.html" %}
-{% set uplink = url_for('dispatch') %}
-{% set uplink_help = "Funtionswahl" %}
+{% block imports %}
+<style>
+    #upbtn { display: none; }
+</style>
+{% endblock %}
 
 {% block title %}Zeugnisart{% endblock %}
 
@@ -15,5 +18,10 @@
         <li><a href="{{url_for('bp_grades.term', termn=2)}}">Jahresendzeugnisse</a></li>
         <li><a href="{{url_for('bp_grades.klasses')}}">Einzelzeugnisse</a></li>
         <li><a href="{{url_for('bp_abitur.klasses')}}">Abiturzeugnisse</a></li>
+    </ul>
+    <h3>Einstellungen</h3>
+    <ul class="modules">
+        <li><a href="{{url_for('bp_grades.closingdate')}}">Abgabetermin</a></li>
+        <li><a href="{{url_for('bp_grades.issue')}}">Ausstellungsdatum</a></li>
     </ul>
 {% endblock %}

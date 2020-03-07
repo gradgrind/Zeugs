@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-02-28
+Last updated:  2020-03-07
 
 Flask Blueprint for grade reports
 
@@ -57,7 +57,7 @@ from wz_grades.gradedata import (grades2db, db2grades,
         getGradeData, GradeReportData, singleGrades2db)
 from wz_grades.makereports import makeReports, makeOneSheet
 from wz_grades.gradetable import makeBasicGradeTable
-from wz_compat.grade_classes import gradeGroups
+from wz_compat.grade_classes import gradeGroups, getDateOfIssue, setDateOfIssue
 from wz_compat.gradefunctions import gradeCalc
 
 
@@ -74,6 +74,114 @@ def index():
 
 
 ########### Views for group reports ###########
+
+### View for a term, set closing date for user input
+@bp.route('/closingdate', methods=['GET','POST'])
+def closingdate():
+    class _Form(FlaskForm):
+        TERM = SelectField("Halbjahr")
+        GRADES_CLOSING_D = DateField("Einsendeschluss", validators=[Optional()])
+
+    schoolyear = session['year']
+    form = _Form()
+    form.TERM.choices = [(t, t) for t in CONF.MISC.TERMS] + [('', '–')]
+    db = DB(schoolyear)
+
+    if form.validate_on_submit():
+        ok = True
+        # POST
+        term = form.TERM.data
+        if term:
+            gdate = form.GRADES_CLOSING_D.data
+            if gdate:
+                d = gdate.isoformat()
+                if Dates.checkschoolyear(schoolyear, d):
+                    db.setInfo('GRADES_CURRENT', term + ':' + d)
+                    flash("Notentermin %s. Halbjahr eingestellt: %s" %
+                            (term, d), "Info")
+                else:
+                    flash("Noten: Einsendeschluss ungültig (Schuljahr)", "Error")
+                    ok = False
+            else:
+                flash("Noten: Einsendeschluss fehlt", "Error")
+                ok = False
+        else:
+            # Not accepting grade input
+            db.setInfo('GRADES_CURRENT', None)
+            flash("Noteneingabe gesperrt", "Info")
+        if ok:
+            return redirect(url_for('bp_grades.index'))
+        else:
+            flash("Fehler sind aufgetreten", "Error")
+
+    # GET
+    # Get current settings
+    gradesInfo = db.getInfo('GRADES_CURRENT')
+    if gradesInfo:
+        t, d = gradesInfo.split(':')
+        form.TERM.data = t
+        form.GRADES_CLOSING_D.data = datetime.date.fromisoformat(d)
+    else:
+        form.TERM.data = ''
+    return render_template(os.path.join(_BPNAME, 'closingdate.html'),
+                            form=form,
+                            heading=_HEADING)
+
+
+### View for a term, select date of issue
+@bp.route('/issue', methods=['GET', 'POST'])
+@bp.route('/issue/<termn>', methods=['GET', 'POST'])
+@bp.route('/issue/<termn>/<ks>', methods=['GET', 'POST'])
+def issue(termn = None, ks = None):
+    class _Form(FlaskForm):
+        DOI_D = DateField("Ausstellungsdatum", validators = [InputRequired()])
+
+    schoolyear = session['year']
+    if not termn:
+        current = DB(schoolyear).getInfo('GRADES_CURRENT')
+        if current:
+            termn, _ = current.split(':')
+        else:
+            termn = '1'
+    klasses = REPORT.wrap(gradeGroups, termn, suppressok=True)
+    if not klasses:
+        return abort(404)
+    if ks and ks not in klasses:
+        return abort(404)
+    form = _Form()
+    if form.validate_on_submit():
+        # POST
+        date = form.DOI_D.data.isoformat()
+        if ks:
+            kslist = [ks]
+        else:
+            kslist = klasses
+        for ks in kslist:
+            setDateOfIssue(schoolyear, termn, ks, date)
+            flash("Ausstellungsdatum für Klasse %s: %s" % (ks, date), "Info")
+        nextpage = session.pop('nextpage', None)
+        if nextpage:
+            return redirect(nextpage)
+        return redirect(url_for('bp_settings.issue', termn = termn))
+
+    # GET
+    # Set initial date (if there is an old value)
+    _ks = ks if ks else klasses[0]
+    date = getDateOfIssue(schoolyear, termn, _ks)
+    try:
+        form.DOI_D.data = datetime.date.fromisoformat(date)
+    except:
+        pass
+    return render_template(os.path.join(_BPNAME, 'issue.html'),
+                            heading = _HEADING,
+                            klasses = klasses,
+                            klass = ks,
+                            termn = termn,
+                            form = form)
+
+
+
+
 
 ### View for a term, select school-class
 @bp.route('/term/<termn>', methods=['GET'])
@@ -101,8 +209,8 @@ def term(termn):
 
 
 ### View for a term, select school-class
-@bp.route('/termtable/<termn>/<ks>', methods = ['GET'])
-@bp.route('/termtable/<termn>', methods = ['GET'])
+@bp.route('/termtable/<termn>/<ks>', methods = ['GET', 'POST'])
+@bp.route('/termtable/<termn>', methods = ['GET', 'POST'])
 def termtable(termn, ks = None):
     """View: select school-class (group grade-table generation).
     The "POST" method allows uploading a completed grade-table.
@@ -138,7 +246,7 @@ def termtable(termn, ks = None):
         if ks:
             # Generate the table
             if ks in klasses:
-                xlsxbytes = REPORT.wrap(makeBasicGradeTableTable,
+                xlsxbytes = REPORT.wrap(makeBasicGradeTable,
                         schoolyear, termn,
                         Klass(ks), "Noten: %s. Halbjahr" % termn,
                         suppressok = True)

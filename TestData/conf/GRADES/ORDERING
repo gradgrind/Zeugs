@@ -1,5 +1,5 @@
 ############## GRADES/ORDERING
-############## Version: 2020-02-28
+############## Version: 2020-03-01
 
 CLASSES =& 13*: E G
          & 12.Gym: A B C D X
@@ -25,7 +25,7 @@ C =& Ma
    & Ph
    
 D =& Sp
-   & Eu
+   & Eu_
 
 X =& Kge_k
    & FK_k
@@ -68,7 +68,7 @@ S =& De
    & Sp
    
 # Künstlerisch-praktisch
-K =& Eu
+K =& Eu_
    & Bb_k
    & FK_k
    & Kge_k

@@ -126,6 +126,10 @@
     color: #00e;
 }
 
+.modules {
+    list-style-type: none;
+}
+
 .modules li {
     margin: 0.5rem;
 }

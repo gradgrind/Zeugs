@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-02-29
+Last updated:  2020-03-06
 
 Handle the data for grade reports.
 
@@ -44,6 +44,7 @@ _NEWGRADES = "Noten für {n} Schüler aktualisiert ({year}/{term}: {klass})"
 _BAD_GRADE_DATA = "Fehlerhafte Notendaten für Schüler PID={pid}, TERM={term}"
 _UNGROUPED_SID = ("Fach fehlt in Fachgruppen (in GRADES.ORDERING): {sid}"
         "\n  Vorlage: {tfile}")
+_NO_TEMPLATE = "Keine Zeugnisvorlage für Klasse {ks}, Typ {rtype}"
 
 
 import os
@@ -278,12 +279,16 @@ class GradeReportData:
         """
         self.schoolyear = schoolyear
         self.klassdata = klass
+        self.GradeManager = Manager(klass)
 
         ### Set up categorized, ordered lists of grade fields for insertion
         ### in a report template.
         # If there is a list of streams in <klass> this will probably
         # only match '*' in the template mapping:
-        self.template = getGradeTemplate(rtype, klass)
+        try:
+            self.template = getGradeTemplate(rtype, klass)
+        except TemplateError:
+            REPORT.Fail(_NO_TEMPLATE, ks=klass, rtype=rtype)
         self.alltags = getTemplateTags(self.template)
         # Extract grade-entry tags, i.e. those matching <str>_<int>:
         gtags = {}      # {subject group -> [(unsorted) index<int>, ...]}
@@ -331,6 +336,21 @@ class GradeReportData:
                 REPORT.Error(_UNGROUPED_SID, sid=sid, tfile=self.template.filename)
 
 
+    def validGrades(self):
+        return self.GradeManager.VALIDGRADES
+
+
+    def gradeManager(self, grades):
+        return self.GradeManager(schoolyear, self.sid2tlist, grades)
+# There could be a problem with rehashing old reports – when stream and
+# / or class has changed. The subjects could be different, those for the
+# class/ stream at the original date of issue should be used (from the
+# GRADES db-table). Also subject choices cannot be relevant!
+
+
+
+
+#TODO
     def getTagmap(self, grades, pdata, grademap='GRADES'):
         """Prepare tag mapping for substitution in the report template,
         for the pupil <pdata> (a <PupilData> instance).

@@ -5,6 +5,9 @@
 
 NAME = Abschluss 12. Kl.
 
+DEPENDS =& _AVE
+         & _DEM
+
 VALUES =& HS
         & RS
         & Erw

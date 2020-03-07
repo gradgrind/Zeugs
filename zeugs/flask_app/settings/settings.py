@@ -4,7 +4,7 @@
 """
 flask_app/settings/settings.py
 
-Last updated:  2020-02-29
+Last updated:  2020-03-07
 
 Flask Blueprint for application settings.
 
@@ -43,6 +43,7 @@ from wz_core.configuration import Paths, Dates
 from wz_core.db import DB
 from wz_table.dbtable import readPSMatrix
 from wz_core.pupils import Pupils, Klass
+#?
 from wz_core.subjectchoices import choices2db, choiceTable
 
 
@@ -58,77 +59,6 @@ bp = Blueprint(_BPNAME,             # internal name of the Blueprint
 def index():
     return render_template(os.path.join(_BPNAME, 'index.html'),
                             heading=_HEADING)
-
-
-
-@bp.route('/closingdates', methods=['GET','POST'])
-def closingdates():
-    class _Form(FlaskForm):
-        TERM = SelectField("Halbjahr")
-        GRADES_CLOSING_D = DateField("Einsendeschluss", validators=[Optional()])
-        TEXT_CLOSING_D = DateField("Einsendeschluss", validators=[Optional()])
-
-    schoolyear = session['year']
-    form = _Form()
-    form.TERM.choices = [(t, t) for t in CONF.MISC.TERMS] + [('', '–')]
-    db = DB(schoolyear)
-
-    if form.validate_on_submit():
-        ok = True
-        # POST
-        term = form.TERM.data
-        if term:
-            gdate = form.GRADES_CLOSING_D.data
-            if gdate:
-                d = gdate.isoformat()
-                if Dates.checkschoolyear(schoolyear, d):
-                    db.setInfo('GRADES_CURRENT', term + ':' + d)
-                    flash("Notentermin eingestellt", "Info")
-                else:
-                    flash("Noten: Einsendeschluss ungültig (Schuljahr)", "Error")
-                    ok = False
-            else:
-                flash("Noten: Einsendeschluss fehlt", "Error")
-                ok = False
-        else:
-            # Not accepting grade input
-            db.setInfo('GRADES_CURRENT', None)
-            flash("Noteneingabe gesperrt", "Info")
-        tdate = form.TEXT_CLOSING_D.data
-        if tdate:
-            d = tdate.isoformat()
-            # check within school-year
-            if Dates.checkschoolyear(schoolyear, d):
-                db.setInfo('TEXT_CURRENT', d)
-                flash("Textzeugnisse: Einsendeschluss gestzt", "Info")
-            else:
-                flash("Textzeugnisse: Einsendeschluss ungültig (Schuljahr)", "Error")
-                ok = False
-        else:
-            db.setInfo('TEXT_CURRENT', None)
-            flash("Textzeugniseingabe gesperrt", "Info")
-        if ok:
-            flash("Aktion erfolgreich", "Info")
-            return redirect(url_for('bp_settings.index'))
-        else:
-            flash("Fehler sind aufgetreten", "Error")
-
-    # GET
-    # Get current settings
-    gradesInfo = db.getInfo('GRADES_CURRENT')
-    if gradesInfo:
-        t, d = gradesInfo.split(':')
-        form.TERM.data = t
-        form.GRADES_CLOSING_D.data = datetime.date.fromisoformat(d)
-    else:
-        form.TERM.data = ''
-    textInfo = db.getInfo('TEXT_CURRENT')
-    if textInfo:
-        form.TEXT_CLOSING_D.data = datetime.date.fromisoformat(textInfo)
-    return render_template(os.path.join(_BPNAME, 'closingdates.html'),
-                            form=form,
-                            heading=_HEADING)
-
 
 
 @bp.route('/year', methods=['GET','POST'])
@@ -152,7 +82,6 @@ def year():
     return render_template(os.path.join(_BPNAME, 'schoolyear.html'),
                             form=form,
                             heading=_HEADING)
-
 
 
 @bp.route('/newyear', methods=['GET','POST'])
@@ -184,7 +113,7 @@ def calendar():
         elif START_D > ystart + tdelta:
             ok = False
             flash("Erster Tag > 60 Tage nach Schuljahresbeginn", "Error")
-        if START_D >= nystart:
+        if END_D >= nystart:
             ok = False
             flash("Letzter Tag nach Schuljahresende", "Error")
         elif END_D < nystart - tdelta:
@@ -195,7 +124,7 @@ def calendar():
             db.setInfo("CALENDAR_LAST_DAY", END_D.isoformat())
             nextpage = session.pop('nextpage', None)
             if nextpage:
-                return redirect(url_for(nextpage))
+                return redirect(nextpage)
 
     # GET
     START_D = db.getInfo("CALENDAR_FIRST_DAY")
@@ -208,6 +137,10 @@ def calendar():
                             form=form,
                             heading=_HEADING)
 
+
+@bp.route('/subjects', methods=['GET'])
+def subjects():
+    return "Not yet implemented"
 
 
 @bp.route('/choices', methods=['GET','POST'])

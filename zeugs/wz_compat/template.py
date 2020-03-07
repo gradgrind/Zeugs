@@ -4,7 +4,7 @@
 """
 wz_compat/template.py
 
-Last updated:  2020-01-26
+Last updated:  2020-03-05
 
 Functions for template handling.
 
@@ -37,6 +37,8 @@ import jinja2
 
 from wz_core.configuration import Paths, Dates
 
+class TemplateError(Exception):
+    pass
 
 def getGradeTemplate(rtype, klass):
     """Return the matching template for the given school-class/groups
@@ -47,9 +49,7 @@ def getGradeTemplate(rtype, klass):
     tfile = klass.match_map(tlist)
     if tfile:
         return openTemplate(tfile)
-    else:
-        REPORT.Bug("Invalid report category for class {ks}: {rtype}",
-                ks=klass, rtype=rtype)
+    raise TemplateError
 
 
 def getTextTemplate(rtype, klass):

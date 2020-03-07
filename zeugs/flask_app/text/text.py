@@ -4,7 +4,7 @@
 """
 flask_app/text/text.py
 
-Last updated:  2020-02-10
+Last updated:  2020-03-07
 
 Flask Blueprint for text reports
 
@@ -28,18 +28,18 @@ Copyright 2019-2020 Michael Towers
 
 #TODO ...
 
-from flask import (Blueprint, render_template, request, send_file,
-        session, url_for)
-from flask import current_app as app
+import os, datetime, io
 
+from flask import (Blueprint, render_template, request, send_file,
+        session, url_for, flash, redirect)
+from flask import current_app as app
 from flask_wtf import FlaskForm
 from wtforms import RadioField
 from wtforms.fields.html5 import DateField
-from wtforms.validators import InputRequired
-
-import os, datetime, io
+from wtforms.validators import InputRequired, Optional
 
 from wz_core.configuration import Dates
+from wz_core.db import DB
 from wz_core.teachers import Users
 from wz_text.summary import tSheets, ksSheets
 
@@ -66,6 +66,45 @@ def index():
                             uplink=url_for('dispatch'),
                             uplink_help="Zeugs: Funktionen")
 
+
+@bp.route('/closingdate', methods=['GET','POST'])
+def closingdate():
+    class _Form(FlaskForm):
+        TEXT_CLOSING_D = DateField("Einsendeschluss", validators=[Optional()])
+
+    schoolyear = session['year']
+    form = _Form()
+    db = DB(schoolyear)
+
+    if form.validate_on_submit():
+        ok = True
+        # POST
+        tdate = form.TEXT_CLOSING_D.data
+        if tdate:
+            d = tdate.isoformat()
+            # check within school-year
+            if Dates.checkschoolyear(schoolyear, d):
+                db.setInfo('TEXT_CURRENT', d)
+                flash("Textzeugnisse: Einsendeschluss gesetzt", "Info")
+            else:
+                flash("Textzeugnisse: Einsendeschluss ungültig (Schuljahr)", "Error")
+                ok = False
+        else:
+            db.setInfo('TEXT_CURRENT', None)
+            flash("Textzeugniseingabe gesperrt", "Info")
+        if ok:
+            return redirect(url_for('bp_text.index'))
+        else:
+            flash("Fehler sind aufgetreten", "Error")
+
+    # GET
+    # Get current settings
+    textInfo = db.getInfo('TEXT_CURRENT')
+    if textInfo:
+        form.TEXT_CLOSING_D.data = datetime.date.fromisoformat(textInfo)
+    return render_template(os.path.join(_BPNAME, 'closingdate.html'),
+                            form=form,
+                            heading=_HEADING)
 
 
 @bp.route('/summary', methods=['GET','POST'])

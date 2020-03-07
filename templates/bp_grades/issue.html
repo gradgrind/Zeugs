@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% if klass %}
+    {% set uplink = url_for('bp_grades.issue', termn=termn) %}
+    {% set uplink_help = "Alle Klassen" %}
+{% else %}
+    {% set uplink = url_for('bp_grades.index') %}
+    {% set uplink_help = "Notenzeugnisse" %}
+{% endif %}
+
+{% block title %}Ausstellungsdatum{% endblock %}
+
+{% block content %}
+    <h2>{{ termn }}. Halbjahr
+    </h2>
+    <ul class="modules">
+        {% if termn == '1' %}{% set hj = '2' %}{% else %}{% set hj = '1' %}{% endif %}
+        <li><a href="{{url_for('bp_grades.issue', termn=hj)}}">
+            ↪ {{ hj }}. Halbjahr
+        </a></li>
+    </ul>
+    <h3>{% if klass %}Klasse {{ klass }}{% else %}Alle Klassen{% endif %}
+    </h3>
+    <form class="pure-form" method="POST">
+        {{ form.csrf_token }}
+        <fieldset>
+            <legend>{{ form.DOI_D.label }}</legend>{{ form.DOI_D }}
+            <button type="submit" class="pure-button submit-button"
+                    style="margin: 0;">
+                Übernehmen
+            </button>
+        </fieldset>
+    </form>
+    <hr />
+    <p>Sie können hier eine Klasse/Gruppe wählen, um für nur diese das
+    Ausstellungsdatum zu setzen.
+    </p>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for k in klasses %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.issue', termn=termn, ks=k)}}"
+                        class="pure-menu-link">
+                    Klasse {{ k }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+{% endblock %}

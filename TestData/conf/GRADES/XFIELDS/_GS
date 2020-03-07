@@ -1,9 +1,13 @@
 ############## GRADES/XFIELDS/_GS
-############## Version: 2020-01-26
+############## Version: 2020-03-01
 
 ### Gleichstellungsvermerk: für Abgangszeugnisse
 
 NAME = Gleichstellungsvermerk
+
+FUNCTION = GSVERMERK
+
+DEPENDS =& _AVE
 
 VALUES =& HS
         & RS

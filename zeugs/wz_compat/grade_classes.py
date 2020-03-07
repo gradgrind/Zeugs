@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-01-21
+Last updated:  2020-03-06
 
 For which school-classes and streams are grade reports possible?
 
@@ -27,6 +27,11 @@ Copyright 2020 Michael Towers
 =-LICENCE========================================
 """
 
+_INVALID_GROUP = "Ungültige Zeugnis-Gruppe für das {term}. Halbjahr: {group}"
+
+
+from wz_core.db import DB
+
 
 def gradeGroups(term):
     return g2groups[term]
@@ -41,6 +46,17 @@ g2groups = {
 ## Einzelzeugnisse: alle Großklassen ab der 5.
     "X": ["%02d" % n for n in range(13, 4, -1)]
 }
+
+
+def setDateOfIssue(schoolyear, term, group, date):
+    if group not in gradeGroups(term):
+        REPORT.Fail(_INVALID_GROUP, term = term, group = group)
+    DB(schoolyear).setInfo('GRADE_DATE_%s_%s' % (term, group), date)
+
+def getDateOfIssue(schoolyear, term, group):
+    if group not in gradeGroups(term):
+        REPORT.Fail(_INVALID_GROUP, term = term, group = group)
+    return DB(schoolyear).getInfo('GRADE_DATE_%s_%s' % (term, group))
 
 
 ##################### Test functions
