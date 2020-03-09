@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-02-23
+Last updated:  2020-03-08
 
 This module handles access to an sqlite database.
 
@@ -37,16 +37,16 @@ _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
 ### Field names for the grade table.
 # Note that the stream should be recorded as this can change in the
 # course of a year.
-# Before a report has been generated, the fields REPORT_TYPE and DATE_D
-# are empty. For each term, only the data for the last report generated
-# will be remembered. For extra reports, there should be a special TERM
-# entry to identify the report.
+# Before a report has been generated, the field REPORT_TYPE is empty.
+# For each term, only the data for the last report generated will be
+# remembered. For extra reports, there should be a special TERM
+# entry (date of issue) to identify the report.
 #TODO: perhaps it should be possible to delete entries, or at least mark
 # them as superseded.
 #TODO: There should be only one report for a given date, regardless of
 # the TERM?
 GRADE_FIELDS = ('CLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
-        'DATE_D', 'GRADES', 'REMARKS')
+        'GRADES', 'REMARKS')
 GRADE_UNIQUE = [('PID', 'TERM')]
 CHOICE_FIELDS = ('CLASS', 'PID', 'CHOICES')
 CHOICE_UNIQUE = ['PID']

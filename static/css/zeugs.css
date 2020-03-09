@@ -14,7 +14,7 @@
     color: #00e;
 }
 .fixed-header a:visited {
-    color: #00e;
+    color: #00e !important;
 }
 
 .fixed-footer{
@@ -134,12 +134,16 @@
     margin: 0.5rem;
 }
 
-.modules li a {
+a {
     color: #00e;
 }
 
-.modules li a:visited {
+a:visited {
     color: #00e;
+}
+
+a.pure-menu-link:visited {
+    color: #777;
 }
 
 #dataform {

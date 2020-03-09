@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-03-06
+Last updated:  2020-03-09
 
 Calculations needed for grade handling.
 
@@ -29,7 +29,6 @@ Copyright 2019-2020 Michael Towers
 
 _UNCHOSEN = '/'
 _NO_AVERAGE = '*'
-_EMPTY_GRADE = '?'
 
 # Messages
 _MULTIPLE_SUBJECT = "Fach {sid} mehrfach benotet"
@@ -38,23 +37,21 @@ _MISSING_SID = "Keine Note im Fach {sid}"
 _BADGRADE = "Ungültige Note im Fach {sid}: {grade}"
 _VD11_MISSING = ("Klasse {klass}: Das Datum der Notenkonferenz fehlt.\n"
         "  Siehe Einstellungen/Kalender.")
+# ... for Abitur
+_NO_GRADE = "Kein Ergebnis in %s"
+_NULL_ERROR = "0 Punkte in %s"
+_LOW1_ERROR = "Punkte in schriftlichen Fächer < 220"
+_LOW2_ERROR = "Punkte in mündlichen Fächer < 80"
+_UNDER2_1_ERROR = "< 2 schriftliche Fächer mit mindestens 5 Punkten"
+_UNDER2_2_ERROR = "< 2 mündliche Fächer mit mindestens 5 Punkten"
+_FAILED = "Abitur nicht bestanden: {error}"
+_INVALID_GRADES = ("Ungültige Fächer/Noten für {pname}, erwartet:\n"
+        "  .e .eN .e .eN .e .eN .g .gN .m .m .m .m")
+
 
 from fractions import Fraction
 
 from wz_core.db import DB
-
-
-#DEPRECATED
-def gradeCalc(grademap, gcalc):
-    """Calculate grades for the subject-ids listed in <gcalc>.
-    <grademap> is the raw grade mapping {sid -> grade}. This supplies
-    component grades and receives calculated ones.
-    """
-    for sid in gcalc:
-        config = CONF.GRADES.XFIELDS[sid]
-        f = getattr(FUNCTIONS, config.FUNCTION)
-        val = f(grademap, config)
-        grademap[sid] = val
 
 
 class Frac(Fraction):
@@ -75,90 +72,35 @@ class Frac(Fraction):
 
 
 
-
-def DIVIDE_ROUND(inum, idiv, decimalplaces, idigits=None):
-    """Divide <inum> by <idiv> and round to the given number (<rounding>)
-    of decimal places. Use integer arithmetic to avoid rounding errors.
-    Return the result as a string.
-    <idigits> is only for the case <decimalplaces == 0>. It specifies
-    whether leading zeros should be generated, by giving the total number
-    of digits.
-    """
-    r = decimalplaces + 1
-    v = (inum * 10**r) // idiv
-    val = (v + 5) // 10
-    if decimalplaces == 0:
-        if idigits:
-            return ("{:0%dd}" % idigits).format(val)
-        return str(val)
-    # Include the decimal separator
-    sval = ("{:0%dd}" % r).format(val)
-    return (sval[:-decimalplaces]
-            + CONF.FORMATTING.DECIMALPOINT
-            + sval[-decimalplaces:])
-
-
 def stripsid(sid):
     """Remove everything after the first '.', if there is one.
     """
     return sid.split('.', 1)[0]
 
 
-class GradeManagerN(dict):
+
+def Manager(klass):
+    if klass.klass >= '13':
+        return GradeManagerQ1
+    if klass.klass >= '12' and klass.stream == 'Gym':
+        return GradeManagerQ1
+    return GradeManagerN
+
+
+
+class _GradeManager(dict):
     """Analyse the grades to derive the additional information
     necessary for the evaluation of the results.
     The grades in composite subjects can be calculated and made available
     (via the '.'-stripped sid) as an <int>.
-     1) Average
-     2) Average DEM
-     3) Grades "5" and "6"
     """
-    _DEM = ('De', 'En', 'Ma')
-    _GRADES = {
-            '1': "sehr gut",
-            '2': "gut",
-            '3': "befriedigend",
-            '4': "ausreichend",
-            '5': "mangelhaft",
-            '6': "ungenügend",
-            '*': "––––––",
-            'nt': "nicht teilgenommen",
-            't': "teilgenommen",
-#            'ne': "nicht erteilt",
-            'nb': "kann nicht beurteilt werden",
-            _UNCHOSEN: None
-    }
-    VALIDGRADES = (
-                '1+', '1', '1-',
-                '2+', '2', '2-',
-                '3+', '3', '3-',
-                '4+', '4', '4-',
-                '5+', '5', '5-',
-                '6',
-                '*', 'nt', 't', 'nb', #'ne',
-                _UNCHOSEN
-    )
-
-
-    def printGrade(self, sid):
-        """Fetch the grade for the given subject id and return the
-        string representation required for the reports.
-        """
-        try:
-            g = self[sid]
-        except KeyError:
-            return '???'
-        try:
-            return (self._GRADES[g])
-        except KeyError:
-            return _EMPTY_GRADE
-
+    NO_ENTRY = '––––––––––' # for "empty" slots in the report template
+    ZPAD = 1    # set to 2 to force leading zero (e.g. '6' -> '06')
 
     def __init__(self, schoolyear, sid2tlist, grademap):
         """Sanitize all "grades" in <grademap>, storing the results as
         instance items.
-        Also collect all numeric grades, stripping '+' and '-', as
-        instance attribute <grades>:
+        Also collect all numeric grades as instance attribute <grades>:
             {stripped sid -> int}.
         "Component" subjects ('<sid>_<tag>') are collected separately
         as instance attribute <components>:
@@ -167,28 +109,29 @@ class GradeManagerN(dict):
         A stripped subject is obtained by removing everything from the
         first '.' of the subject id.
         """
+        super().__init__()
+
         def addcomponent(t, s, g):
             try:
                 self.components[t].append((s, g))
             except KeyError:
                 self.components[t] = [(s, g)]
 
-#<grademap> could be <None>
-        grademap = dict(grademap)   # to preserve the original mapping
+        # Preserve the original mapping:
+        grademap = dict(grademap) if grademap else {}
         self.schoolyear = schoolyear
         self.sid0_sid = {}  # {stripped sid -> sid}
         # Collect normal grades (not including "component" subjects):
         self.grades = {}    # numeric grades {stripped sid -> int}
         # Collect lists of "component" subjects. The tag is after '_':
         self.components = {}    # {tag -> [(stripped sid, int/None), ...]}
-        self.composites = []    # [(sid, composite tag), ...]
+        self.composites = {}    # {sid -> composite tag}
         for sid, tlist in sid2tlist.items():
             if tlist == None:
-                self[sid] = _UNCHOSEN
                 continue
             if tlist.COMPOSITE:
                 # A composite
-                self.composites.append((sid, tlist.COMPOSITE))
+                self.composites[sid] = tlist.COMPOSITE
                 continue
             g = grademap.get(sid)
             if g == _UNCHOSEN:
@@ -211,53 +154,23 @@ class GradeManagerN(dict):
                 _, tag = sid0.split('_', 1)
             except ValueError:
                 tag = None
-            # Separate out numeric grades, ignoring '+' and '-'
-            plusminus = g[-1]
-            if plusminus in '+-':
-                try:
-                    gint = int(g[:-1])
-                    if gint < 1 or gint > 5:
-                        raise ValueError
-                except ValueError:
-                    # Report and ignore
-                    REPORT.Error(_BADGRADE, sid=sid, grade=g)
-                    self[sid] = None
-                    continue
-            else:
-                plusminus = ''
-                try:
-                    gint = int(g)
-                    if gint < 1 or gint > 6:
-                        raise ValueError
-                except ValueError:
-                    if g not in _GRADES:
-                        REPORT.Error(_BADGRADE, sid=sid, grade=g)
-                        self[sid] = None
-                        continue
-                    if tag:
-                        addcomponent(tag, sid0, None)
-                    self[sid] = g
-                    self.sid0_sid[sid0] = sid
-                    continue
-            # Integer grade ...
-            # Sanitized original grade:
-            self[sid] = str(gint) + plusminus
-            self.sid0_sid[sid0] = sid
-            if tag:
-                addcomponent(tag, sid0, gint)
-            else:
-                self.grades[sid0] = gint
+            gint = self.gradeFilter(sid, g)
+            if gint != None:
+                self.sid0_sid[sid0] = sid
+                if tag:
+                    addcomponent(tag, sid0, None if gint < 0 else gint)
+                elif gint >= 0:
+                    self.grades[sid0] = gint
 
 
     def addDerivedEntries(self):
         """Add entries to the grade mapping for those items/subjects
         which are determined by processing the other grades.
-        <self.composites> [(sid, tag), ...] is a list of "composite" subjects,
-        whose grade is the average of its "components". The "tag" refers
-        to the components.
-        Also build lists of "fives" and "sixes".
+        <self.composites> {sid -> tag} is a mapping of "composite"
+        subjects, whose grade is the average of its "components". The
+        "tag" refers to the components.
         """
-        for sid, tag in self.composites:
+        for sid, tag in self.composites.items():
             asum, acount = 0, 0
             try:
                 components = self.components[tag]
@@ -270,18 +183,85 @@ class GradeManagerN(dict):
                     acount += 1
             if acount:
                 g = Frac(asum, acount).round()
-                self[sid] = g
+                self[sid] = g.zfill(self.ZPAD)
                 self.grades[sid] = int(g)
             else:
                 self[sid] = _NO_AVERAGE
 
-        self.fives = []
-        self.sixes = []
-        for sid0, g in self.grades.items():
-            if g == 5:
-                self.fives.append(sid0)
-            elif g == 6:
-                self.sixes.append(sid0)
+
+
+class GradeManagerN(_GradeManager):
+    """Handle grades on the 1–6 scale, including '+' and '-'.
+    Add analysis methods for:
+     1) Average
+     2) Average DEM
+     3) Grades "5" and "6"
+    """
+    _DEM = ('De', 'En', 'Ma')
+    _GRADES = {
+            '1': "sehr gut",
+            '2': "gut",
+            '3': "befriedigend",
+            '4': "ausreichend",
+            '5': "mangelhaft",
+            '6': "ungenügend",
+            '*': "––––––",
+            'nt': "nicht teilgenommen",
+            't': "teilgenommen",
+#            'ne': "nicht erteilt",
+            'nb': "kann nicht beurteilt werden",
+            _UNCHOSEN: None,
+            '': '?'
+    }
+    VALIDGRADES = (
+                '1+', '1', '1-',
+                '2+', '2', '2-',
+                '3+', '3', '3-',
+                '4+', '4', '4-',
+                '5+', '5', '5-',
+                '6',
+                '*', 'nt', 't', 'nb', #'ne',
+                _UNCHOSEN
+    )
+
+
+    def printGrade(self, g):
+        """Fetch the grade for the given subject id and return the
+        string representation required for the reports.
+        """
+        return self._GRADES[g.rstrip('+-')]
+
+
+    def gradeFilter(self, sid, g):
+        # Separate out numeric grades, ignoring '+' and '-'
+        plusminus = g[-1]
+        if plusminus in '+-':
+            try:
+                gint = int(g[:-1])
+                if gint < 1 or gint > 5:
+                    raise ValueError
+            except ValueError:
+                # Report and ignore
+                REPORT.Error(_BADGRADE, sid=sid, grade=g)
+                self[sid] = None
+                return None
+        else:
+            plusminus = ''
+            try:
+                gint = int(g)
+                if gint < 1 or gint > 6:
+                    raise ValueError
+            except ValueError:
+                if g not in self.VALIDGRADES:
+                    REPORT.Error(_BADGRADE, sid=sid, grade=g)
+                    self[sid] = None
+                    return None
+                self[sid] = g
+                return -1
+        # Integer grade ...
+        # Sanitized original grade:
+        self[sid] = str(gint) + plusminus
+        return gint
 
 
 #TODO: According to "Verordnung AVO-Sek_I, 2016", the averages should
@@ -330,6 +310,15 @@ class GradeManagerN(dict):
                             csids.append(s)
                             return True
             return False
+
+        # Build lists of "fives" and "sixes".
+        self.fives = []
+        self.sixes = []
+        for sid0, g in self.grades.items():
+            if g == 5:
+                self.fives.append(sid0)
+            elif g == 6:
+                self.sixes.append(sid0)
 
         csids = []      # used compensation subjects
         if self.sixes:
@@ -413,50 +402,55 @@ class GradeManagerN(dict):
 
 
 
+class GradeManagerQ1(_GradeManager):
+    ZPAD = 2    # all (numeric) grades have two digits (e.g. '1' -> '01')
+    VALIDGRADES = (
+                '15', '14', '13',
+                '12', '11', '10',
+                '09', '08', '07',
+                '06', '05', '04',
+                '03', '02', '01',
+                '00',
+                '*', 'nt', 't', 'nb', #'ne',
+                _UNCHOSEN
+    )
 
 
-#DEPRECATED
-class FUNCTIONS:
-    @staticmethod
-    def AVERAGE(grademap, config):
-        """The average of the component grades, for a composite grade.
-        The grade scale must be detected.
+    def printGrade(self, g):
+        """Fetch the grade for the given subject id and return the
+        string representation required for the reports.
         """
-        idigits = 0
-        # <tag> is the sid extension (after '_') determining the components.
-        tag = '_' + config.TAG
-        asum, acount = 0, 0
-        for sid, g in grademap.items():
-            if sid.endswith(tag):
-                g = g.rstrip('+-')
-                try:
-                    asum += int(g)
-                except ValueError:
-                    # Not an integer
-                    continue
-                acount += 1
-                if len(g) == idigits:
-                    continue
-                if idigits:
-                    REPORT.Bug("Inconsistent grade scale. Grades: %s" % repr(grademap))
-                idigits = len(g)
-        if acount:
-            # Use integer arithmetic to calculate average
-            return DIVIDE_ROUND (asum, acount, 0, idigits=idigits)
-        return _NO_AVERAGE
+        if g not in self.VALIDGRADES:
+            raise ValueError
+        try:
+            int(g)
+            return g
+        except:
+            if g:
+                return "––––––"
+            else:
+                return "?"
 
 
+    def gradeFilter(self, sid, g):
+        # Separate out numeric grades
+        try:
+            gint = int(g)
+            if gint < 0 or gint > 15:
+                raise ValueError
+        except ValueError:
+            if g not in self.VALIDGRADES:
+                REPORT.Error(_BADGRADE, sid=sid, grade=g)
+                self[sid] = None
+                return None
+            self[sid] = g
+            return -1
+        # Integer grade ...
+        # Sanitized original grade:
+        self[sid] = str(gint).zfill(self.ZPAD)
+        return gint
 
 
-_NO_GRADE = "Kein Ergebnis in %s"
-_NULL_ERROR = "0 Punkte in %s"
-_LOW1_ERROR = "Punkte in schriftlichen Fächer < 220"
-_LOW2_ERROR = "Punkte in mündlichen Fächer < 80"
-_UNDER2_1_ERROR = "< 2 schriftliche Fächer mit mindestens 5 Punkten"
-_UNDER2_2_ERROR = "< 2 mündliche Fächer mit mindestens 5 Punkten"
-_FAILED = "Abitur nicht bestanden: {error}"
-_INVALID_GRADES = ("Ungültige Fächer/Noten für {pname}, erwartet:\n"
-        "  .e .eN .e .eN .e .eN .g .gN .m .m .m .m")
 
 class AbiCalc:
     """Manage a mapping of all necessary grade components for an
@@ -571,22 +565,6 @@ class AbiCalc:
         p420 = str (g420 // 420) + cls._dp + str ((g420 % 420) // 42)
         return p420
 
-
-#TODO
-class GradeManagerQ1(dict):
-    pass
-
-#TODO
-class GradeManagerQ2(dict):
-    pass
-
-
-def Manager(klass):
-    if klass.klass >= '13':
-        return GradeManagerQ2
-    if klass.klass >= '12' and klass.stream == 'Gym':
-        return GradeManagerQ1
-    return GradeManagerN
 
 
 ##################### Test functions

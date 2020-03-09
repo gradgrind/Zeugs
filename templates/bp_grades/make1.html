@@ -25,7 +25,7 @@
         {{ form.csrf_token }}
 
         <fieldset>
-        {% for group, fields in groups %}
+        {% for group, fields in groups.items() %}
             <legend>
             {% if group %}
                 Gruppe {{group}}
@@ -40,9 +40,22 @@
             {% endfor %}
         {% endfor %}
         </fieldset>
+        {% if termn %}
+        <legend>{{ termn }}. Halbjahr</legend>
         <div class="pure-control-group">
-            {{ form.DATE_D.label }}{{ form.DATE_D }}
+            <label for="{{ form.DATE_D.id }}">
+            <a href="{{url_for('bp_grades.issue', termn=termn)}}">
+                ↪ Ausstellungsdatum
+            </a>
+            </label>
+            {{ form.DATE_D(readonly=true) }}
         </div>
+        {% else %}
+        <div class="pure-control-group">
+            <label for="{{ form.DATE_D.id }}">Ausstellungsdatum</label>
+            {{ form.DATE_D }}
+        </div>
+        {% endif %}
         {% if form.REMARKS %}
         <legend>Bemerkungen</legend>
         {{ form.REMARKS }}

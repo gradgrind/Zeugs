@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-06
+Last updated:  2020-03-09
 
 Handle the data for grade reports.
 
@@ -55,7 +55,9 @@ from wz_core.db import DB, UpdateError
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_core.subjectchoices import pupilFilter
-from wz_compat.template import getGradeTemplate, getTemplateTags
+from wz_compat.template import getGradeTemplate, getTemplateTags, TemplateError
+from wz_compat.gradefunctions import Manager
+from wz_compat.grade_classes import getDateOfIssue
 from wz_table.dbtable import readPSMatrix
 
 
@@ -105,19 +107,19 @@ def grades2db(schoolyear, gtable, term=None):
     # Anything left unhandled in <gtable>?
     for pid in gtable:
         REPORT.Error(_UNKNOWN_PUPIL, pid=pid)
-
-#TODO: Sanitize input ... only valid grades?
-
     # Now enter to database
     if p2grades:
         db = DB(schoolyear)
+        sid2tlist = CourseTables(schoolyear).classSubjects(klass,
+                'GRADE', keep = True)
         for pid, grades in p2grades.items():
-            gstring = map2grades(grades)
+            ks = Klass.fromKandS(klass.klass, p2stream[pid])
+            gradeManager = Manager(ks)(schoolyear, sid2tlist, grades)
+            gstring = map2grades(gradeManager)
             db.updateOrAdd('GRADES',
-                    {   'CLASS': klass.klass, 'STREAM': p2stream[pid],
+                    {   'CLASS': ks.klass, 'STREAM': ks.stream,
                         'PID': pid, 'TERM': rtag, 'REPORT_TYPE': None,
-                        'DATE_D': None, 'GRADES': gstring,
-                        'REMARKS': None
+                        'GRADES': gstring, 'REMARKS': None
                     },
                     TERM=rtag,
                     PID=pid
@@ -155,19 +157,19 @@ def singleGrades2db(schoolyear, pid, klass, term, date, rtype, grades,
 
 
 
-def updateGradeReport(schoolyear, pid, term, date, rtype):
+def updateGradeReport(schoolyear, pid, term, rtype):
     """Update grade database when building reports.
     <pid> (pupil-id) and <term> (term or extra date) are used to key the
     entry in the GRADES table.
-    For term reports, update only DATE_D and REPORT_TYPE fields.
-    This is not used for "extra" reports.
+    For term reports, update only the REPORT_TYPE field.
+    This function is not used for "extra" reports.
     """
     db = DB(schoolyear)
     termn = int(term)   # check that term (not date) is given
     try:
         # Update term. This only works if there is already an entry.
         db.updateOrAdd ('GRADES',
-                {'DATE_D': date, 'REPORT_TYPE': rtype},
+                {'REPORT_TYPE': rtype},
                 update_only=True,
                 PID=pid, TERM=term
         )
@@ -261,7 +263,7 @@ def map2grades(gmap):
     """Convert a mapping {sid -> grade} to a grade string for the GRADES
     field in the GRADES table.
     """
-    return ';'.join([g + '=' + v for g, v in gmap.items()])
+    return ';'.join([g + '=' + (v or '') for g, v in gmap.items()])
 
 
 
@@ -279,7 +281,7 @@ class GradeReportData:
         """
         self.schoolyear = schoolyear
         self.klassdata = klass
-        self.GradeManager = Manager(klass)
+        self._GradeManager = Manager(klass)
 
         ### Set up categorized, ordered lists of grade fields for insertion
         ### in a report template.
@@ -337,38 +339,37 @@ class GradeReportData:
 
 
     def validGrades(self):
-        return self.GradeManager.VALIDGRADES
+        return self._GradeManager.VALIDGRADES
+
+
+    def getTermDate(self, term):
+        """Fetch the date of issue for the group and given term.
+        """
+        return getDateOfIssue(self.schoolyear, term, self.klassdata)
 
 
     def gradeManager(self, grades):
-        return self.GradeManager(schoolyear, self.sid2tlist, grades)
-# There could be a problem with rehashing old reports – when stream and
-# / or class has changed. The subjects could be different, those for the
-# class/ stream at the original date of issue should be used (from the
-# GRADES db-table). Also subject choices cannot be relevant!
+        return self._GradeManager(self.schoolyear, self.sid2tlist, grades)
 
 
-
-
-#TODO
-    def getTagmap(self, grades, pdata, grademap='GRADES'):
+#TODO: the extra fields
+    def getTagmap(self, grades, pdata):
         """Prepare tag mapping for substitution in the report template,
         for the pupil <pdata> (a <PupilData> instance).
-        <grades> is a mapping {sid -> grade}, or something similar which
-        can be handled by <dict(grades)>.
-        <grademap> is the name of a configuration file (in 'GRADES')
-        providing a grade -> text mapping.
+        <grades> is a grade manager (<GradeManagerXXX> instance),
+        providing a mapping {sid -> grade} and other relevant information.
         Grouped subjects expected by the template get two entries:
         one for the subject name and one for the grade. They are allocated
         according to the numbered slots defined for the predefined ordering
         (config: GRADES/ORDERING).
+#?
         "Grade" entries whose tag begins with '_' and which are not covered
         by the data in GRADES/ORDERING are copied directly to the output
         mapping.
         Return a mapping {template tag -> replacement text}.
         """
+        grades.addDerivedEntries()
         tagmap = {}                     # for the result
-        g2text = CONF.GRADES[grademap]  # grade -> text representation
         # Copy the grade mapping, because it will be modified to keep
         # track of unused grade entries:
         gmap = dict(grades)     # this accepts a variety of input types
@@ -381,9 +382,11 @@ class GradeReportData:
                     continue
                 try:
                     g = gmap.pop(sid)
+                    if not g:
+                        raise ValueError
                 except:
                     REPORT.Error(_MISSING_GRADE, pname=pdata.name(), sid=sid)
-                    g = '?'
+                    g = ''
                 if g == _INVALID:
                     continue
                 try:
@@ -394,15 +397,16 @@ class GradeReportData:
                             template=self.template.filename)
                 sname = self.sid2tlist[sid].subject.split('|')[0].rstrip()
                 tagmap["%s_%d_N" % (group, i)] = sname
-                g1 = g2text.get(g)
-                if not g1:
-                    REPORT.Error(_NO_MAPPED_GRADE, grade=g)
-                    g1 = '?'
+                try:
+                    g1 = grades.printGrade(g)
+                except:
+                    REPORT.Bug("Bad grade for {pname} in {sid}: {g}",
+                            pname = pdata.name(), sid = sid, g = g)
                 tagmap["%s_%d" % (group, i)] = g1
             # Process superfluous indexes
             for i in indexes:
-                tagmap["%s_%d_N" % (group, i)] = g2text.NONE
-                tagmap["%s_%d" % (group, i)] = g2text.NONE
+                tagmap["%s_%d_N" % (group, i)] = grades.NO_ENTRY
+                tagmap["%s_%d" % (group, i)] = grades.NO_ENTRY
         # Report unused grade entries
         unused = []
         for sid, g in gmap.items():
@@ -413,8 +417,8 @@ class GradeReportData:
             else:
                 unused.append("%s: %s" % (sid, g))
         if unused:
-            REPORT.Error(_UNUSED_GRADES, pname=pdata.name(),
-                    grades="; ".join(unused))
+            REPORT.Error(_UNUSED_GRADES, pname = pdata.name(),
+                    grades = "; ".join(unused))
         return tagmap
 
 

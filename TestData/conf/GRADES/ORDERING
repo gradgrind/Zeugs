@@ -1,5 +1,5 @@
 ############## GRADES/ORDERING
-############## Version: 2020-03-01
+############## Version: 2020-03-08
 
 CLASSES =& 13*: E G
          & 12.Gym: A B C D X
@@ -9,8 +9,7 @@ CLASSES =& 13*: E G
 A =& De
    & En
    & Fr
-   & Ku
-   & __Ku
+   & _Ku
    & Mu
    
 B =& Ges
@@ -54,7 +53,7 @@ G =& Ma.g
 S =& De
    & En
    & Fr
-   & __Ku
+   & _Ku
    & Mu
    & Ges
    & Soz

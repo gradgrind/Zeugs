@@ -3,8 +3,8 @@
     {% set uplink = url_for('bp_grades.issue', termn=termn) %}
     {% set uplink_help = "Alle Klassen" %}
 {% else %}
-    {% set uplink = url_for('bp_grades.index') %}
-    {% set uplink_help = "Notenzeugnisse" %}
+    {% set uplink = url_for('bp_grades.term', termn=termn) %}
+    {% set uplink_help = termn + ". Halbjahr" %}
 {% endif %}
 
 {% block title %}Ausstellungsdatum{% endblock %}
@@ -18,8 +18,11 @@
             ↪ {{ hj }}. Halbjahr
         </a></li>
     </ul>
-    <h3>{% if klass %}Klasse {{ klass }}{% else %}Alle Klassen{% endif %}
-    </h3>
+    {% if klass %}<h3>Klasse {{ klass }}</h3>
+    {% else %}<h3>Alle Klassen</h3>
+    <p>Ein voreingestelltes Datum erscheint hier nur, wenn für alle
+    Klassen und Gruppen das gleiche Datum eingestellt wurde.</p>
+    {% endif %}
     <form class="pure-form" method="POST">
         {{ form.csrf_token }}
         <fieldset>

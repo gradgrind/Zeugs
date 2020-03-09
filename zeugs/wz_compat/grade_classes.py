@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-03-06
+Last updated:  2020-03-08
 
 For which school-classes and streams are grade reports possible?
 
@@ -31,32 +31,49 @@ _INVALID_GROUP = "Ungültige Zeugnis-Gruppe für das {term}. Halbjahr: {group}"
 
 
 from wz_core.db import DB
+from wz_core.pupils import Klass
 
 
 def gradeGroups(term):
     return g2groups[term]
 
 g2groups = {
+# Use <Klass> to normalise multi-stream groups
 ## 1. Halbjahr
-    "1": ["13", "12.Gym", "12.RS-HS", "11.Gym", "11.RS-HS"],
+    "1": [str(Klass(k)) for k in
+            ("13", "12.Gym", "12.RS-HS", "11.Gym", "11.RS-HS")],
 
 ## 2. Halbjahr
-    "2": ["13", "12.Gym", "12.RS-HS", "11.Gym", "11.RS-HS", "10"],
+    "2": [str(Klass(k)) for k in
+            ("13", "12.Gym", "12.RS-HS", "11.Gym", "11.RS-HS", "10")],
 
 ## Einzelzeugnisse: alle Großklassen ab der 5.
     "X": ["%02d" % n for n in range(13, 4, -1)]
 }
 
 
-def setDateOfIssue(schoolyear, term, group, date):
-    if group not in gradeGroups(term):
-        REPORT.Fail(_INVALID_GROUP, term = term, group = group)
-    DB(schoolyear).setInfo('GRADE_DATE_%s_%s' % (term, group), date)
+def setDateOfIssue(schoolyear, term, klass, date):
+    if str(klass) not in gradeGroups(term):
+        REPORT.Fail(_INVALID_GROUP, term = term, group = klass)
+    streams = klass.streams or klass.klassStreams(schoolyear)
+    for s in streams:
+        g = klass.klass + '.' + s
+        DB(schoolyear).setInfo('GRADE_DATE_%s_%s' % (term, g), date)
 
-def getDateOfIssue(schoolyear, term, group):
-    if group not in gradeGroups(term):
-        REPORT.Fail(_INVALID_GROUP, term = term, group = group)
-    return DB(schoolyear).getInfo('GRADE_DATE_%s_%s' % (term, group))
+
+def getDateOfIssue(schoolyear, term, klass):
+    db = DB(schoolyear)
+    if klass.stream:
+        return db.getInfo('GRADE_DATE_%s_%s' % (term, klass))
+    group = str(klass)
+    if group in gradeGroups(term):
+        if klass.streams:
+            return db.getInfo('GRADE_DATE_%s_%s' % (term,
+                    klass.klass + '.' + klass.streams[0]))
+        return db.getInfo('GRADE_DATE_%s_%s' % (term,
+                    klass.klass + '.' + klass.klassStreams(schoolyear)[0]))
+    REPORT.Fail(_INVALID_GROUP, term = term, group = group)
+
 
 
 ##################### Test functions

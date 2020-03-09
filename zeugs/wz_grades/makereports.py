@@ -1,10 +1,10 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_grades/makereports.py
 
-Last updated:  2020-02-18
+Last updated:  2020-03-08
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -93,24 +93,20 @@ def makeReports(schoolyear, term, klass, date, pids=None):
         plist = pall
 
     ### Get a tag mapping for the grade data of each pupil
-    # Get the name of the relevant configuration file in folder GRADES:
-    grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
-    # <GradeReportData> manages the report template, etc.:
     # Get the report type from the term and klass/stream
     rtype = klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + term])
+    # <GradeReportData> manages the report template, etc.:
     reportData = GradeReportData(schoolyear, rtype, klass)
     pmaplist = []
     for pdata in plist:
         pid = pdata['PID']
-        gmap = grades[pid]  # get grade map for pupil
+        # Get grade map for pupil
+        gmap = reportData.gradeManager(grades[pid])
         # Build a grade mapping for the tags of the template:
-        pdata.grades = reportData.getTagmap(gmap, pdata, grademap)
+        pdata.grades = reportData.getTagmap(gmap, pdata)
         pmaplist.append(pdata)
         # Update grade database
-        updateGradeReport(schoolyear, pid, term,
-                date=date,
-                rtype=rtype
-        )
+        updateGradeReport(schoolyear, pid, term, rtype=rtype)
 
     ### Generate html for the reports
 # Testing:
