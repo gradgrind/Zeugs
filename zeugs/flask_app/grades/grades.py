@@ -323,7 +323,8 @@ def klassview(termn, klass_stream):
 
     # GET
     form.DATE_D.data = datetime.date.fromisoformat(date)
-    pdlist = db2grades(schoolyear, termn, klass, checkonly=True)
+    pdlist = REPORT.wrap(db2grades, schoolyear, termn, klass,
+            checkonly=True, suppressok=True)
     return render_template(os.path.join(_BPNAME, 'klass.html'),
                             form=form,
                             heading=_HEADING,

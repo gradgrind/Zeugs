@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-03-08
+Last updated:  2020-03-10
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -56,7 +56,6 @@ from wz_grades.gradedata import (GradeReportData,
         db2grades, getGradeData, updateGradeReport)
 
 
-#TODO: The REMARKS field of the GRADES table is not used here
 def makeReports(schoolyear, term, klass, date, pids=None):
     """Build a single file containing reports for the given pupils.
     This only works for groups with the same report type and template.
@@ -101,17 +100,20 @@ def makeReports(schoolyear, term, klass, date, pids=None):
     for pdata in plist:
         pid = pdata['PID']
         # Get grade map for pupil
-        gmap = reportData.gradeManager(grades[pid])
-        # Build a grade mapping for the tags of the template:
+        _grades = grades[pid]
+        gmap = reportData.gradeManager(_grades)
+        # Build a grade mapping for the tags of the template.
+        # If the grade-level is not the same as the pupil's (current)
+        # stream (but still within the group of streams covered by
+        # <klass>), use the grade-level.
+        pdata['STREAM'] = _grades.KLASS.stream
         pdata.grades = reportData.getTagmap(gmap, pdata)
+        pdata.REMARKS = _grades.REMARKS
         pmaplist.append(pdata)
-        # Update grade database
+        # Update grade database (only the report-type field)
         updateGradeReport(schoolyear, pid, term, rtype=rtype)
 
     ### Generate html for the reports
-# Testing:
-#    n = 0  # with change below, just generate nth of list
-#    print("§§§", pmaplist[n])
     source = reportData.template.render(
             report_type = rtype,
             SCHOOLYEAR = printSchoolYear(schoolyear),
@@ -119,7 +121,6 @@ def makeReports(schoolyear, term, klass, date, pids=None):
             todate = Dates.dateConv,
             STREAM = printStream,
             pupils = pmaplist,
-#            pupils = [pmaplist[n]],
             klass = klass
         )
     # Convert to pdf

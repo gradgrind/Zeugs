@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-09
+Last updated:  2020-03-10
 
 Handle the data for grade reports.
 
@@ -45,6 +45,7 @@ _BAD_GRADE_DATA = "Fehlerhafte Notendaten für Schüler PID={pid}, TERM={term}"
 _UNGROUPED_SID = ("Fach fehlt in Fachgruppen (in GRADES.ORDERING): {sid}"
         "\n  Vorlage: {tfile}")
 _NO_TEMPLATE = "Keine Zeugnisvorlage für Klasse {ks}, Typ {rtype}"
+_GROUP_CHANGE = "Die Noten für {pname} ({pk}) sind für Gruppe {gk}"
 
 
 import os
@@ -201,10 +202,15 @@ def db2grades(schoolyear, term, klass, checkonly=False):
         if gdata:
             gstring = gdata['GRADES'] or None
             if gstring:
-                if gdata['CLASS'] != klass.klass or gdata['STREAM'] != pstream:
+                gklass = Klass.fromKandS(gdata['CLASS'], gdata['STREAM'])
+                if gklass.klass != klass.klass or gklass.stream != pstream:
                     # Pupil has switched klass and/or stream.
-                    # This can only be handled via individual view.
-                    gstring = None
+                    REPORT.Warn(_GROUP_CHANGE, pname = pdata.name(),
+                            pk = Klass.fromKandS(klass.klass, pstream),
+                            gk = gklass)
+                    if gklass.stream not in slist:
+                        # This can only be handled via individual view.
+                        gstring = None
         else:
             gstring = None
         if gstring and not checkonly:
@@ -212,6 +218,9 @@ def db2grades(schoolyear, term, klass, checkonly=False):
                 gmap = grades2map(gstring)
             except ValueError:
                 REPORT.Fail(_BAD_GRADE_DATA, pid=pid, term=term)
+            # Add 'REMARKS' field and class/group from grades entry
+            gmap.REMARKS = gdata['REMARKS']
+            gmap.KLASS = gklass
             plist.append((pid, pdata.name(), gmap))
         else:
             plist.append((pid, pdata.name(), gstring))
@@ -280,6 +289,7 @@ class GradeReportData:
         All streams passed in must map to the same template.
         """
         self.schoolyear = schoolyear
+        self.rtype = rtype
         self.klassdata = klass
         self._GradeManager = Manager(klass)
 
@@ -294,12 +304,18 @@ class GradeReportData:
         self.alltags = getTemplateTags(self.template)
         # Extract grade-entry tags, i.e. those matching <str>_<int>:
         gtags = {}      # {subject group -> [(unsorted) index<int>, ...]}
+        self.xfields = []   # extra fields ('grades._XXX' in template)
         for tag in self.alltags:
             try:
-                _group, index = tag.split('_')
-                group = _group.split('.')[-1]
+                _group, index = tag.split('_', 1)
+            except ValueError:
+                continue
+            group = _group.split('.')[-1]
+            try:
                 i = int(index)
-            except:
+            except ValueError:
+                if not group:
+                    self.xfields.append(index)
                 continue
             try:
                 gtags[group].append(i)
@@ -310,8 +326,9 @@ class GradeReportData:
         # The reversal is for popping in correct order.
         self.sgroup2indexes = {group: sorted(gtags[group], reverse=True)
                 for group in gtags}
-#        print("\n??? self.alltags", self.alltags)
-#        print("\n??? self.sgroup2indexes", self.sgroup2indexes)
+        #REPORT.Test("\n??? self.alltags: " + repr(self.alltags))
+        #REPORT.Test("\n??? self.sgroup2indexes: " + repr(self.sgroup2indexes))
+        #REPORT.Test("\n??? self.xfields: " + repr(self.xfields))
 
         ### Sort the subject tags into ordered groups
         courses = CourseTables(schoolyear)
@@ -352,7 +369,6 @@ class GradeReportData:
         return self._GradeManager(self.schoolyear, self.sid2tlist, grades)
 
 
-#TODO: the extra fields
     def getTagmap(self, grades, pdata):
         """Prepare tag mapping for substitution in the report template,
         for the pupil <pdata> (a <PupilData> instance).
@@ -362,10 +378,6 @@ class GradeReportData:
         one for the subject name and one for the grade. They are allocated
         according to the numbered slots defined for the predefined ordering
         (config: GRADES/ORDERING).
-#?
-        "Grade" entries whose tag begins with '_' and which are not covered
-        by the data in GRADES/ORDERING are copied directly to the output
-        mapping.
         Return a mapping {template tag -> replacement text}.
         """
         grades.addDerivedEntries()
@@ -408,17 +420,19 @@ class GradeReportData:
                 tagmap["%s_%d_N" % (group, i)] = grades.NO_ENTRY
                 tagmap["%s_%d" % (group, i)] = grades.NO_ENTRY
         # Report unused grade entries
-        unused = []
-        for sid, g in gmap.items():
-            if g == _INVALID:
-                continue
-            if sid[0] == '_':
-                tagmap[sid] = g
-            else:
-                unused.append("%s: %s" % (sid, g))
+        unused = ["%s: %s" % (sid, g) for sid, g in gmap.items()
+                if g != _INVALID]
         if unused:
             REPORT.Error(_UNUSED_GRADES, pname = pdata.name(),
                     grades = "; ".join(unused))
+        # Handle "extra" fields
+        for x in self.xfields:
+            try:
+                method = getattr(grades, 'X_' + x)
+            except:
+                REPORT.Bug("No xfield-handler for %s" % x)
+            xval = method(self.rtype, pdata)
+            tagmap['_' + x] = xval
         return tagmap
 
 
@@ -427,35 +441,29 @@ class GradeReportData:
 ##################### Test functions
 _testyear = 2016
 def test_01 ():
-    _term = '1'
+    _term = '2'
     _date = '2016-01-29'
-    for _klass, _pid in ('13', '200301'), ('12.RS', '200403'):
-        klass = Klass(_klass)
-        REPORT.Test("Reading basic grade data for class %s" % klass)
-#TODO: This might not be the optimal location for this file.
-        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_TABLE',
-                    term=_term).replace('*', str(klass).replace('.', '-'))
-        pgrades = readPSMatrix(filepath)
-        REPORT.Test(" ++ INFO: %s" % repr(pgrades.info))
-        for pid, grades in pgrades.items():
-            REPORT.Test("\n  -- %s: %s\n" % (pid, repr(grades)))
+    _pid = '200403'
+    REPORT.Test("Reading basic grade data for pupil %s" % _pid)
+    pgrades = getGradeData(_testyear, _pid, _term)
+    klass = Klass.fromKandS(pgrades['CLASS'], pgrades['STREAM'])
 
-        REPORT.Test("\nReading template data for class %s" % klass)
+    REPORT.Test("\nReading template data for class %s" % klass)
 
-        # Get the report type from the term and klass/stream
-        _rtype = klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + _term])
-        gradedata = GradeReportData(_testyear, _rtype, klass)
-        REPORT.Test("  Indexes:\n  %s" % repr(gradedata.sgroup2indexes))
-        REPORT.Test("  Grade tags:\n  %s" % repr(gradedata.sgroup2sids))
+    # Get the report type from the term and klass/stream
+    _rtype = klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + _term])
+    gradedata = GradeReportData(_testyear, _rtype, klass)
+    REPORT.Test("  Indexes:\n  %s" % repr(gradedata.sgroup2indexes))
+    REPORT.Test("  Grade tags:\n  %s" % repr(gradedata.sgroup2sids))
 
-        grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
-        REPORT.Test("\nTemplate grade map for pupil %s (using %s)" %
-                (_pid, grademap))
-        pupils = Pupils(_testyear)
-        tagmap = gradedata.getTagmap(pgrades[_pid], pupils.pupil(_pid), grademap)
-        REPORT.Test("  Grade tags:\n  %s" % repr(tagmap))
+    pupils = Pupils(_testyear)
+    gm = gradedata.gradeManager(pgrades['GRADES'])
+    tagmap = gradedata.getTagmap(gm, pupils.pupil(_pid))
+    REPORT.Test("  Grade tags:\n  %s" % repr(tagmap))
+    REPORT.Test("\n  Grade data:\n  %s" % repr(gm))
 
 def test_02():
+    return
     from glob import glob
     files = glob(Paths.getYearPath(_testyear, 'FILE_GRADE_TABLE',
                 term='*'))

@@ -358,7 +358,6 @@ class GradeManagerN(_GradeManager):
                 ave = self.AVE()
                 if ave and ave <= Frac(4, 1):
                     gs = 'HS'
-        self['_GS'] = gs
         return gs
 
 
@@ -397,7 +396,6 @@ class GradeManagerN(_GradeManager):
                 date = DB(self.schoolyear).getInfo('Versetzungsdatum_' + klass)
                 if not date:
                     REPORT.Fail(_VD11_MISSING, klass = klass)
-        self['_V_D'] = date
         return date
 
 

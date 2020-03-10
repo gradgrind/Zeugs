@@ -1,10 +1,10 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_compat/template.py
 
-Last updated:  2020-03-05
+Last updated:  2020-03-10
 
 Functions for template handling.
 
@@ -60,7 +60,6 @@ def getTextTemplate(rtype, klass):
     tlist = CONF.TEXT.REPORT_TEMPLATES[rtype]
     tfile = klass.match_map(tlist)
     if tfile:
-#        print ("???", tfile)
         return openTemplate(tfile)
     else:
         REPORT.Bug("Invalid report category for class {ks}: {rtype}",
@@ -99,9 +98,9 @@ def getTemplateTags(template):
     with open(template.filename, 'r', encoding='utf-8') as fh:
         text = fh.read()
     tags = set()
-    for item in re.findall(r'\{\{(.*?)\}\}', text):
+    for item in re.findall(r'\{\{(.*?)\}\}', text, re.S):
         tags.update(re.findall(_match, item))
-    for item in re.findall(r'\{\%(.*?)\%\}', text):
+    for item in re.findall(r'\{\%(.*?)\%\}', text, re.S):
         tags.update(re.findall(_match, item))
     return tags
 
@@ -130,4 +129,8 @@ def pupilFields(tags):
 
 ##################### Test functions
 def test_01 ():
-    return
+    from wz_core.pupils import Klass
+    klass = Klass('12.RS')
+    tppath = 'Notenzeugnis/Notenzeugnis-SI.html'
+    tp = getGradeTemplate('Abschluss', klass)
+    REPORT.Test("Template tags in %s:\n  %s" % (tppath, repr(getTemplateTags(tp))))
