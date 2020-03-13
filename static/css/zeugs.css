@@ -146,12 +146,20 @@ a.pure-menu-link:visited {
     color: #777;
 }
 
-#dataform {
+.pure-form {
     padding-top: 1rem;
+}
+
+.pure-form select {
+    height: 2.5em;
 }
 
 .widelabel .pure-control-group label {
     width: 15rem;
+}
+
+.pure-menu legend {
+    margin-top: 2mm;
 }
 
 .form2 { /* layout forms with label + input field using grid */
@@ -220,6 +228,11 @@ form span {
 input[type="file"] {
     color: #e77;
     font-style: italic;
+}
+
+textarea {
+    width: 100%;
+    resize: vertical;
 }
 
 .submit-button {

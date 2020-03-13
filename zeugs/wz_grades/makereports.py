@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-03-10
+Last updated:  2020-03-13
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -42,6 +42,7 @@ _PUPILS_NOT_IN_CLASS_STREAM = "Schüler {pids} nicht in Klasse/Gruppe {ks}"
 _MADEKREPORTS = "Notenzeugnisse für Klasse {ks} wurden erstellt"
 _NOPUPILS = "Notenzeugnisse: keine Schüler"
 _MADEPREPORT = "Notenzeugnis für {pupil} wurde erstellt"
+_WRONG_RTYPE = "Zeugnistyp für {pname} ist {rtype} – kein Zeugnis wird erstellt"
 
 
 import os
@@ -56,6 +57,10 @@ from wz_grades.gradedata import (GradeReportData,
         db2grades, getGradeData, updateGradeReport)
 
 
+def getTermDefaultType (klass, term):
+    return klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + term])
+
+
 def makeReports(schoolyear, term, klass, date, pids=None):
     """Build a single file containing reports for the given pupils.
     This only works for groups with the same report type and template.
@@ -67,6 +72,8 @@ def makeReports(schoolyear, term, klass, date, pids=None):
     <klass> is a <Klass> instance: it can be a just a school-class,
     but it can also have a stream, or list of streams.
     """
+    # Get the report type from the term and klass/stream
+    rtype = getTermDefaultType (klass, term)
     # <db2grades> returns a list: [(pid, pname, grade map), ...]
     # <grades>: {pid -> grade map}
     grades = {pid: gmap
@@ -92,15 +99,22 @@ def makeReports(schoolyear, term, klass, date, pids=None):
         plist = pall
 
     ### Get a tag mapping for the grade data of each pupil
-    # Get the report type from the term and klass/stream
-    rtype = klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + term])
     # <GradeReportData> manages the report template, etc.:
-    reportData = GradeReportData(schoolyear, rtype, klass)
+    reportData = GradeReportData(schoolyear, klass, rtype)
     pmaplist = []
     for pdata in plist:
         pid = pdata['PID']
         # Get grade map for pupil
         _grades = grades[pid]
+        # Include this pupil only if the report type matches
+        if _grades.REPORT_TYPE:
+            if _grades.REPORT_TYPE != rtype:
+                REPORT.Warn(_WRONG_RTYPE, pname = pdata.name(),
+                        rtype = _grades.RTYPE)
+                continue
+        else:
+            # Update grade database (only the report-type field)
+            updateGradeReport(schoolyear, pid, term, rtype = rtype)
         gmap = reportData.gradeManager(_grades)
         # Build a grade mapping for the tags of the template.
         # If the grade-level is not the same as the pupil's (current)
@@ -110,8 +124,6 @@ def makeReports(schoolyear, term, klass, date, pids=None):
         pdata.grades = reportData.getTagmap(gmap, pdata)
         pdata.REMARKS = _grades.REMARKS
         pmaplist.append(pdata)
-        # Update grade database (only the report-type field)
-        updateGradeReport(schoolyear, pid, term, rtype=rtype)
 
     ### Generate html for the reports
     source = reportData.template.render(
@@ -149,18 +161,13 @@ def makeOneSheet(schoolyear, date, pdata, term, rtype):
     # <GradeReportData> manages the report template, etc.:
     # From here on use klass and stream from <gradedata>
     klass = Klass.fromKandS(gradedata['CLASS'], gradedata['STREAM'])
-    reportData = GradeReportData(schoolyear, rtype, klass)
-    # Get the name of the relevant configuration file in folder GRADES:
-    grademap = klass.match_map(CONF.MISC.GRADE_SCALE)
-    # Build a grade mapping for the tags of the template:
-    pdata.grades = reportData.getTagmap(gmap, pdata, grademap)
+    reportData = GradeReportData(schoolyear, klass, rtype)
+    # Build a grade mapping for the tags of the template.
+    # Use the class and stream from the grade data
+    pdata['CLASS'] = gradedata['CLASS']
+    pdata['STREAM'] = gradedata['STREAM']
+    pdata.grades = reportData.getTagmap(reportData.gradeManager(gmap), pdata)
     pdata.REMARKS = gradedata['REMARKS']
-    # Update grade database
-    if term != date:
-        updateGradeReport(schoolyear, pid, term,
-                date=date,
-                rtype=rtype
-        )
 
     ### Generate html for the reports
     source = reportData.template.render(

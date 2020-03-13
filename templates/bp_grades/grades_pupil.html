@@ -1,51 +1,73 @@
 {% extends "base.html" %}
-{% set uplink = url_for('bp_grades.klassview', klass=klass) %}
-{% set uplink_help = "Klasse " + klass %}
+{% set uplink = url_for('bp_grades.pupils', klass=klass.klass) %}
+{% set uplink_help = "Klasse " + klass.klass %}
 
 {% block title %}Einzelschüler{% endblock %}
 
 {% block content %}
-    <h3>Schüler in Klasse {{klass}}</h3>
-    <p>Ein Notenzeugnis wird für die hier dargestellten Daten erstellt.
-    Die Inhalte aller Felder können angepasst werden. Um den
-    Bogen dann zu erstellen, klicken Sie auf die Schaltfläche „Erstellen“.
+    <h3>Noten für {{pname}}, Klasse {{klass}}</h3>
+    <p>Die Noten für das Zeugnis am angezeigten Datum können hier
+    bearbeitet werden. Falls es sich um ein außerordentliches Zeugnis
+    (nicht ein Pflichtzeugnis zum Halbjahr) handelt, kann auch das
+    Datum geändert werden. Das Ausstellungsdatum für ein Zeugnis zum
+    Halbjahr/Jahresende kann nur für die ganze Gruppe geändert werden.
+    <p>Die Art des Zeugnis kann von den zulässigen Formen gewählt werden.
     </p>
-    <p><strong>Warnung:</strong> Änderungen, die hier vorgenommen werden,
-    werden nicht permanent übernommen. Sie gelten nur für den aktuellen
-    Vorgang.</p>
+    <p>Für manche Zeugnisse (Versetzungen in der Qualifikationsphase)
+    ist auch das Datum der Notenkonferenz erforderlich. Dieses kann
+    man auf der <a href="{{url_for('bp_grades.vdate')}}">entsprechenden
+    Seite</a> einstellen.
+    </p>
+    <p>Die Änderungen können dann gespeichert werden. Es gibt aber auch
+    eine Schaltfläche, um das Zeugnis direkt zu erstellen (was eine
+    Speicherung der Änderungen einschließt).
+    </p>
 
-    <form id="dataform" class="pure-form" method="POST">
+    <form class="pure-form pure-form-aligned widelabel" method="POST">
         {{ form.csrf_token }}
 
-        <div class="form2">
-        {{ form.TAG.label }}{{ form.TAG }}  <!-- select/enter tag/term -->
-        {{ form.RTYPE.label }}{{ form.RTYPE }}  <!-- select report type -->
-        </div>
-
         <fieldset>
-            <legend>{{ form.DATE_D.label }}</legend>
-            {{ form.DATE_D }}
-            <button type="submit" class="pure-button submit-button"
-                    style="margin: 0;">
-                Erstellen
-            </button>
+            {% if termn %}
+            <legend>{{ termn }}. Halbjahr</legend>
+            <div class="pure-control-group">
+                <label for="{{ form.DATE_D.id }}">
+                <a href="{{url_for('bp_grades.issue', termn=termn)}}">
+                    ↪ Ausstellungsdatum
+                </a>
+                </label>
+                {{ form.DATE_D(readonly=true) }}
+            </div>
+            {% else %}
+            <div class="pure-control-group">
+                <label for="{{ form.DATE_D.id }}">Ausstellungsdatum</label>
+                {{ form.DATE_D }}
+            </div>
+            {% endif %}
+            <div class="pure-control-group">
+                {{ form.RTYPE.label }}{{ form.RTYPE }}  <!-- select report type -->
+            </div>
         </fieldset>
 
-        <hr />
-
-        <div class="form2">
-            {% for f, fdata in pupil.items() %}
-            <label for="{{f}}">{{fdata[0]}}</label>
-                {% if f.endswith('_D') %}
-                <input type="date" name="{{f}}" value="{{fdata[1]}}">
-                {% else %}
-                <input type="text" name="{{f}}" value="{{fdata[1]}}">
-                {% endif %}
+        <fieldset>
+            <legend>Noten</legend>
+            {% for s in subjects %}
+                <div class="pure-control-group">
+                {{ form[s].label }}{{ form[s] }}
+                </div>
             {% endfor %}
-        </div>
+        </fieldset>
 
-<!-- Need all grade subjects for this klass ... what about averages, etc? -->
-<!-- Use select rather than input or input with restricted values? -->
+        {% if form.REMARKS %}
+        <legend>Bemerkungen</legend>
+        {{ form.REMARKS }}
+        {% endif %}
 
+        <hr />
+        <button type="submit" name="action" value="update"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">Speichern</button>
+        <button type="submit" name="action" value="build"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">Erstellen</button>
     </form>
 {% endblock %}

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-02-29
+wz_core/pupils.py - last updated 2020-03-13
 
 Database access for reading pupil data.
 
@@ -198,10 +198,15 @@ class Pupils:
         self.db = DB (schoolyear)
         PupilData.fields ()
 
-    def classes (self):
-        """Return a sorted list of klass names.
+    def classes(self, stream = None):
+        """Return a sorted list of klass names. If <stream> is supplied,
+        only classes will be return with entries in that stream.
         """
+        if stream:
+            return sorted (self.db.selectDistinct ('PUPILS', 'CLASS',
+                    STREAM = stream))
         return sorted (self.db.selectDistinct ('PUPILS', 'CLASS'))
+
 
     def pupil(self, pid):
         """Return a <PupilData> named tuple for the given pupil-id.

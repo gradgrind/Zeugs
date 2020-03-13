@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-10
+Last updated:  2020-03-13
 
 Handle the data for grade reports.
 
@@ -42,6 +42,7 @@ _UNKNOWN_PUPIL = "In Notentabelle: unbekannte Schüler-ID – {pid}"
 _NOPUPILS = "Keine (gültigen) Schüler in Notentabelle"
 _NEWGRADES = "Noten für {n} Schüler aktualisiert ({year}/{term}: {klass})"
 _BAD_GRADE_DATA = "Fehlerhafte Notendaten für Schüler PID={pid}, TERM={term}"
+_BAD_TERM = "Unbekannter Zeugnis-Ausgabetermin für Schüler PID={pid}, TERM={term}"
 _UNGROUPED_SID = ("Fach fehlt in Fachgruppen (in GRADES.ORDERING): {sid}"
         "\n  Vorlage: {tfile}")
 _NO_TEMPLATE = "Keine Zeugnisvorlage für Klasse {ks}, Typ {rtype}"
@@ -137,24 +138,34 @@ def singleGrades2db(schoolyear, pid, klass, term, date, rtype, grades,
     """Add or update GRADES table entry for a single pupil and date.
     <term> may be a small integer – the term – or, for irregular entries,
     the date of issue, which may already exist: the TERM field in the
-    GRADES table.
+    GRADES table. For new entries <term> may be anything which may not be
+    in the TERM field, e.g. '_'.
     <date> is the new date, which may be the same as <term>, but can also
     indicate a change, in which case also the TERM field will be changed
-    (only if it is a date).
+    (unless it is a real term, i.e. an integer).
     <rtype> is the report type.
     <grades> is a mapping {sid -> grade}.
     """
     db = DB(schoolyear)
     gstring = map2grades(grades)
-    db.updateOrAdd('GRADES',
-            {   'CLASS': klass.klass, 'STREAM': klass.stream, 'PID': pid,
-                'TERM': term if term.isdigit() else date,
-                'REPORT_TYPE': rtype, 'DATE_D': date, 'GRADES': gstring,
-                'REMARKS': remarks
-            },
-            TERM=term,
-            PID=pid
-    )
+    if term in CONF.MISC.TERMS:
+        db.updateOrAdd('GRADES',
+                {   'CLASS': klass.klass, 'STREAM': klass.stream, 'PID': pid,
+                    'TERM': term, 'REPORT_TYPE': rtype, 'GRADES': gstring,
+                    'REMARKS': remarks
+                },
+                TERM=term,
+                PID=pid
+        )
+    else:
+        db.updateOrAdd('GRADES',
+                {   'CLASS': klass.klass, 'STREAM': klass.stream, 'PID': pid,
+                    'TERM': date, 'REPORT_TYPE': rtype, 'GRADES': gstring,
+                    'REMARKS': remarks
+                },
+                TERM=term,
+                PID=pid
+        )
 
 
 
@@ -180,12 +191,14 @@ def updateGradeReport(schoolyear, pid, term, rtype):
 
 
 
-def db2grades(schoolyear, term, klass, checkonly=False):
+def db2grades(schoolyear, term, klass, rtype = None):
     """Fetch the grades for the given school-class/group, term, schoolyear.
     Return a list [(pid, pname, {subject -> grade}), ...]
     <klass> is a <Klass> instance, which can include a list of streams
     (including '_' for pupils without a stream). If there are streams,
     only grades for pupils in one of these streams will be included.
+    If <rtype> is provided, grade entries with a different report type
+    will be treated as if there were no grades.
     """
     slist = klass.streams
     plist = []
@@ -213,17 +226,23 @@ def db2grades(schoolyear, term, klass, checkonly=False):
                         gstring = None
         else:
             gstring = None
-        if gstring and not checkonly:
-            try:
-                gmap = grades2map(gstring)
-            except ValueError:
-                REPORT.Fail(_BAD_GRADE_DATA, pid=pid, term=term)
-            # Add 'REMARKS' field and class/group from grades entry
-            gmap.REMARKS = gdata['REMARKS']
-            gmap.KLASS = gklass
-            plist.append((pid, pdata.name(), gmap))
+        if gstring:
+            # Check report type match
+            _rtype = gdata['REPORT_TYPE']
+            if _rtype and rtype and _rtype != rtype:
+                gmap = None
+            else:
+                try:
+                    gmap = grades2map(gstring)
+                except ValueError:
+                    REPORT.Fail(_BAD_GRADE_DATA, pid=pid, term=term)
+                # Add additional info from the GRADES table
+                gmap.REMARKS = gdata['REMARKS']
+                gmap.KLASS = gklass
+                gmap.REPORT_TYPE = _rtype
         else:
-            plist.append((pid, pdata.name(), gstring))
+            gmap = None
+        plist.append((pid, pdata.name(), gmap))
     return plist
 
 
@@ -231,21 +250,24 @@ def db2grades(schoolyear, term, klass, checkonly=False):
 def getGradeData(schoolyear, pid, term):
     """Return all the data from the database GRADES table for the
     given pupil as a mapping. Either term or – in the case of "extra"
-    reports – date is supplied to key the entry.
+    reports – date is supplied to key the entry. <term> may also be '_',
+    but there should be no entry for this (it indicates a new date).
     The string in field 'GRADES' is converted to a mapping. If there is
     grade data, its validity is checked. If there is no grade data, this
     field is <None>.
     """
     db = DB(schoolyear)
-    gdata = db.select1('GRADES', PID=pid, TERM=term)
+    gdata = db.select1('GRADES', PID = pid, TERM = term)
     if gdata:
         # Convert the grades to a <dict>
         gmap = dict(gdata)
         try:
             gmap['GRADES'] = grades2map(gdata['GRADES'])
         except ValueError:
-            REPORT.Fail(_BAD_GRADE_DATA, pid=pid, term=term)
+            REPORT.Fail(_BAD_GRADE_DATA, pid = pid, term = term)
         return gmap
+    if term != '_' and term not in CONF.MISC.TERMS:
+        REPORT.Fail(_BAD_TERM, pid = pid, term = term)
     return None
 
 
@@ -282,25 +304,33 @@ class GradeReportData:
     or even school-class, may have changed. The grade data includes the
     class and stream associated with the data.
     """
-    def __init__(self, schoolyear, rtype, klass):
+    def __init__(self, schoolyear, klass, rtype = None):
         """<rtype> is the report type, a key to the mapping
-        GRADE.REPORT_TEMPLATES.
+        GRADE.REPORT_TEMPLATES. It may also be empty if only some
+        basic functionality is required.
         <klass> is a <Klass> object, which may include stream tags.
         All streams passed in must map to the same template.
         """
         self.schoolyear = schoolyear
-        self.rtype = rtype
         self.klassdata = klass
         self._GradeManager = Manager(klass)
+        courses = CourseTables(schoolyear)
+#        self.sid2tlist = courses.classSubjects(klass, 'GRADE', keep=True)
+        self.sid2tlist = courses.classSubjects(klass, 'GRADE')
+        if rtype:
+            self.setRtype(rtype)
 
+
+    def setRtype(self, rtype):
+        self.rtype = rtype
         ### Set up categorized, ordered lists of grade fields for insertion
         ### in a report template.
         # If there is a list of streams in <klass> this will probably
         # only match '*' in the template mapping:
         try:
-            self.template = getGradeTemplate(rtype, klass)
+            self.template = getGradeTemplate(rtype, self.klassdata)
         except TemplateError:
-            REPORT.Fail(_NO_TEMPLATE, ks=klass, rtype=rtype)
+            REPORT.Fail(_NO_TEMPLATE, ks=self.klassdata, rtype=rtype)
         self.alltags = getTemplateTags(self.template)
         # Extract grade-entry tags, i.e. those matching <str>_<int>:
         gtags = {}      # {subject group -> [(unsorted) index<int>, ...]}
@@ -331,8 +361,6 @@ class GradeReportData:
         #REPORT.Test("\n??? self.xfields: " + repr(self.xfields))
 
         ### Sort the subject tags into ordered groups
-        courses = CourseTables(schoolyear)
-        self.sid2tlist = courses.classSubjects(klass, 'GRADE', keep=True)
         subjects = set(self.sid2tlist)
         # Build a mapping {subject group -> [(ordered) sid, ...]}
         self.sgroup2sids = {}
@@ -350,6 +378,7 @@ class GradeReportData:
                     pass
         # Entries remaining in <subjects> are not covered in ORDERING.
         for sid in subjects:
+#TODO: can this ever be <None> if <keep> (above) is false
             if self.sid2tlist[sid] != None:
                 # Report all subjects without a null entry
                 REPORT.Error(_UNGROUPED_SID, sid=sid, tfile=self.template.filename)
@@ -385,12 +414,13 @@ class GradeReportData:
         # Copy the grade mapping, because it will be modified to keep
         # track of unused grade entries:
         gmap = dict(grades)     # this accepts a variety of input types
-        sid2tlist = pupilFilter(self.schoolyear, self.sid2tlist, pdata['PID'])
+# The abi-grades needed this ...
+#        sid2tlist = pupilFilter(self.schoolyear, self.sid2tlist, pdata['PID'])
         for group, sidlist in self.sgroup2sids.items():
             # Copy the indexes because the list is modified here (<pop()>)
             indexes = self.sgroup2indexes[group].copy()
             for sid in sidlist:
-                if sid2tlist[sid] == None:
+                if self.sid2tlist[sid] == None:
                     continue
                 try:
                     g = gmap.pop(sid)
@@ -452,7 +482,7 @@ def test_01 ():
 
     # Get the report type from the term and klass/stream
     _rtype = klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + _term])
-    gradedata = GradeReportData(_testyear, _rtype, klass)
+    gradedata = GradeReportData(_testyear, klass, _rtype)
     REPORT.Test("  Indexes:\n  %s" % repr(gradedata.sgroup2indexes))
     REPORT.Test("  Grade tags:\n  %s" % repr(gradedata.sgroup2sids))
 

@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-03-09
+Last updated:  2020-03-13
 
 Calculations needed for grade handling.
 
@@ -35,8 +35,7 @@ _MULTIPLE_SUBJECT = "Fach {sid} mehrfach benotet"
 _MISSING_DEM = "Keine Note in diesen Fächern: {sids}"
 _MISSING_SID = "Keine Note im Fach {sid}"
 _BADGRADE = "Ungültige Note im Fach {sid}: {grade}"
-_VD11_MISSING = ("Klasse {klass}: Das Datum der Notenkonferenz fehlt.\n"
-        "  Siehe Einstellungen/Kalender.")
+_VD11_MISSING = "Klasse {klass}: Das Datum der Notenkonferenz fehlt"
 # ... for Abitur
 _NO_GRADE = "Kein Ergebnis in %s"
 _NULL_ERROR = "0 Punkte in %s"
@@ -61,7 +60,7 @@ class Frac(Fraction):
         v = int(self * 10**decimal_places)
         sval = ("{:0%dd}" % (decimal_places+1)).format(v)
         return (sval[:-decimal_places] + ',' + sval[-decimal_places:])
-
+#
     def round(self, decimal_places = 0):
         f = Fraction(1,2) if self >= 0 else Fraction(-1, 2)
         if not decimal_places:
@@ -188,6 +187,9 @@ class _GradeManager(dict):
             else:
                 self[sid] = _NO_AVERAGE
 
+
+class XFieldError(Exception):
+    pass
 
 
 class GradeManagerN(_GradeManager):
@@ -389,13 +391,14 @@ class GradeManagerN(_GradeManager):
         """
         date = ''
         klass = pdata['CLASS']
-        if (klass.startswith('11') and pdata['STREAM'] != 'Gym'
+        if (klass.startswith('11') and pdata['STREAM'] == 'Gym'
                 and rtype == 'Zeugnis' and self.SekI()):
             ave = self.AVE()
             if ave and ave <= Frac(3, 1):
                 date = DB(self.schoolyear).getInfo('Versetzungsdatum_' + klass)
                 if not date:
-                    REPORT.Fail(_VD11_MISSING, klass = klass)
+                    REPORT.Error(_VD11_MISSING, klass = klass)
+                    return '?-?-?'
         return date
 
 
@@ -447,6 +450,24 @@ class GradeManagerQ1(_GradeManager):
         # Sanitized original grade:
         self[sid] = str(gint).zfill(self.ZPAD)
         return gint
+
+
+#TODO
+    def X_GS(self, rtype, pdata):
+        """Determine qualification according to criteria for a
+        "Gleichstellungsvermerk". The following levels are possible at
+        the end of the 12th class:
+            "Erweiterter Sek I", "Realschule", "Hauptschule".
+        Before the end of the 12th class only "Hauptschule" is possible,
+        but this is guaranteed by entry to the "Qualifikationsphase".
+        """
+        gs = ''
+        if rtype == 'Abgang':
+            if self.SekI():
+                ave = self.AVE()
+                if ave and ave <= Frac(4, 1):
+                    gs = 'HS'
+        return gs
 
 
 

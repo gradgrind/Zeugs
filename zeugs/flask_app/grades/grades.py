@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-03-08
+Last updated:  2020-03-13
 
 Flask Blueprint for grade reports
 
@@ -28,7 +28,7 @@ Copyright 2019-2020 Michael Towers
 
 _HEADING = "Notenzeugnis"   # page heading
 
-_NEWDATE = "*** neu ***"    # label for new date, as opposed to editing an old one
+#_NEWDATE = "*** neu ***"    # label for new date, as opposed to editing an old one
 _DEFAULT_RTYPE = "Abgang"   # default report type for single reports
 
 # Messages
@@ -55,7 +55,7 @@ from wz_core.db import DB
 from wz_table.dbtable import readPSMatrix
 from wz_grades.gradedata import (grades2db, db2grades,
         getGradeData, GradeReportData, singleGrades2db)
-from wz_grades.makereports import makeReports, makeOneSheet
+from wz_grades.makereports import getTermDefaultType, makeReports, makeOneSheet
 from wz_grades.gradetable import makeBasicGradeTable
 from wz_compat.grade_classes import gradeGroups, getDateOfIssue, setDateOfIssue
 #from wz_compat.gradefunctions import Manager#, gradeCalc
@@ -76,7 +76,7 @@ def index():
 
 ########### Views for group reports ###########
 
-### View for a term, set closing date for user input
+### Settings view, set closing date and current term for user input
 @bp.route('/closingdate', methods=['GET','POST'])
 def closingdate():
     class _Form(FlaskForm):
@@ -127,6 +127,60 @@ def closingdate():
     return render_template(os.path.join(_BPNAME, 'closingdate.html'),
                             form=form,
                             heading=_HEADING)
+
+
+### Settings view, set "Konferenzdatum" for end of 11th and 12th years
+@bp.route('/vdate', methods=['GET','POST'])
+def vdate():
+    class _Form(FlaskForm):
+        pass
+
+    schoolyear = session['year']
+    db = DB(schoolyear)
+    # Get current settings
+    pupils = Pupils(schoolyear)
+    keys = []
+    for k in pupils.classes(stream = 'Gym'):
+        if k.startswith('11') or k.startswith('12'):
+            key = 'X_' + k
+            keys.append(key)
+            date = db.getInfo('Versetzungsdatum_' + k)
+            dfield = DateField("Klasse " + k, validators=[Optional()],
+                    default = datetime.date.fromisoformat(date)
+                            if date else None)
+            setattr(_Form, key, dfield)
+    form = _Form()
+
+    if form.validate_on_submit():
+        # POST
+        ok = 0
+        for key in keys:
+            klass = key.split('_', 1)[1]
+            date = form[key].data
+            if date:
+                _date = date.isoformat()
+                if Dates.checkschoolyear(schoolyear, _date):
+                    db.setInfo('Versetzungsdatum_' + klass, _date)
+                    if ok >= 0:
+                        ok += 1
+                    flash("Konferenzdatum für Klasse %s: %s" %
+                            (klass, _date), "Info")
+                else:
+                    ok = -1
+                    flash("Noten: Konferenzdatum ungültig (Schuljahr)",
+                            "Error")
+        if ok >= 0:
+            if ok > 0:
+                flash("%d Einstellungen gespeichert" % ok, "Info")
+            return redirect(url_for('bp_grades.index'))
+        else:
+            flash("Fehler sind aufgetreten", "Error")
+
+    # GET
+    return render_template(os.path.join(_BPNAME, 'vdate.html'),
+                            form = form,
+                            heading = _HEADING,
+                            keys = keys)
 
 
 ### View for a term, select date of issue
@@ -218,7 +272,7 @@ def term(termn):
                             dfile=dfile)
 
 
-### View for a term, select school-class
+### View for a term: grade tables, select school-class
 @bp.route('/termtable/<termn>/<ks>', methods = ['GET', 'POST'])
 @bp.route('/termtable/<termn>', methods = ['GET', 'POST'])
 def termtable(termn, ks = None):
@@ -323,8 +377,9 @@ def klassview(termn, klass_stream):
 
     # GET
     form.DATE_D.data = datetime.date.fromisoformat(date)
+    rtype = klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + termn])
     pdlist = REPORT.wrap(db2grades, schoolyear, termn, klass,
-            checkonly=True, suppressok=True)
+            rtype = rtype, suppressok=True)
     return render_template(os.path.join(_BPNAME, 'klass.html'),
                             form=form,
                             heading=_HEADING,
@@ -388,15 +443,18 @@ def pupils(klass):
     )
 
 
+#DEPRECATED
 ### For the given pupil select report type, edit / make new, etc.
-@bp.route('/pupil/<pid>', methods=['GET','POST'])
-def pupil(pid):
+#@bp.route('/pupil/<pid>', methods=['GET','POST'])
+def pupil_old(pid):
     """View: select report type and [edit-existing vs. new] for single report.
 
     All existing report dates for this pupil will be presented for
     selection.
     If there are no existing dates for this pupil, the only option is to
     construct a new one.
+
+#?
     Also a report type can be selected. The list might include invalid
     types as it is difficult at this stage (considering potential changes
     of stream or even school-class) to determine exactly which ones are
@@ -413,15 +471,15 @@ def pupil(pid):
     pupils = Pupils(schoolyear)
     pdata = pupils.pupil(pid)
     pname = pdata.name()
-    klass = pdata.getKlass(withStream=True)
     # Get existing dates.
-    db = DB(schoolyear)
-    rows = db.select('GRADES', PID=pid)
     dates = [_NEWDATE]
-    for row in db.select('GRADES', PID=pid):
+    for row in DB(schoolyear).select('GRADES', PID=pid):
         t = row['TERM']
         if t[0] != '_':
-            dates.append(t)
+            dates.append((t, row['REPORT_TYPE']))
+
+
+
     # If the stream, or even school-class have changed since an
     # existing report, the templates and available report types may be
     # different. To keep it simple, a list of all report types from the
@@ -466,6 +524,194 @@ def pupil(pid):
                             pname = pname)
 
 
+@bp.route('/pupil/<pid>', methods=['GET'])
+def pupil(pid):
+    """View: select report type and [edit-existing vs. new] for single report.
+
+    The terms and any existing additional report dates for this pupil
+    will be presented for selection. Also a completely new report may
+    be selected.
+    """
+    schoolyear = session['year']
+    # Get pupil data
+    pdata = Pupils(schoolyear).pupil(pid)
+    # Get "terms" and existing dates
+    dates, _terms = [], {}
+    for row in DB(schoolyear).select('GRADES', PID=pid):
+        t = row['TERM']
+        if t[0] != '_':
+            if t in CONF.MISC.TERMS:
+                _terms[t] = row['REPORT_TYPE']
+            else:
+                dates.append((t, row['REPORT_TYPE'] or _DEFAULT_RTYPE))
+    dates.sort(reverse=True)
+    terms = {}
+    for t in CONF.MISC.TERMS:
+        rtype = _terms.get(t)
+        if rtype:
+            terms[t] = rtype
+        else:
+            # If no report type, get default
+            klass = pdata.getKlass(withStream=True)
+            terms[t] = getTermDefaultType (klass, t)
+
+    return render_template(os.path.join(_BPNAME, 'pupil.html'),
+                            heading = _HEADING,
+                            pdata = pdata,
+                            terms = terms,
+                            dates = dates,
+                            todate = Dates.dateConv)
+
+
+@bp.route('/grades_pupil/<pid>/<rtag>', methods=['GET','POST'])
+def grades_pupil(pid, rtag):
+    """View: Edit data for the report to be created. Submit to save the
+    changes. A second submit possibility generates the report.
+    <rtag> is a TERM field entry from the GRADES table (term or date).
+    It may also be '_', indicating that a new date is to be set up.
+    """
+    class _Form(FlaskForm):
+        # The date of issue can not be changed here for term reports,
+        # so for these supply a link to the term date editor and render
+        # the field as read-only.
+        DATE_D = DateField(validators = [InputRequired()])
+
+    schoolyear = session['year']
+    pdata = Pupils(schoolyear).pupil(pid)
+    subjects = []
+
+    def prepare():
+        # Get existing grades and report type (or default)
+        grades = getGradeData(schoolyear, pid, rtag)
+        if grades:
+            k, s = grades['CLASS'], grades['STREAM']
+            rtype = grades['REPORT_TYPE']
+        else:
+            k, s = pdata['CLASS'], pdata['STREAM']
+            rtype = None
+        klass = Klass.fromKandS(k, s)
+        if not rtype:
+            if rtag in CONF.MISC.TERMS:
+                rtype = getTermDefaultType(klass, rtag)
+            else:
+                rtype = _DEFAULT_RTYPE
+        # Build a list of possible report types for this class/group
+        rtypes = []
+        for _rtype, kmap in CONF.GRADES.REPORT_TEMPLATES.items():
+            if _rtype[0] != '_':
+                if klass.match_map(kmap):
+                    rtypes.append((_rtype, _rtype))
+        _Form.RTYPE = SelectField("Zeugnistyp",
+                    choices = rtypes,
+                    default = rtype)
+
+        # Get subject data
+# Actually, not so much is needed at this stage: grades, rtype and date.
+# Should it be required (unlikely?) it might also be possible to make
+# all fields of a template editable, by selecting the template and having
+# an editor page with fields for all variables.
+        gdata = GradeReportData(schoolyear, klass)
+        gradechoices = [(g, g) for g in gdata.validGrades()]
+        gradechoices.append(('?', '?'))
+        # Get the grade manager
+        try:
+            gmap = grades['GRADES']
+        except:
+            gmap = None
+        gradeManager = gdata.gradeManager(gmap)
+        # Add the fields to the form
+        for sid, tlist in gdata.sid2tlist.items():
+            # Only "taught" subjects
+            if sid in gradeManager.composites:
+                continue
+            grade = gradeManager[sid] or '?'
+            sfield = SelectField(gdata.sid2tlist[sid].subject,
+                    choices = gradechoices, default = grade)
+            key = 'X_' + sid
+            setattr(_Form, key, sfield)
+            subjects.append(key)
+
+#TODO: Is this the right place for a remarks field?
+        try:
+            remarks = grades['REMARKS']
+        except:
+            remarks = ''
+        tfield = TextAreaField(default = remarks)
+        setattr(_Form, 'REMARKS', tfield)
+        return gdata
+
+    def enterGrades():
+        # Enter grade data into db
+        _grades = gdata.gradeManager(gmap)
+        singleGrades2db(schoolyear, pid, gdata.klassdata, term = rtag,
+                date = DATE_D, rtype = rtype, grades = _grades,
+                remarks = REMARKS)
+        return True
+
+    gdata = REPORT.wrap(prepare, suppressok=True)
+    form = _Form()
+    if form.validate_on_submit():
+        # POST
+        DATE_D = form.DATE_D.data.isoformat()
+        rtype = form.RTYPE.data
+        gmap = {}   # grade mapping {sid -> "grade"}
+        for key in subjects:
+            g = form[key].data
+            if g == '?':
+                g = None
+            gmap[key.split('_', 1)[1]] = g
+        try:
+            REMARKS = form['REMARKS'].data
+        except:
+            REMARKS = None
+        if REPORT.wrap(enterGrades, suppressok=True):
+            ok = True
+            if request.form['action'] == 'build':
+                pdfBytes = REPORT.wrap(makeOneSheet,
+                        schoolyear, DATE_D, pdata,
+                        rtag if rtag.isdigit() else DATE_D, rtype)
+                if pdfBytes:
+                    session['filebytes'] = pdfBytes
+                    session['download'] = 'Notenzeugnis_%s.pdf' % (
+                            pdata['PSORT'].replace(' ', '_'))
+                else:
+                    ok = False
+            if ok:
+                return redirect(url_for('bp_grades.pupils',
+                        klass = gdata.klassdata.klass))
+
+    # GET
+    if rtag in CONF.MISC.TERMS:
+        # There must be a date of issue
+        term = rtag
+        date = gdata.getTermDate(term)
+        if not date:
+            session['nextpage'] = url_for('bp_grades.grades_pupil',
+                    pid = pid, rtag = rtag)
+            flash("Ausstellungsdatum für Klasse %s fehlt"
+                    % gdata.klassdata, "Error")
+            return redirect(url_for('bp_grades.issue', termn = term))
+        form.DATE_D.data = datetime.date.fromisoformat(date)
+    else:
+        term = None
+
+
+#    return repr(groups)
+
+
+    return render_template(os.path.join(_BPNAME, 'grades_pupil.html'),
+            form = form,
+            heading = _HEADING,
+            subjects = subjects,
+            pname = pdata.name(),
+            termn = term,
+            klass = gdata.klassdata
+    )
+
+
+
+
+#DEPRECATED?
 ### Edit grades, date-of-issue, etc., then generate report.
 @bp.route('/make1/<pid>/<rtype>/<rtag>', methods=['GET','POST'])
 def make1(pid, rtype, rtag):
@@ -485,7 +731,7 @@ def make1(pid, rtype, rtag):
             k, s = pdata['CLASS'], pdata['STREAM']
         klass = Klass.fromKandS(k, s)
         # Get template fields which need to be set here, also subject data
-        gdata = GradeReportData(schoolyear, rtype, klass)
+        gdata = GradeReportData(schoolyear, klass, rtype)
         gradechoices = [(g, g) for g in gdata.validGrades()]
         gradechoices.append(('?', '?'))
         # Get the grade manager

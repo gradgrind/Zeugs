@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}Versetzungskonferenz{% endblock %}
+
+{% block content %}
+    <h2>2. Halbjahr (nur für Gymnasialgruppen relevant)</h2>
+    <p>Für die Versetzungszeugnisse von der 11. zur 12. Klasse und von
+    der 12. zur 13. Klasse muss das Datum der Versetzungskonferenz
+    angegeben werden.</p>
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+        <fieldset>
+            <legend>Datum der Notenkonferenz</legend>
+            {% for key in keys %}
+            <div class="pure-control-group">
+                {{ form[key].label }}{{ form[key] }}
+            </div>
+            {% endfor %}
+        </fieldset>
+        <hr />
+        <button type="submit" name="action" value="update"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Speichern
+        </button>
+    </form>
+{% endblock %}

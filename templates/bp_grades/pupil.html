@@ -1,32 +1,55 @@
 {% extends "base.html" %}
+{% set klass = pdata.CLASS %}
+{% set pid = pdata.PID %}
 {% set uplink = url_for('bp_grades.pupils', klass=klass) %}
 {% set uplink_help = "Klasse " + klass %}
 
 {% block title %}Einzelzeugnis{% endblock %}
 
 {% block content %}
-    <h3>für {{pname}}</h3>
-    <p>Hier können Sie den Zeugnistyp festlegen und entscheiden, ob
-    ein altes Zeugnis zu ändern ist oder ein neues zu erstellen.
-    Das genaue Ausgabedatum kann später – bei der Erstellung – festgelegt
-    werden.
+    <h3>für {{pdata.name()}} in Klasse {{klass}}</h3>
+    <p>Hier können Sie zwischen einem Zeugnis zu einem Halbjahr, einem
+    zusätzlichen Zeugnis zu einem schon angelegten Datum oder einem
+    völlig neuen Zeugnis wählen.
     </p>
-    <p>Gegebenfalls können Sie die Klasse/Maßstab des Schülers (nur für
-    dieses Zeugnis) ändern. Diese Möglichkeit wird nur selten sinnvoll
-    sein!
+    <p>Der angezeigte Zeugnistyp kann bei der Notenbearbeitung geändert
+    werden. Für „zusätzlichen“ (datierten) Zeugnissen kann auch das
+    Datum geändert werden.
     </p>
 
-    <form id="dataform" class="pure-form" method="POST">
-        {{ form.csrf_token }}
-
-        <div class="form2">
-        {{ form.KLASS.label }}{{ form.KLASS }}
-        {{ form.STREAM.label }}{{ form.STREAM }}
-        {{ form.EDITNEW.label }}{{ form.EDITNEW }}
-        {{ form.RTYPE.label }}{{ form.RTYPE }}
+    <div class="pure-menu">
+        <div class="pure-menu-item">
+            <a href="{{url_for('bp_grades.grades_pupil', pid=pid, rtag='_')}}"
+                    class="pure-menu-link">
+                Neues Sonderzeugnis
+            </a>
         </div>
-        <hr />
-        <button type="submit" class="pure-button submit-button"
-                    style="margin: 0 1rem;">Weiter</button>
-    </form>
+        <legend>Halbjahre</legend>
+        <ul class="pure-menu-list">
+        {% for t in terms %}
+            {% set rtype = terms[t] %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.grades_pupil', pid=pid, rtag=t)}}"
+                        class="pure-menu-link">
+                    {{ t }}. Halbjahr ({{rtype}})
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+        <legend>Sonderzeugnisse</legend>
+        <ul class="pure-menu-list">
+        {% for d, rtype in dates %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.grades_pupil', pid=pid, rtag=d)}}"
+                        class="pure-menu-link">
+                    {{ todate(d) }} ({{rtype}})
+                </a>
+            </li>
+        {% else %}
+            <li class="pure-menu-item pure-menu-link">
+                –––––
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
 {% endblock %}
