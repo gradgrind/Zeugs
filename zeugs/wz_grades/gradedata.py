@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-13
+Last updated:  2020-03-14
 
 Handle the data for grade reports.
 
@@ -56,7 +56,6 @@ from wz_core.configuration import Paths
 from wz_core.db import DB, UpdateError
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
-from wz_core.subjectchoices import pupilFilter
 from wz_compat.template import getGradeTemplate, getTemplateTags, TemplateError
 from wz_compat.gradefunctions import Manager
 from wz_compat.grade_classes import getDateOfIssue
@@ -247,17 +246,25 @@ def db2grades(schoolyear, term, klass, rtype = None):
 
 
 
-def getGradeData(schoolyear, pid, term):
+def getGradeData(schoolyear, pid, term = None, rtype = None):
     """Return all the data from the database GRADES table for the
-    given pupil as a mapping. Either term or – in the case of "extra"
-    reports – date is supplied to key the entry. <term> may also be '_',
-    but there should be no entry for this (it indicates a new date).
+    given pupil as a mapping. The desired entry can be keyed by <term>
+    or by <rtype>.
+        <term>: Normally either term (small integer) or, for "extra"
+            reports, a date (yyyy-mm-dd). <term> may also be '_',
+            indicating a new report, so there should initially be no
+            entry for this.
+        <rtype>: This can be used to key unique report types, specifically
+            the final Abitur grades.
     The string in field 'GRADES' is converted to a mapping. If there is
     grade data, its validity is checked. If there is no grade data, this
     field is <None>.
     """
     db = DB(schoolyear)
-    gdata = db.select1('GRADES', PID = pid, TERM = term)
+    if term:
+        gdata = db.select1('GRADES', PID = pid, TERM = term)
+    else:
+        gdata = db.select1('GRADES', PID = pid, REPORT_TYPE = rtype)
     if gdata:
         # Convert the grades to a <dict>
         gmap = dict(gdata)
@@ -266,7 +273,9 @@ def getGradeData(schoolyear, pid, term):
         except ValueError:
             REPORT.Fail(_BAD_GRADE_DATA, pid = pid, term = term)
         return gmap
-    if term != '_' and term not in CONF.MISC.TERMS:
+    if term and term != '_' and term not in CONF.MISC.TERMS:
+        # It is ok for the entry to be missing for terms and '_', but
+        # not for dates. Entries keyed on <rtype> may be missing.
         REPORT.Fail(_BAD_TERM, pid = pid, term = term)
     return None
 
@@ -414,8 +423,6 @@ class GradeReportData:
         # Copy the grade mapping, because it will be modified to keep
         # track of unused grade entries:
         gmap = dict(grades)     # this accepts a variety of input types
-# The abi-grades needed this ...
-#        sid2tlist = pupilFilter(self.schoolyear, self.sid2tlist, pdata['PID'])
         for group, sidlist in self.sgroup2sids.items():
             # Copy the indexes because the list is modified here (<pop()>)
             indexes = self.sgroup2indexes[group].copy()

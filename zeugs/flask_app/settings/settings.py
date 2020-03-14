@@ -43,8 +43,6 @@ from wz_core.configuration import Paths, Dates
 from wz_core.db import DB
 from wz_table.dbtable import readPSMatrix
 from wz_core.pupils import Pupils, Klass
-#?
-from wz_core.subjectchoices import choices2db, choiceTable
 
 
 _HEADING = "Einstellungen"

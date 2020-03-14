@@ -51,7 +51,6 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 #from wz_core.configuration import Dates
 from wz_core.courses import CourseTables
-from wz_core.subjectchoices import pupilFilter
 #from wz_core.pupils import Pupils, Klass
 from wz_grades.gradedata import db2grades
 
@@ -108,6 +107,7 @@ def editgrades(termn, ks, sid):
     showlist = []
     for pid, pname, gmap in pglist:
         # Get tlist from {sid -> <TeacherList> instance OR <None>}
+#pupilFilter is gone!
         tlist = pupilFilter(schoolyear, sid2tlist, pid).get(sid)
         if tlist:
             grade = gmap.get(sid)

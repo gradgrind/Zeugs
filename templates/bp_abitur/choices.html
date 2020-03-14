@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% set uplink = url_for('dispatch') %}
-{% set uplink_help = "Funktionswahl" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Startseite" %}
 
 {% block title %}Kurswahl{% endblock %}
 
@@ -16,7 +16,7 @@
 
     <p>Hier können Sie eine Kurswahl-Tabelle einlesen (hochladen).
     </p>
-    <form id="dataform" class="pure-form pure-form-stacked" method="POST" enctype="multipart/form-data">
+    <form class="pure-form pure-form-stacked" method="POST" enctype="multipart/form-data">
         {{ form.csrf_token }}
         <div class="uploaddiv">
             {{ form.upload.label }}{{ form.upload }}
@@ -34,7 +34,7 @@
         <ul class="pure-menu-list">
         {% for k in klasses %}
             <li class="pure-menu-item">
-                <a href="{{url_for('bp_settings.klass_choices', klass=k)}}"
+                <a href="{{url_for('bp_abitur.klass_choices', klass=k)}}"
                         class="pure-menu-link">
                     Klasse {{ k }}
                 </a>

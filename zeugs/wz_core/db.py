@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-03-08
+Last updated:  2020-03-14
 
 This module handles access to an sqlite database.
 
@@ -48,9 +48,10 @@ _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
 GRADE_FIELDS = ('CLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
         'GRADES', 'REMARKS')
 GRADE_UNIQUE = [('PID', 'TERM')]
-CHOICE_FIELDS = ('CLASS', 'PID', 'CHOICES')
-CHOICE_UNIQUE = ['PID']
-
+#CHOICE_FIELDS = ('CLASS', 'PID', 'CHOICES')
+#CHOICE_UNIQUE = ['PID']
+ABI_SUBJECTS_FIELDS = ('PID', 'SUBJECTS')
+ABI_SUBJECTS_UNIQUE = ['PID']
 
 import os, sqlite3
 #from collections import OrderedDict #, namedtuple
@@ -95,13 +96,16 @@ class DB0:
             self.makeTable2('INFO', ('K', 'V'), index=['K'])
         if not self.tableExists('GRADES'):
             self.makeTable2('GRADES', GRADE_FIELDS, index=GRADE_UNIQUE)
-        if not self.tableExists('CHOICES'):
-            self.makeTable2('CHOICES', CHOICE_FIELDS, index=CHOICE_UNIQUE)
+#        if not self.tableExists('CHOICES'):
+#            self.makeTable2('CHOICES', CHOICE_FIELDS, index=CHOICE_UNIQUE)
         if not self.tableExists('PUPILS'):
             # Use (CLASS, PSORT) as primary key, with additional index
             # on PID. This makes quite a small db (without rowid).
             self.makeTable2('PUPILS', self.pupilFields(),
                     pk = ('CLASS', 'PSORT'), index = ('PID',))
+        if not self.tableExists('ABI_SUBJECTS'):
+            self.makeTable2('ABI_SUBJECTS', ABI_SUBJECTS_FIELDS,
+                    index=ABI_SUBJECTS_UNIQUE)
 #TODO ...
 
 

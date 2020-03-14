@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-03-13
+Last updated:  2020-03-14
 
 Calculations needed for grade handling.
 
@@ -35,8 +35,9 @@ _MULTIPLE_SUBJECT = "Fach {sid} mehrfach benotet"
 _MISSING_DEM = "Keine Note in diesen Fächern: {sids}"
 _MISSING_SID = "Keine Note im Fach {sid}"
 _BADGRADE = "Ungültige Note im Fach {sid}: {grade}"
-_VD11_MISSING = "Klasse {klass}: Das Datum der Notenkonferenz fehlt"
-# ... for Abitur
+_VD_MISSING = "Klasse {klass}: Das Datum der Notenkonferenz fehlt"
+_MISSING_ABI_GRADE = "{pname}: Note fehlt im Abiturfach {sid}"
+# ... for Abitur final reports
 _NO_GRADE = "Kein Ergebnis in %s"
 _NULL_ERROR = "0 Punkte in %s"
 _LOW1_ERROR = "Punkte in schriftlichen Fächer < 220"
@@ -84,6 +85,11 @@ def Manager(klass):
     if klass.klass >= '12' and klass.stream == 'Gym':
         return GradeManagerQ1
     return GradeManagerN
+
+
+
+def getVDate(schoolyear, klass):
+    return DB(schoolyear).getInfo('Versetzungsdatum_' + klass)
 
 
 
@@ -187,9 +193,6 @@ class _GradeManager(dict):
             else:
                 self[sid] = _NO_AVERAGE
 
-
-class XFieldError(Exception):
-    pass
 
 
 class GradeManagerN(_GradeManager):
@@ -331,10 +334,10 @@ class GradeManagerN(_GradeManager):
                 return True
             return compensate(3) and compensate(3)
 
-        if len(self.fives) > 2:
-            return False
         if len(self.fives) < 2:
             return True
+        if len(self.fives) > 2:
+            return False
         # Check DEM subjects first, as they are more difficult to compensate.
         sid = self.fives[0]
         if sid in self._DEM:
@@ -395,11 +398,31 @@ class GradeManagerN(_GradeManager):
                 and rtype == 'Zeugnis' and self.SekI()):
             ave = self.AVE()
             if ave and ave <= Frac(3, 1):
-                date = DB(self.schoolyear).getInfo('Versetzungsdatum_' + klass)
+                date = getVDate(self.schoolyear, klass)
                 if not date:
-                    REPORT.Error(_VD11_MISSING, klass = klass)
+                    REPORT.Error(_VD_MISSING, klass = klass)
                     return '?-?-?'
         return date
+
+
+
+class AbiSubjects(list):
+    def __init__(self, schoolyear, pid):
+        sids = DB(schoolyear).select1('ABI_SUBJECTS', PID = pid)
+        if not sids:
+            raise ValueError('Keine Abifächer')
+        slist = sids['SUBJECTS'].split(',')
+        if len(slist) != 8:
+            raise ValueError('Abifächeranzahl ≠ 8')
+        super().__init__(slist)
+
+    @staticmethod
+    def demafs(sid):
+        """Check whether the given subject is Deutsch, Mathe or
+        a Fremdsprache.
+        """
+        s = sid.split('.', 1)[0]
+        return s in ('De', 'Ma', 'En', 'Fr')
 
 
 
@@ -452,6 +475,74 @@ class GradeManagerQ1(_GradeManager):
         return gint
 
 
+    def SekII(self, pdata):
+        """Perform general "pass" tests on grades at end of class 12:
+            not more than two times points < 5 or one subject with 0
+            points, including compensation possibilities.
+        """
+        try:
+            abis = AbiSubjects(self.schoolyear, pdata['PID'])
+        except ValueError as e:
+            REPORT.Error("ABI_SUBJECTS: %s (%s)" % (e, pdata.name()))
+            return False
+        # Build lists of "fives" and "sixes".
+        fives, zerop, ok = [], None, []
+        for sid in abis:
+            g = self.grades.get(sid)
+            if g == None:
+                REPORT.Error(_MISSING_ABI_GRADE, pname = pdata.name(),
+                        sid = sid)
+                return False
+            if g == 0:
+                if zerop:
+                    return False
+                zerop = sid
+            elif g < 5:
+                fives.append((sid, g))
+            else:
+                ok.append((sid, g))
+
+        if zerop:
+            if fives:
+                return False
+            for s, g in ok:
+                if g >= 10 and (abis.demafs(s) or not abis.demafs(zerop)):
+                    return True
+            c = False
+            for s, g in ok:
+                if g >= 8 and (abis.demafs(s) or not abis.demafs(zerop)):
+                    if c:
+                        return True
+                    c = True
+            return False
+
+        if len(fives) < 2:
+            return True
+        if len(fives) > 2:
+            return False
+        used = None
+        # Check demafs subjects first, as they are more difficult to compensate.
+        sid, g = fives[0]
+        if abis.demafs(sid):
+            sid2, g2 = fives[1]
+        else:
+            sid2, g2 = sid, g
+            sid, g = fives[1]
+        for sx, gx in ok:
+            if g + gx >= 10 and (abis.demafs(sx) or not abis.demafs(sid)):
+                used = sx
+                break
+        else:
+            return False
+        for sx, gx in ok:
+            if sx == used:
+                continue
+            if g + gx >= 10 and (abis.demafs(sx) or not abis.demafs(sid)):
+                return True
+        return False
+
+
+
 #TODO
     def X_GS(self, rtype, pdata):
         """Determine qualification according to criteria for a
@@ -468,6 +559,22 @@ class GradeManagerQ1(_GradeManager):
                 if ave and ave <= Frac(4, 1):
                     gs = 'HS'
         return gs
+
+
+    def X_V_D(self, rtype, pdata):
+        """For the "gymnasial" group, 12th class. Determine qualification
+        for the 13th class.
+        """
+        date = ''
+        klass = pdata['CLASS']
+        if (klass.startswith('12') and pdata['STREAM'] == 'Gym'
+                and rtype == 'Zeugnis'):
+            if self.SekII(pdata):
+                date = getVDate(self.schoolyear, klass)
+                if not date:
+                    REPORT.Error(_VD_MISSING, klass = klass)
+                    return '?-?-?'
+        return date
 
 
 

@@ -3,7 +3,7 @@
 """
 wz_grades/makeabi.py
 
-Last updated:  2020-02-15
+Last updated:  2020-03-14
 
 Generate final grade reports for the Abitur.
 
@@ -61,15 +61,14 @@ def saveGrades(schoolyear, pdata, grades, date):
     db = DB(schoolyear)
     gstring = map2grades(grades)
     klass = pdata.getKlass()
-    term = '_Abitur'
+    rtype = 'Abitur'
     pid = pdata['PID']
     db.updateOrAdd('GRADES',
             {   'CLASS': klass.klass, 'STREAM': pdata['STREAM'],
-                'PID': pid, 'TERM': term,
-                'REPORT_TYPE': 'Abschluss',
-                'DATE_D': date, 'GRADES': gstring
+                'PID': pid, 'TERM': date,
+                'REPORT_TYPE': rtype, 'GRADES': gstring
             },
-            TERM = term,
+            REPORT_TYPE = rtype,
             PID = pid
     )
     REPORT.Info(_ABIGRADES, pname = pdata.name())

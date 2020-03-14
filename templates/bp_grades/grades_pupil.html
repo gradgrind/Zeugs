@@ -11,12 +11,8 @@
     (nicht ein Pflichtzeugnis zum Halbjahr) handelt, kann auch das
     Datum geändert werden. Das Ausstellungsdatum für ein Zeugnis zum
     Halbjahr/Jahresende kann nur für die ganze Gruppe geändert werden.
-    <p>Die Art des Zeugnis kann von den zulässigen Formen gewählt werden.
-    </p>
-    <p>Für manche Zeugnisse (Versetzungen in der Qualifikationsphase)
-    ist auch das Datum der Notenkonferenz erforderlich. Dieses kann
-    man auf der <a href="{{url_for('bp_grades.vdate')}}">entsprechenden
-    Seite</a> einstellen.
+    <p>Die Art des Zeugnisses kann aus der Liste der zulässigen Vorlagen
+    ausgewählt werden.
     </p>
     <p>Die Änderungen können dann gespeichert werden. Es gibt aber auch
     eine Schaltfläche, um das Zeugnis direkt zu erstellen (was eine
@@ -37,6 +33,20 @@
                 </label>
                 {{ form.DATE_D(readonly=true) }}
             </div>
+            {% if form.VDATE_D %}
+            <p>Für manche Zeugnisse (Versetzungen in der Qualifikationsphase)
+                ist auch das Datum der Notenkonferenz erforderlich. Dieses kann
+                man auf der entsprechenden Seite einstellen.
+            </p>
+            <div class="pure-control-group">
+                <label for="{{ form.VDATE_D.id }}">
+                <a href="{{url_for('bp_grades.vdate')}}">
+                    ↪ Konferenzdatum
+                </a>
+                </label>
+                {{ form.VDATE_D(readonly=true) }}
+            </div>
+            {% endif %}
             {% else %}
             <div class="pure-control-group">
                 <label for="{{ form.DATE_D.id }}">Ausstellungsdatum</label>
@@ -65,7 +75,7 @@
         <hr />
         <button type="submit" name="action" value="update"
                 class="pure-button submit-button"
-                style="margin: 0.5rem 1rem;">Speichern</button>
+                style="margin: 0.5rem 1rem;">nur Speichern</button>
         <button type="submit" name="action" value="build"
                 class="pure-button submit-button"
                 style="margin: 0.5rem 1rem;">Erstellen</button>

@@ -20,8 +20,8 @@ if __name__ == '__main__':
 #    from wz_compat import config
 #    runTests (config)
 
-#    from wz_compat import grade_classes
-#    runTests (grade_classes)
+    from wz_compat import grade_classes
+    runTests (grade_classes)
 
-    from wz_compat import gradefunctions
-    runTests (gradefunctions)
+#    from wz_compat import gradefunctions
+#    runTests (gradefunctions)

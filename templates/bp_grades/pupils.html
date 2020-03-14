@@ -13,15 +13,18 @@
 
     <p>Wählen Sie hier die Schülerin, für die das Zeugnis zu erstellen ist.
     </p>
-    <div class="pure-menu">
+    <div class="pure-menu pure-form">
+        {% for stream, plist in pupils %}
+        <legend>Gruppe {{stream}}</legend>
         <ul class="pure-menu-list">
-        {% for p in pupils %}
+            {% for p in plist %}
             <li class="pure-menu-item">
                 <a href="{{url_for('bp_grades.pupil', pid=p.PID)}}"
                         class="pure-menu-link">
                     {{ p.name() }}
                 </a>
             </li>
+            {% endfor %}
         {% endfor %}
         </ul>
     </div>
