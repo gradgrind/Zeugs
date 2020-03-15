@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-03-14
+Last updated:  2020-03-15
 
 Calculations needed for grade handling.
 
@@ -52,6 +52,10 @@ _INVALID_GRADES = ("Ungültige Fächer/Noten für {pname}, erwartet:\n"
 from fractions import Fraction
 
 from wz_core.db import DB
+
+
+class GradeError(Exception):
+    pass
 
 
 class Frac(Fraction):
@@ -618,6 +622,7 @@ class AbiCalc:
         """
         gmap = self.zgrades.copy()
         errors = []
+        critical = []
         ### First the 'E' points
         eN = []
         n1, n2 = 0, 0
@@ -625,7 +630,7 @@ class AbiCalc:
             try:
                 s = int(gmap["S%d" % i])
             except:
-                errors.append(_NO_GRADE % gmap["F%d" % i])
+                critical.append(_NO_GRADE % gmap["F%d" % i])
                 s = 0
             if i <= 4:
                 # written exam
@@ -647,6 +652,11 @@ class AbiCalc:
             if e == 0:
                 errors.append(_NULL_ERROR % gmap["F%d" % i])
 
+        if critical:
+            for e in critical:
+                REPORT.Error(e)
+            raise GradeError
+
         t1 = eN[0] + eN[1] + eN[2] + eN[3]
         gmap["TOTAL1"] = t1
         if t1 < 220:
@@ -666,6 +676,7 @@ class AbiCalc:
             gmap["GradeT"] = "–––"
             for e in errors:
                 REPORT.Warn(_FAILED, error=e)
+            gmap["PASS"] = False
             return gmap
 
 #TODO: What about Fachabi?
@@ -678,6 +689,7 @@ class AbiCalc:
         g2 = str ((g180 % 180) // 18)
         gmap["Grade2"] = g2
         gmap["GradeT"] = self._gradeText[g1] + ", " + self._gradeText[g2]
+        gmap["PASS"] = True
         return gmap
 
 

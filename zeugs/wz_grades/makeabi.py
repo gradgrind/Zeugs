@@ -3,7 +3,7 @@
 """
 wz_grades/makeabi.py
 
-Last updated:  2020-03-14
+Last updated:  2020-03-15
 
 Generate final grade reports for the Abitur.
 
@@ -50,7 +50,7 @@ from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_core.db import DB
 from wz_grades.gradedata import map2grades, getGradeData
-from wz_compat.gradefunctions import AbiCalc
+from wz_compat.gradefunctions import AbiCalc, GradeError
 from wz_compat.template import openTemplate
 
 
@@ -79,10 +79,10 @@ def makeAbi(schoolyear, pdata,):
     """Make an Abitur report. Return it as a byte-stream (pdf).
     """
     # Get grade data: This needs to be an ordered mapping.
-    grades = getGradeData(schoolyear, pdata['PID'], '_Abitur')
+    grades = getGradeData(schoolyear, pdata['PID'], rtype = 'Abitur')
     try:
         sid2grade = grades['GRADES']
-        date = grades['DATE_D']
+        date = grades['TERM']
     except:
         REPORT.Fail(_NO_GRADES, pname = pdata.name())
 
@@ -98,11 +98,13 @@ def makeAbi(schoolyear, pdata,):
     abiCalc = AbiCalc(sid_name, sid2grade)
     try:
         zgrades = abiCalc.getFullGrades()
-    except:
+    except GradeError:
         REPORT.Fail(_MISSING_GRADES, pname = pdata.name())
+    # Passed?
+    tfile = 'Abitur/Abitur.html' #if zgrades["PASS"] else 'Abitur/AbiturFail.html'
     ### Generate html for the reports
     # Get template
-    template = openTemplate('Abitur/Abitur.html')
+    template = openTemplate(tfile)
     source = template.render(
             DATE_D = date,
             todate = Dates.dateConv,

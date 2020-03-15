@@ -143,12 +143,13 @@
             <h1>FREIE MICHAELSCHULE NIMMERSTADT</h1>
         </div>
         <center style="font-size: 200%; margin: 30mm 0 0 0; font-weight: bold;">
-            ZEUGNIS
+            {% if grades.PASS %}ZEUGNIS{% else %}Bescheinigung{% endif %}
         </center>
+        {% if grades.PASS %}
         <center style="margin: 2mm 0 0 0; font-weight: bold;">
             DER ALLGEMEINEN HOCHSCHULREIFE
         </center>
-
+        {% endif %}
         <div style="height:80mm; margin: 15mm 0 0 0; padding: 0 10mm">
             <div style="margin: 44mm 0 0 0; display: flex;
                     justify-content: center;">
@@ -203,8 +204,13 @@
             <div style="display: flex; align-items: flex-start;
                     width: 150mm; margin: 8mm 0 0 0;">
                 <span style="">
+                    {% if grades.PASS %}
                     hat sich nach dem Besuch der Qualifikationsphase der
                     Freien Waldorfschule der Abiturprüfung unterzogen.
+                    {% else %}
+                    hat sich nach dem Besuch der Qualifikationsphase der
+                    Freien Waldorfschule ohne Erfolg der Abiturprüfung unterzogen.
+                    {% endif %}
                 </span>
             </div>
         </div>
@@ -348,7 +354,7 @@
                 </tr>
             </tbody>
         </table>
-
+        {% if grades.PASS %}
         <p style="font-weight: bold; font-size: 8pt; margin: 12pt 0 4pt 0;">
             III. Berechnung der Gesamtqualifikation und der Durchschnittsnote
         </p>
@@ -406,6 +412,9 @@
                 </span>
             </div>
         </div>
+        {% else %}
+        <div style="margin-top: 60mm;"></div>
+        {% endif %}
 
         <!-- Ort, Datum -->
         <p style="margin: 8mm 0 0 0">
@@ -512,11 +521,13 @@
                         statt einer mündlichen Prüfung die Schulhalbjahresergebnisse aus dem
                         vierten Schulhalbjahr der Qualifikationsphase eingebracht werden.</td>
                 </tr>
+                {% if grades.PASS %}
                 <tr>
                     <td style="vertical-align: top;">4)</td>
                     <td>Wiederholung der Durchschnittsnote in
                         Worten</td>
                 </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>
