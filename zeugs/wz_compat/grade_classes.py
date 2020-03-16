@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-03-14
+Last updated:  2020-03-16
 
 For which school-classes and streams are grade reports possible?
 
@@ -49,21 +49,7 @@ from wz_table.matrix import KlassMatrix
 
 
 def gradeGroups(term):
-    return g2groups[term]
-
-g2groups = {
-# Use <Klass> to normalise multi-stream groups
-## 1. Halbjahr
-    "1": [str(Klass(k)) for k in
-            ("13", "12.Gym", "12.RS-HS", "11.Gym", "11.RS-HS")],
-
-## 2. Halbjahr
-    "2": [str(Klass(k)) for k in
-            ("13", "12.Gym", "12.RS-HS", "11.Gym", "11.RS-HS", "10")],
-
-## Einzelzeugnisse: alle Großklassen ab der 5.
-    "X": ["%02d" % n for n in range(13, 4, -1)]
-}
+    return CONF.GRADES.TEMPLATE_INFO['GROUPS_' + term].csplit(None)
 
 
 def setDateOfIssue(schoolyear, term, klass, date):
@@ -88,6 +74,24 @@ def getDateOfIssue(schoolyear, term, klass):
                     klass.klass + '.' + klass.klassStreams(schoolyear)[0]))
     REPORT.Fail(_INVALID_GROUP, term = term, group = group)
 
+
+def getCurrentTerm(schoolyear):
+    """Return the current term and deadline for grade input as a tuple:
+        (term, date).
+    If there is no current term, return <None>.
+    """
+    gradesInfo = DB(schoolyear).getInfo('GRADES_CURRENT')
+    return gradesInfo.split(':') if gradesInfo else None
+
+
+def setCurrentTerm(schoolyear, term, date = None):
+    """Set the current term and deadline for grade input.
+    If <term> is <None> there is no current term.
+    """
+    if term:
+        DB(schoolyear).setInfo('GRADES_CURRENT', term + ':' + date)
+    else:
+        DB(schoolyear).setInfo('GRADES_CURRENT', None)
 
 
 def abi_sids(schoolyear, pid, report = True):

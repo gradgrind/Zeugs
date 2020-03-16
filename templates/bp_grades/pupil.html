@@ -40,10 +40,15 @@
         <ul class="pure-menu-list">
         {% for d, rtype in dates %}
             <li class="pure-menu-item">
-                <a href="{{url_for('bp_grades.grades_pupil', pid=pid, rtag=d)}}"
-                        class="pure-menu-link">
+                {% if rtype == 'Abitur' %}
+                    {% set url = url_for('bp_abitur.grades', pid=pid) %}
+                {% else %}
+                    {% set url = url_for('bp_grades.grades_pupil', pid=pid, rtag=d) %}
+                {% endif %}
+                <a href="{{url}}" class="pure-menu-link">
                     {{ todate(d) }} ({{rtype}})
                 </a>
+
             </li>
         {% else %}
             <li class="pure-menu-item pure-menu-link">

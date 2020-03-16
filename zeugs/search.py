@@ -3,14 +3,14 @@
 """
 search.py
 
-Last updated:  2019-01-13
+Last updated:  2020-03-15
 
 A utility for searching the source files for particular text strings.
 This is not used by the programm itself, but it may be useful for tracing
 the use of names.
 
 =+LICENCE=============================
-Copyright 2017-2018 Michael Towers
+Copyright 2017-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ def search_dir (dpath, searchstring, mask='*', deep=True):
                 # Ignore non-utf-8 files
                 pass
     if output:
-        print ('DIR: %s' % dpath)
+        print ('\n  - - - - - - -\n DIR: %s' % dpath)
         for line in output:
             print (line)
     if deep:

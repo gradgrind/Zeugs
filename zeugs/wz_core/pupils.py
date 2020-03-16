@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-03-14
+wz_core/pupils.py - last updated 2020-03-16
 
 Database access for reading pupil data.
 
@@ -51,12 +51,13 @@ class Klass:
         self.stream = None
         try:
             klass, streams = klass_stream.split ('.')
-            self.streams = sorted(streams.split('-'))
-            if len(self.streams) == 1:
-                self.stream = streams
         except:
             klass = klass_stream
             self.streams = []
+        else:
+            self.streams = sorted(streams.split('-'))
+            if len(self.streams) == 1:
+                self.stream = streams
         self.year = int(klass[0])
         try:
             self.year = self.year*10 + int(klass[1])
@@ -116,9 +117,18 @@ class Klass:
     def klassStreams (self, schoolyear):
         """Return a sorted list of stream names for this school-class.
         """
-        return sorted ([s or '_'
-                for s in DB(schoolyear).selectDistinct ('PUPILS', 'STREAM',
+        return sorted([s or '_'
+                for s in DB(schoolyear).selectDistinct('PUPILS', 'STREAM',
                         CLASS=self.klass)])
+
+
+    def containsStream(self, stream):
+        """Test whether the given stream is covered by this group.
+        Return true/false.
+        """
+        if self.streams:
+            return stream in self.streams
+        return True
 
 
 

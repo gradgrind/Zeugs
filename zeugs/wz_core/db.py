@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-03-14
+Last updated:  2020-03-16
 
 This module handles access to an sqlite database.
 
@@ -258,8 +258,8 @@ class DB0:
 
     def select (self, table, order=None, reverse=False, **criteria):
         """Select all fields of the given table.
-        The results may may ordered by specifying a list of fields to
-        <order>. Set <reverse> to true to order descending.
+        The results may may ordered by specifying a field or list of
+        fields to <order>. Set <reverse> to true to order descending.
         The <criteria> are by default of the form FIELDNAME=value.
         However passing a tuple/list of the form (operator, value)
         for the value parameter is also possible.
@@ -278,7 +278,10 @@ class DB0:
             cmd = 'SELECT * FROM {} WHERE {}'.format (table,
                     ' AND '.join (clist))
             if order:
-                cmd += ' ORDER BY ' + (', '.join (order))
+                if isinstance(order, str):
+                    cmd += ' ORDER BY ' + order
+                else:
+                    cmd += ' ORDER BY ' + (', '.join (order))
                 if reverse:
                     cmd += ' DESC'
             cur.execute (cmd, vlist)

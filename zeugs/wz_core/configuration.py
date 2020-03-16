@@ -1,9 +1,9 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_core/configuration.py
 
-Last updated:  2020-02-29
+Last updated:  2020-03-16
 
 Configuration items and the handler for the configuration files.
 
@@ -176,13 +176,14 @@ class _ConfigString (str):
 # of potential confusion with the normal <split> method for strings.
 # The old method may still be used somewhere, so trap it:
     def split(self, splitch = ','):
+        raise Error
         REPORT.Bug("DEPRECATED: use <csplit>")
 
     def csplit (self, splitch = ','):
         """Split the string at <splitch> (default is ',').
         The resulting items are stripped of whitespace left and right.
         """
-        return [i.strip () for i in self.split (splitch)]
+        return [i.strip() for i in super().split(splitch)]
 
 
 

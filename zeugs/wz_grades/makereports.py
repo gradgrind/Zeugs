@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-03-14
+Last updated:  2020-03-15
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -58,8 +58,14 @@ from wz_grades.gradedata import (GradeReportData,
         db2grades, getGradeData, updateGradeReport)
 
 
-def getTermDefaultType (klass, term):
-    return klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + term])
+#def getTermDefaultType (klass, term):
+#    t = '_' + term if term in CONF.MISC.TERMS else '_*'
+#    rtypes = klass.match_map(CONF.GRADES.TEMPLATE_INFO[t])
+#    return rtypes.split()[0]
+
+def getTermTypes(klass, term):
+    t = '_' + term if term in CONF.MISC.TERMS else '_*'
+    return klass.match_map(CONF.GRADES.TEMPLATE_INFO[t]).split()
 
 
 def makeReports(schoolyear, term, klass, pids=None):
@@ -74,7 +80,7 @@ def makeReports(schoolyear, term, klass, pids=None):
     """
     date = getDateOfIssue(schoolyear, term, klass)
     # Get the report type from the term and klass/stream
-    rtype = getTermDefaultType (klass, term)
+    rtype = getTermTypes(klass, term)[0]
     # <db2grades> returns a list: [(pid, pname, grade map), ...]
     # <grades>: {pid -> grade map}
     grades = {pid: gmap

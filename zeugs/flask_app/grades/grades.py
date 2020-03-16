@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-03-14
+Last updated:  2020-03-15
 
 Flask Blueprint for grade reports
 
@@ -52,9 +52,10 @@ from wz_core.db import DB
 from wz_table.dbtable import readPSMatrix
 from wz_grades.gradedata import (grades2db, db2grades,
         getGradeData, GradeReportData, singleGrades2db)
-from wz_grades.makereports import getTermDefaultType, makeReports, makeOneSheet
+from wz_grades.makereports import getTermTypes, makeReports, makeOneSheet
 from wz_grades.gradetable import makeBasicGradeTable
-from wz_compat.grade_classes import gradeGroups, getDateOfIssue, setDateOfIssue
+from wz_compat.grade_classes import (gradeGroups, getDateOfIssue,
+        setDateOfIssue, getCurrentTerm)
 from wz_compat.gradefunctions import getVDate
 
 
@@ -70,6 +71,19 @@ def index():
                             heading=_HEADING)
 
 
+def checkterm(term, xok = False):
+    """If not a valid term, return a "page-not-found".
+    Otherwise return the class/group – report type info for the term.
+    If xok is true, also non-integer keys may be tested.
+    """
+    try:
+        if not xok:
+            int(term)
+        return CONF.GRADES.TEMPLATE_INFO['_' + term]
+    except:
+        raise
+        abort(404)
+
 ########### Views for group reports ###########
 
 ### Settings view, set closing date and current term for user input
@@ -82,7 +96,6 @@ def closingdate():
     schoolyear = session['year']
     form = _Form()
     form.TERM.choices = [(t, t) for t in CONF.MISC.TERMS] + [('', '–')]
-    db = DB(schoolyear)
 
     if form.validate_on_submit():
         ok = True
@@ -93,7 +106,7 @@ def closingdate():
             if gdate:
                 d = gdate.isoformat()
                 if Dates.checkschoolyear(schoolyear, d):
-                    db.setInfo('GRADES_CURRENT', term + ':' + d)
+                    setCurrentTerm(schoolyear, term, d)
                     flash("Notentermin %s. Halbjahr eingestellt: %s" %
                             (term, d), "Info")
                 else:
@@ -104,7 +117,7 @@ def closingdate():
                 ok = False
         else:
             # Not accepting grade input
-            db.setInfo('GRADES_CURRENT', None)
+            setCurrentTerm(schoolyear, None)
             flash("Noteneingabe gesperrt", "Info")
         if ok:
             return redirect(url_for('bp_grades.index'))
@@ -113,13 +126,13 @@ def closingdate():
 
     # GET
     # Get current settings
-    gradesInfo = db.getInfo('GRADES_CURRENT')
-    if gradesInfo:
-        t, d = gradesInfo.split(':')
+    try:
+        t, d = getCurrentTerm(schoolyear)
+    except:
+        form.TERM.data = ''
+    else:
         form.TERM.data = t
         form.GRADES_CLOSING_D.data = datetime.date.fromisoformat(d)
-    else:
-        form.TERM.data = ''
     return render_template(os.path.join(_BPNAME, 'closingdate.html'),
                             form=form,
                             heading=_HEADING)
@@ -258,10 +271,7 @@ def term(termn):
     except:
         dfile = None
     schoolyear = session['year']
-    try:
-        kmap = CONF.GRADES.REPORT_TEMPLATES['_' + termn]
-    except:
-        abort(404)
+    checkterm(termn)
     klasses = REPORT.wrap(gradeGroups, termn, suppressok=True)
     if not klasses:
         flash(_NO_CLASSES.format(term = termn), "Error")
@@ -291,10 +301,7 @@ def termtable(termn, ks = None):
         grades2db(session['year'], gtbl, term=termn)
 
     schoolyear = session['year']
-    try:
-        kmap = CONF.GRADES.REPORT_TEMPLATES['_' + termn]
-    except:
-        abort(404)
+    checkterm(termn)
     klasses = REPORT.wrap(gradeGroups, termn, suppressok=True)
     if not klasses:
         flash(_NO_CLASSES.format(term = termn), "Error")
@@ -313,8 +320,7 @@ def termtable(termn, ks = None):
             if ks in klasses:
                 xlsxbytes = REPORT.wrap(makeBasicGradeTable,
                         schoolyear, termn,
-                        Klass(ks), "Noten: %s. Halbjahr" % termn,
-                        suppressok = True)
+                        Klass(ks), suppressok = True)
                 if xlsxbytes:
                     dfile = 'Noten_%s.xlsx' % ks
                     session['filebytes'] = xlsxbytes
@@ -324,6 +330,8 @@ def termtable(termn, ks = None):
                         return redirect(url_for('download', dfile = dfile))
                     # If there are messages, the template will show these
                     # and then make the file available for downloading.
+                else:
+                    return redirect(url_for('bp_grades.closingdate'))
             else:
                 abort(404)
 
@@ -351,6 +359,11 @@ def klassview(termn, klass_stream):
 
     schoolyear = session['year']
     klass = Klass(klass_stream)
+    rtypes = klass.match_map(checkterm(termn))
+    try:
+        rtype = rtypes.split()[0]
+    except:
+        abort(404)
     session['nextpage'] = request.path
     date = getDateOfIssue(schoolyear, termn, klass)
     if not date:
@@ -383,7 +396,6 @@ def klassview(termn, klass_stream):
 
     # GET
     form.DATE_D.data = datetime.date.fromisoformat(date)
-    rtype = klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + termn])
     pdlist = REPORT.wrap(db2grades, schoolyear, termn, klass,
             rtype = rtype, suppressok=True)
     return render_template(os.path.join(_BPNAME, 'klass.html'),
@@ -470,21 +482,32 @@ def pupil(pid):
     dates, _terms = [], {}
     for row in DB(schoolyear).select('GRADES', PID=pid):
         t = row['TERM']
-        if t[0] != '_':
-            if t in CONF.MISC.TERMS:
-                _terms[t] = row['REPORT_TYPE']
+        rtype = row['REPORT_TYPE']
+        gklass = Klass.fromKandS(row['CLASS'], row['STREAM'])
+        if t in CONF.MISC.TERMS:
+            # A term
+            rtypes = getTermTypes(gklass, t)
+            if rtype in rtypes:
+                _terms[t] = rtype
             else:
-                dates.append((t, row['REPORT_TYPE'] or _DEFAULT_RTYPE))
+                _terms[t] = rtypes[0]           # the default
+        else:
+            # A date
+            rtypes = getTermTypes(gklass, 'X')
+            if rtype in rtypes:
+                dates.append((t, rtype))
+            else:
+                dates.append((t, rtypes[0]))    # the default
     dates.sort(reverse=True)
     terms = {}
+    pklass = pdata.getKlass(withStream=True)
     for t in CONF.MISC.TERMS:
         rtype = _terms.get(t)
         if rtype:
             terms[t] = rtype
         else:
             # If no report type, get default
-            klass = pdata.getKlass(withStream=True)
-            terms[t] = getTermDefaultType (klass, t)
+            terms[t] = getTermTypes(pklass, t)[0]
 
     return render_template(os.path.join(_BPNAME, 'pupil.html'),
                             heading = _HEADING,
@@ -521,17 +544,10 @@ def grades_pupil(pid, rtag):
             k, s = pdata['CLASS'], pdata['STREAM']
             rtype = None
         klass = Klass.fromKandS(k, s)
-        if not rtype:
-            if rtag in CONF.MISC.TERMS:
-                rtype = getTermDefaultType(klass, rtag)
-            else:
-                rtype = _DEFAULT_RTYPE
-        # Build a list of possible report types for this class/group
-        rtypes = []
-        for _rtype, kmap in CONF.GRADES.REPORT_TEMPLATES.items():
-            if _rtype[0] != '_':
-                if klass.match_map(kmap):
-                    rtypes.append((_rtype, _rtype))
+        # Get a list of possible report types for this class/group
+        rtypes = getTermTypes(klass, rtag)
+        if rtype not in rtypes:
+            rtype = rtypes[0]
         _Form.RTYPE = SelectField("Zeugnistyp",
                     choices = rtypes,
                     default = rtype)

@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-02-28
+wz_grades/gradetable.py - last updated 2020-03-16
 
 Create grade tables for display and grade entry.
 
@@ -24,34 +24,73 @@ Copyright 2020 Michael Towers
 _FIRSTSIDCOL = 4    # Index (0-based) of first sid column
 _UNUSED = '/'      # Subject tag for unused column
 
+# Title for grade tables
+_TITLE = "Noten, Abgabe bis {date}"
+_TITLE1 = "Noten zu {time}"
+
+
 # Messages
 _MISSING_SUBJECT = "Fachkürzel {sid} fehlt in Notentabellenvorlage:\n  {path}"
-_NO_TEMPLATE = "Keine Notentabelle-Vorlage für Klasse/Gruppe {ks} in GRADES.GRADE_TABLE_INFO"
-_NO_ITEMPLATE = "Keine Noteneingabe-Vorlage für Klasse/Gruppe {ks} in GRADES.GRADE_TABLE_INFO"
+_NO_TEMPLATE = ("Keine Notentabelle-Vorlage für Klasse/Gruppe {ks} in"
+        " GRADES.TEMPLATE_INFO.GRADE_TABLE")
+_NOT_CURRENT_TERM = "Nicht aktuelles Halbjahr"
 
 
-from wz_core.configuration import Paths
+import datetime
+
+from wz_core.configuration import Paths, Dates
+from wz_core.db import DB
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_table.matrix import KlassMatrix
-from .gradedata import getGradeData
+from wz_compat.grade_classes import getCurrentTerm, gradeGroups
+from .gradedata import getGradeData, grades2map
 
 
-#TODO: Incorporate info from choice tables?
-def makeBasicGradeTable(schoolyear, term, klass, title):
+def makeBasicGradeTable(schoolyear, term, klass, withgrades = False):
     """Build a basic pupil/subject table for entering grades.
-    <klass> is a <Klass> instance.
-    <term> is a string.
+    <klass> is a <Klass> instance, which can include one or more streams.
+    <term> is a string (the term number).
+    If <withgrades> is true, any existing grades (in the database) will
+    be entered into the table.
      """
-    # Info concerning grade tables:
-    gtinfo = CONF.GRADES.GRADE_TABLE_INFO
+    # If using old data, a pupil's stream, and even class, may have changed!
+    try:
+        t, d = getCurrentTerm(schoolyear)
+        if t != term:
+            raise ValueError
+    except:
+        if withgrades:
+            # Search within <klass.klass> for <term>, include those with
+            # a stream covered by <klass>
+            plist = oldTablePupils(schoolyear, term, klass)
+        else:
+            REPORT.Error(_NOT_CURRENT_TERM)
+            return None
+    else:
+        plist = Pupils(schoolyear).classPupils(klass)
+        for pdata in plist:
+            if withgrades:
+                gdata = getGradeData(schoolyear, pdata['PID'], term)
+                if gdata:
+                    if (gdata['CLASS'] == klass.klass and
+                            gdata['STREAM'] == pdata['STREAM']):
+                        pdata.grades = gdata['GRADES']
+                        continue
+            pdata.grades = None
 
     ### Determine table template
-    t = klass.match_map(gtinfo.TEMPLATE_GRADE_TABLE)
+    gtinfo = CONF.GRADES.TEMPLATE_INFO
+    t = klass.match_map(gtinfo.GRADE_TABLE)
     if not t:
-        REPORT.Fail(_NO_ITEMPLATE, ks=klass)
+        REPORT.Fail(_NO_TEMPLATE, ks = klass)
     template = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
     table = KlassMatrix(template)
+    if withgrades:
+        title = _TITLE1.format(time = datetime.datetime.now().isoformat(
+                sep=' ', timespec='minutes'))
+    else:
+        title = _TITLE.format(date = Dates.dateConv(d))
     table.setTitle(title)
     # "Translation" of info items:
     kmap = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
@@ -73,6 +112,7 @@ def makeBasicGradeTable(schoolyear, term, klass, title):
     sid2tlist = courses.classSubjects(klass)
 #    print ("???1", list(sid2tlist))
     # Go through the template columns and check if they are needed:
+    sidcol = []
     col = 0
     rowix = table.row0()    # index of header row
     for sid in grade_subjects:
@@ -80,6 +120,7 @@ def makeBasicGradeTable(schoolyear, term, klass, title):
             sname = courses.subjectName(sid)
             # Add subject
             col = table.nextcol()
+            sidcol.append((sid, col))
             table.write(rowix, col, sid)
             table.write(rowix + 1, col, sname)
     # Enforce minimum number of columns
@@ -90,13 +131,18 @@ def makeBasicGradeTable(schoolyear, term, klass, title):
     table.delEndCols(col + 1)
 
     ### Add pupils
-    pupils = Pupils(schoolyear)
-    for pdata in pupils.classPupils(klass):
+    for pdata in plist:
         row = table.nextrow()
         pid = pdata['PID']
         table.write(row, 0, pid)
         table.write(row, 1, pdata.name())
         table.write(row, 2, pdata['STREAM'])
+        if pdata.grades:
+            for sid, col in sidcol:
+                g = pdata.grades.get(sid)
+                if g:
+                    table.write(row, col, g)
+
     # Delete excess rows
     table.delEndRows(row + 1)
 
@@ -105,155 +151,25 @@ def makeBasicGradeTable(schoolyear, term, klass, title):
     return table.save()
 
 
-#DEPRECATED?
-def makeGradeTable(schoolyear, term, klass, title):
-    """Make a grade table for the given school-class/group.
-    <klass> is a <Klass> instance.
-    <term> is a string.
+
+def oldTablePupils(schoolyear, term, klass):
+    """Search within <klass.klass> for <term>, include those with
+    a stream covered by <klass>.
     """
-    # Info concerning grade tables:
-    gtinfo = CONF.GRADES.GRADE_TABLE_INFO
-    # Determine table template
-    t = klass.match_map(gtinfo.GRADE_TABLE_TEMPLATE)
-    if not t:
-        REPORT.Fail(_NO_TEMPLATE, ks=klass)
-    template = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
-    table = KlassMatrix(template)
-
-    ### Insert general info
-    table.setTitle(title)
-    # "Translation" of info items:
-    kmap = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
-    info = (
-        (kmap['SCHOOLYEAR'], str(schoolyear)),
-        (kmap['CLASS'], klass.klass),
-        (kmap['TERM'], term)
-    )
-    table.setInfo(info)
-
-    ### Manage subjects
-    courses = CourseTables(schoolyear)
-    sid2tlist = courses.classSubjects(klass)
-#    print ("???1", list(sid2tlist))
-    # Go through the template columns and check if they are needed:
-    colmap = {}
-    col = _FIRSTSIDCOL
-    for k in table.headers[_FIRSTSIDCOL:]:
-        if k:
-            if k in sid2tlist:
-                colmap[k] = col
-            elif k == _UNUSED:
-                table.hideCol(col, True)
-            else:
-                # Handle extra _tags
-                klassmap = gtinfo.get(k)
-                if klassmap:
-                    m = klass.match_map(klassmap)
-                    if m and term in m.split():
-                        colmap[k] = col
-                    else:
-                        table.hideCol(col, True)
-                else:
-                    table.hideCol(col, True)
-        col += 1
-#    print("???COLMAP:", colmap)
-
-    ### Add pupils
+    plist = []
     pupils = Pupils(schoolyear)
-    for pdata in pupils.classPupils(klass):
-        row = table.nextrow()
-        pid = pdata['PID']
-        table.write(row, 0, pid)
-        table.write(row, 1, pdata.name())
-        table.write(row, 2, pdata['STREAM'])
-        # Add existing grades
-        gd = getGradeData(schoolyear, pid, term)
-#        print("\n???", pid, gd)
-        if gd:
-            grades = gd['GRADES']
-            if grades:
-                for k, v in grades.items():
-                    try:
-                        col = colmap[k]
-                    except KeyError:
-#                        print("!!! excess subject:", k)
-                        continue
-                    if k:
-                        if k.startswith('__'):
-                            # Calculated entry
-                            continue
-                        table.write(row, col, v)
-    # Delete excess rows
-    table.delEndRows(row + 1)
-
-    ### Save file
-    table.protectSheet()
-    return table.save()
-
-
-#DEPRECATED?
-def stripTable(schoolyear, term, klass, title):
-    """Build a basic pupil/subject table for entering grades.
-    <klass> is a <Klass> instance.
-    <term> is a string.
-     """
-    # Info concerning grade tables:
-    gtinfo = CONF.GRADES.GRADE_TABLE_INFO
-
-    ### Determine table template (output)
-    t = klass.match_map(gtinfo.GRADE_INPUT_TEMPLATE)
-    if not t:
-        REPORT.Fail(_NO_ITEMPLATE, ks=klass)
-    template = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
-    table = KlassMatrix(template)
-    table.setTitle(title)
-    table.setInfo([])
-
-    ### Read input table template (for determining subjects and order)
-    # Determine table template (input)
-    t = klass.match_map(gtinfo.GRADE_TABLE_TEMPLATE)
-    if not t:
-        REPORT.Fail(_NO_TEMPLATE, ks=klass)
-    template0 = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
-    table0 = KlassMatrix(template0)
-    i, x = 0, 0
-    for row0 in table0.rows:
-        i += 1
-        if row0[0] and row0[0] != '#':
-            # The subject key line
-            break
-    # <row0> is the title row.
-
-    ### Manage subjects
-    courses = CourseTables(schoolyear)
-    sid2tlist = courses.classSubjects(klass)
-#    print ("???1", list(sid2tlist))
-    # Set klass cell
-    rowix = table.rowindex - 1
-    table.write(rowix, 0, table.headers[0].replace('*', klass.klass))
-    # Go through the template columns and check if they are needed:
-    col = 0
-    for sid in row0:
-        if sid and sid[0] != '_' and sid in sid2tlist:
-            sname = courses.subjectName(sid)
-            # Add subject
-            col = table.nextcol()
-            table.write(rowix, col, sname)
-    # Delete excess columns
-    table.delEndCols(col + 1)
-
-    ### Add pupils
-    pupils = Pupils(schoolyear)
-    for pdata in pupils.classPupils(klass):
-        row = table.nextrow()
-        table.write(row, 0, pdata.name())
-        table.write(row, 1, pdata['STREAM'])
-    # Delete excess rows
-    table.delEndRows(row + 1)
-
-    ### Save file
-    table.protectSheet()
-    return table.save()
+    for row in DB(schoolyear).select('GRADES',
+            CLASS = klass.klass, TERM = term):
+        stream = row['STREAM']
+        if klass.containsStream(stream):
+            pdata = pupils.pupil(row['PID'])
+            pdata.grades = grades2map(row['GRADES'])
+            # In case class or stream have changed:
+            pdata['CLASS'] = klass.klass
+            pdata['STREAM'] = stream
+            plist.append(pdata)
+    plist.sort(key=lambda pdata: pdata['PSORT'])
+    return plist
 
 
 
@@ -261,49 +177,22 @@ def stripTable(schoolyear, term, klass, title):
 _testyear = 2016
 def test_01():
     _term = '1'
-    for ks in '11.RS-HS-_', '11.Gym','12.RS-HS', '12.Gym', '13':
+    for ks in gradeGroups(_term):
         klass = Klass(ks)
-        bytefile = makeBasicGradeTable(_testyear, _term, klass, "Noten")
-        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make=-1,
-                term=_term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
+        bytefile = makeBasicGradeTable(_testyear, _term, klass, withgrades = True)
+        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make = -1,
+                term = _term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
         with open(filepath, 'wb') as fh:
             fh.write(bytefile)
         REPORT.Test(" --> %s" % filepath)
-
-
-    return
-
-    _term = '1'
-    for ks in '11.RS-HS-_', '11.Gym','12.RS-HS', '12.Gym', '13':
-        klass = Klass(ks)
-        bytefile = makeGradeTable(_testyear, _term, klass, "Noten: 1. Halbjahr")
-        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_FULL', make=-1,
-                term=_term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
-        with open(filepath, 'wb') as fh:
-            fh.write(bytefile)
-        REPORT.Test(" --> %s" % filepath)
-        bytefile = stripTable(_testyear, _term, klass, "Noten: 1. Halbjahr")
-        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make=-1,
-                term=_term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
-        with open(filepath, 'wb') as fh:
-            fh.write(bytefile)
-        REPORT.Test(" --> %s" % filepath)
-
 
 def test_02():
-    return
     _term = '2'
-    for ks in '10', '11.Gym', '11.RS-HS-_', '12.RS-HS', '12.Gym', '13':
+    for ks in gradeGroups(_term):
         klass = Klass(ks)
-        bytefile = makeGradeTable(_testyear, _term, klass, "Noten: 1. Halbjahr")
-        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_FULL', make=-1,
-                term=_term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
-        with open(filepath, 'wb') as fh:
-            fh.write(bytefile)
-        REPORT.Test(" --> %s" % filepath)
-        bytefile = stripTable(_testyear, _term, klass, "Noten: 1. Halbjahr")
-        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make=-1,
-                term=_term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
+        bytefile = makeBasicGradeTable(_testyear, _term, klass, withgrades = True)
+        filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make = -1,
+                term = _term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
         with open(filepath, 'wb') as fh:
             fh.write(bytefile)
         REPORT.Test(" --> %s" % filepath)

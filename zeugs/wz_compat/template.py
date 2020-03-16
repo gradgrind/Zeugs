@@ -4,7 +4,7 @@
 """
 wz_compat/template.py
 
-Last updated:  2020-03-10
+Last updated:  2020-03-15
 
 Functions for template handling.
 
@@ -45,7 +45,7 @@ def getGradeTemplate(rtype, klass):
     and report type.
     <klass> is a <Klass> instance.
     """
-    tlist = CONF.GRADES.REPORT_TEMPLATES[rtype]
+    tlist = CONF.GRADES.TEMPLATE_INFO[rtype]
     tfile = klass.match_map(tlist)
     if tfile:
         return openTemplate(tfile)
