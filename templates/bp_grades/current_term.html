@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}Halbjahr setzen: {{ termn if termn else "–––" }}{% endblock %}
+
+{% block content %}
+    <p>(aktuell: {{ term0 or "–––" }})
+    </p>
+    <ul class="modules">
+        {% for hj in terms %}
+        <li><a href="{{url_for('bp_grades.current_term', termn=hj)}}">
+            ↪ {{ hj }}. Halbjahr
+        </a></li>
+        {% endfor %}
+    </ul>
+
+    {% if termn %}
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+        <button type="submit" name="action" value="clear"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">kein aktuelles Halbjahr</button>
+        <hr />
+
+        <fieldset>
+            {% for ks in klasses %}
+            {% set i = loop.index0 %}
+            <legend>Klasse {{ ks }}</legend>
+            <div class="pure-control-group">
+                {% set f = form['DOK_%02d' % i] %}
+                <label for="{{ f.id }}">Konferenzdatum</label>
+                {{ f }}
+            </div>
+            <div class="pure-control-group">
+                {% set f = form['DOI_%02d' % i] %}
+                <label for="{{ f.id }}">Ausstellungsdatum</label>
+                {{ f }}
+            </div>
+            <div class="pure-control-group">
+                {% set f = form['OPEN_%02d' % i] %}
+                <label for="{{ f.id }}">Noteneingabe</label>
+                {{ f }}
+            </div>
+            {% if i == 0 %}
+            <button type="submit" name="action" value="all"
+                    class="pure-button submit-button"
+                    style="margin: 0.5rem 1rem;">für alle Klassen übernehmen</button>
+            <hr />
+            {% endif %}
+            {% endfor %}
+        </fieldset>
+
+        <hr />
+        <button type="submit" name="action" value="update"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">Übernehmen</button>
+    </form>
+    {% endif %}
+{% endblock %}

@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-03-16
+Last updated:  2020-03-17
 
 This module handles access to an sqlite database.
 
@@ -43,13 +43,9 @@ _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
 # entry (date of issue) to identify the report.
 #TODO: perhaps it should be possible to delete entries, or at least mark
 # them as superseded.
-#TODO: There should be only one report for a given date, regardless of
-# the TERM?
 GRADE_FIELDS = ('CLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
-        'GRADES', 'REMARKS')
-GRADE_UNIQUE = [('PID', 'TERM')]
-#CHOICE_FIELDS = ('CLASS', 'PID', 'CHOICES')
-#CHOICE_UNIQUE = ['PID']
+        'GRADES', 'REMARKS', 'DATE_D')
+GRADE_UNIQUE = [('PID', 'TERM'), ('PID', 'DATE_D')]
 ABI_SUBJECTS_FIELDS = ('PID', 'SUBJECTS')
 ABI_SUBJECTS_UNIQUE = ['PID']
 
@@ -96,8 +92,6 @@ class DB0:
             self.makeTable2('INFO', ('K', 'V'), index=['K'])
         if not self.tableExists('GRADES'):
             self.makeTable2('GRADES', GRADE_FIELDS, index=GRADE_UNIQUE)
-#        if not self.tableExists('CHOICES'):
-#            self.makeTable2('CHOICES', CHOICE_FIELDS, index=CHOICE_UNIQUE)
         if not self.tableExists('PUPILS'):
             # Use (CLASS, PSORT) as primary key, with additional index
             # on PID. This makes quite a small db (without rowid).
@@ -106,7 +100,7 @@ class DB0:
         if not self.tableExists('ABI_SUBJECTS'):
             self.makeTable2('ABI_SUBJECTS', ABI_SUBJECTS_FIELDS,
                     index=ABI_SUBJECTS_UNIQUE)
-#TODO ...
+#TODO ...?
 
 
     @staticmethod

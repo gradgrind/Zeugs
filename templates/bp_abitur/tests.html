@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}Klausuren{% endblock %}
+
+{% block content %}
+    <h2>Verwaltung der Ergebnis-Tabellen
+    </h2>
+
+    {% if dfile %}
+    <p>Hier können Sie die Tabellendatei herunterladen:</p>
+    <a href="{{url_for('download', dfile=dfile)}}">{{dfile}}</a>
+    <hr />
+    {% endif %}
+
+    <p>Hier können Sie eine Klausur-Ergebnistabelle einlesen (hochladen).
+    </p>
+    <form class="pure-form pure-form-stacked" method="POST" enctype="multipart/form-data">
+        {{ form.csrf_token }}
+        <div class="uploaddiv">
+            {{ form.upload.label }}{{ form.upload }}
+        </div>
+        <div class="formsubmit">
+            <button type="submit" class="pure-button pure-button-primary">Einlesen</button>
+        </div>
+        <hr />
+    </form>
+
+    <p>Wählen Sie hier die gewünschte Tabelle, um diese zu erstellen.
+    </p>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for k in ("1", "2", "3") %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_abitur.test_table', test=k)}}"
+                        class="pure-menu-link">
+                    {{ k }}. Klausur
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+{% endblock %}

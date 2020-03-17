@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2020-03-16
+Last updated:  2020-03-17
 
 Configuration items and the handler for the configuration files.
 
@@ -421,7 +421,6 @@ class Dates:
         """Test whether the given date <d> lies within the schoolyear.
         Return true/false.
         """
-        print("§§§DATECHECK", d, schoolyear, cls.day1(schoolyear), cls.day1(schoolyear + 1))
         if d < cls.day1(schoolyear):
             return False
         return d < cls.day1(schoolyear + 1)

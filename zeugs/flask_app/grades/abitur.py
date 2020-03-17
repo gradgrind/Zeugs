@@ -4,7 +4,7 @@
 """
 flask_app/grades/abitur.py
 
-Last updated:  2020-03-14
+Last updated:  2020-03-16
 
 Flask Blueprint for abitur reports
 
@@ -66,11 +66,41 @@ bp = Blueprint(_BPNAME,             # internal name of the Blueprint
         __name__)                   # allows the current package to be found
 
 
+#TODO?
+#@bp.route('/', methods=['GET'])
+#def index():
+#    return render_template(os.path.join(_BPNAME, 'abi-index.html'),
+#                            heading=_HEADING)
+
+@bp.route('/tests', methods=['GET','POST'])
+def tests():
+    class UploadForm(FlaskForm):
+        upload = FileField('Klausur-Ergebnisse:', validators=[
+            FileRequired(),
+            FileAllowed(['xlsx', 'ods'], 'Klausur-Ergebnisse')
+        ])
+
+    schoolyear = session['year']
+    form = UploadForm()
+    if form.validate_on_submit():
+        if REPORT.wrap(tests2db, schoolyear, form.upload.data):
+            return redirect(url_for('bp_grades.index'))
+
+    try:
+        download = session.pop('download')
+    except:
+        download = None
+    return render_template(os.path.join(_BPNAME, 'tests.html'),
+                            heading=_HEADING,
+                            dfile=download,
+                            form=form)
+
+
+@bp.route('/test_table/<test>', methods=['GET','POST'])
+def test_table(test):
 #TODO
-@bp.route('/', methods=['GET'])
-def index():
-    return render_template(os.path.join(_BPNAME, 'abi-index.html'),
-                            heading=_HEADING)
+# Build the result table ...
+    return "NYI"
 
 
 @bp.route('/choices', methods=['GET','POST'])

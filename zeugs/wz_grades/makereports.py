@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-03-15
+Last updated:  2020-03-16
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -59,13 +59,14 @@ from wz_grades.gradedata import (GradeReportData,
 
 
 #def getTermDefaultType (klass, term):
-#    t = '_' + term if term in CONF.MISC.TERMS else '_*'
+#    t = '_' + term if term in CONF.MISC.TERMS else '_X'
 #    rtypes = klass.match_map(CONF.GRADES.TEMPLATE_INFO[t])
 #    return rtypes.split()[0]
 
 def getTermTypes(klass, term):
-    t = '_' + term if term in CONF.MISC.TERMS else '_*'
-    return klass.match_map(CONF.GRADES.TEMPLATE_INFO[t]).split()
+    t = ('_' + term) if term in CONF.MISC.TERMS else '_X'
+    tlist = klass.match_map(CONF.GRADES.TEMPLATE_INFO[t])
+    return tlist.split() if tlist else None
 
 
 def makeReports(schoolyear, term, klass, pids=None):

@@ -158,8 +158,8 @@ a.pure-menu-link:visited {
     width: 15rem;
 }
 
-.pure-menu legend {
-    margin-top: 2mm;
+.pure-menu,.pure-form legend {
+    margin-top: 2em;
 }
 
 .form2 { /* layout forms with label + input field using grid */

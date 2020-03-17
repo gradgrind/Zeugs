@@ -22,10 +22,11 @@
     </ul>
     <h3>Einstellungen</h3>
     <ul class="modules">
-        <li><a href="{{url_for('bp_grades.closingdate')}}">Abgabetermin</a></li>
-        <li><a href="{{url_for('bp_grades.issue')}}">Ausstellungsdatum</a></li>
-        <li><a href="{{url_for('bp_grades.vdate')}}">Konferenzdatum</a>
-        (für die gymnasiale Versetzung 11→12 und 12→13)</li>
+        <li><a href="{{url_for('bp_grades.current_term')}}">Aktuelles Halbjahr verwalten</a></li>
         <li><a href="{{url_for('bp_abitur.choices')}}">Abitur: Kurswahl</a></li>
+    </ul>
+    <h3>Weiteres</h3>
+    <ul class="modules">
+        <li><a href="{{url_for('bp_abitur.tests')}}">Abitur: Klausur-Ergebnisse</a></li>
     </ul>
 {% endblock %}

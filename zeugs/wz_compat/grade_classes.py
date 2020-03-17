@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-03-16
+Last updated:  2020-03-17
 
 For which school-classes and streams are grade reports possible?
 
@@ -40,6 +40,8 @@ _NSUBJECTS = "Für {pname} sind nicht genau 8 Fächer markiert"
 _ABI_CHOICES = "{pname} muss genau 8 Fächer für das Abitur wählen"
 
 
+from collections import OrderedDict
+
 from wz_core.db import DB
 from wz_core.configuration import Paths
 from wz_core.pupils import Klass, Pupils
@@ -52,6 +54,7 @@ def gradeGroups(term):
     return CONF.GRADES.TEMPLATE_INFO['GROUPS_' + term].csplit(None)
 
 
+#DEPRECATED
 def setDateOfIssue(schoolyear, term, klass, date):
     if str(klass) not in gradeGroups(term):
         REPORT.Fail(_INVALID_GROUP, term = term, group = klass)
@@ -61,6 +64,7 @@ def setDateOfIssue(schoolyear, term, klass, date):
         DB(schoolyear).setInfo('GRADE_DATE_%s_%s' % (term, g), date)
 
 
+#DEPRECATED
 def getDateOfIssue(schoolyear, term, klass):
     db = DB(schoolyear)
     if klass.stream:
@@ -76,23 +80,44 @@ def getDateOfIssue(schoolyear, term, klass):
 
 
 def getCurrentTerm(schoolyear):
-    """Return the current term and deadline for grade input as a tuple:
-        (term, date).
+    """Return the current term and date info for grade input and reports.
+    It is returned as an ordered mapping:
+     {class/group -> (conference date, date of issue, open for new grades)}
+    The term is available as the <TERM> attribute.
     If there is no current term, return <None>.
     """
-    gradesInfo = DB(schoolyear).getInfo('GRADES_CURRENT')
-    return gradesInfo.split(':') if gradesInfo else None
+    gradesInfo = DB(schoolyear).getInfo('GRADES_CURRENT_TERM')
+    if gradesInfo:
+        ct = OrderedDict()
+        try:
+            term, kslist = gradesInfo.split(':')
+            for kdata in kslist.split('|'):
+                ks, dok, doi, opn = kdata.split(',')
+                ct[ks] = (dok, doi, opn)
+        except:
+            raise
+            REPORT.Bug("in <getCurrentTerm()>, GRADES_CURRENT_TERM invalid:\n  "
+                    + gradesInfo)
+            return None
+        ct.TERM = term
+        return ct
+    return None
 
 
-def setCurrentTerm(schoolyear, term, date = None):
-    """Set the current term and deadline for grade input.
+def setCurrentTerm(schoolyear, term, ksdata=None):
+    """Set the current term and date info for grade input and reports.
     If <term> is <None> there is no current term.
+    <ksdata> is a list of tuples:
+        [(class/group, conference date, date of issue, open for new grades), ...]
     """
     if term:
-        DB(schoolyear).setInfo('GRADES_CURRENT', term + ':' + date)
+        kslist = [','.join([ks, dok, doi, opn]) for ks, dok, doi, opn in ksdata]
+        val = term + ':' + '|'.join(kslist)
+        DB(schoolyear).setInfo('GRADES_CURRENT_TERM', val)
+        return term
     else:
-        DB(schoolyear).setInfo('GRADES_CURRENT', None)
-
+        DB(schoolyear).setInfo('GRADES_CURRENT_TERM', None)
+        return '–––'
 
 def abi_sids(schoolyear, pid, report = True):
     row = DB(schoolyear).select1('ABI_SUBJECTS', PID = pid)
