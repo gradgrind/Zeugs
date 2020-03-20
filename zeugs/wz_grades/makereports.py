@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-03-16
+Last updated:  2020-03-20
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -42,7 +42,11 @@ _PUPILS_NOT_IN_CLASS_STREAM = "Schüler {pids} nicht in Klasse/Gruppe {ks}"
 _MADEKREPORTS = "Notenzeugnisse für Klasse {ks} wurden erstellt"
 _NOPUPILS = "Notenzeugnisse: keine Schüler"
 _MADEPREPORT = "Notenzeugnis für {pupil} wurde erstellt"
-_WRONG_RTYPE = "Zeugnistyp für {pname} ist {rtype} – kein Zeugnis wird erstellt"
+_NO_CURRENT_TERM = "Kein aktuelles Halbjahr"
+_NO_ISSUE_DATE = "Kein Ausstellungsdatum für Klasse {klass}"
+_NO_GRADES = "Keine Noten für {pname} => kein Zeugnis"
+_WRONG_GROUP = "{pname} hat die Gruppe gewechselt => kein Zeugnis"
+_WRONG_RTYPE = "Zeugnistyp für {pname} ist {rtype} => kein Zeugnis"
 
 
 import os
@@ -53,7 +57,7 @@ from weasyprint.fonts import FontConfiguration
 from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Pupils, Klass
 from wz_compat.config import printSchoolYear, printStream
-from wz_compat.grade_classes import getDateOfIssue
+from wz_compat.grade_classes import CurrentTerm
 from wz_grades.gradedata import (GradeReportData,
         db2grades, getGradeData, updateGradeReport)
 
@@ -69,28 +73,35 @@ def getTermTypes(klass, term):
     return tlist.split() if tlist else None
 
 
-def makeReports(schoolyear, term, klass, pids=None):
+def makeReports(klass_streams, pids=None):
     """Build a single file containing reports for the given pupils.
-    This only works for groups with the same report type and template.
-    <term> is the term.
-    <pids>: a list of pids (must all be in the given klass), only
+    It is only applicable to the current term, because in the past the
+    individual pupils may have been in different groups, or even classes.
+    This also only works for groups with the same report type and template.
+    Should any included pupils have mismatches in critical fields, e.g.
+    the report type, they will be automatically excluded from the reports.
+    <klass_streams> is a <Klass> instance: it can be a just a school-class,
+        but it can also have a stream, or list of streams.
+    <pids>: a list of pids (must all be in the given klass/streams), only
         generate reports for pupils in this list.
         If not supplied, generate reports for the whole klass/group.
-    <klass> is a <Klass> instance: it can be a just a school-class,
-    but it can also have a stream, or list of streams.
     """
-    date = getDateOfIssue(schoolyear, term, klass)
+    curterm = CurrentTerm()
+    if not curterm.TERM:
+        REPORT.Fail(_NO_CURRENT_TERM)
+    schoolyear = curterm.schoolyear
+    DATE_D = curterm.getIDate(klass_streams)
+    if not DATE_D:
+        REPORT.Warn(_NO_ISSUE_DATE, klass = klass_streams)
+    # GDATE_D is not necessarily needed by the report, so don't report
+    # it missing – the conversion will catch the null vcalue value later.
+    GDATE_D = curterm.getGDate(klass_streams)
     # Get the report type from the term and klass/stream
-    rtype = getTermTypes(klass, term)[0]
-    # <db2grades> returns a list: [(pid, pname, grade map), ...]
-    # <grades>: {pid -> grade map}
-    grades = {pid: gmap
-            for pid, pname, gmap in db2grades(schoolyear, term, klass)
-    }
+    rtype = getTermTypes(klass_streams, curterm.TERM)[0]
+    # If a pupil list is supplied, select the required pupil data,
+    # otherwise use the full list.
     pupils = Pupils(schoolyear)
-    pall = pupils.classPupils(klass) # list of data for all pupils
-    # If a pupil list is supplied, select the required pupil data.
-    # Otherwise use the full list.
+    pall = pupils.classPupils(klass_streams) # list of data for all pupils
     if pids:
         pset = set (pids)
         plist = []
@@ -102,46 +113,45 @@ def makeReports(schoolyear, term, klass, pids=None):
             plist.append(pdata)
         if pset:
             REPORT.Bug(_PUPILS_NOT_IN_CLASS_STREAM, pids=', '.join(pset),
-                    ks=klass)
+                    ks=klass_streams)
     else:
         plist = pall
-
     ### Get a tag mapping for the grade data of each pupil
     # <GradeReportData> manages the report template, etc.:
-    reportData = GradeReportData(schoolyear, klass, rtype)
+    reportData = GradeReportData(schoolyear, klass_streams, rtype)
     pmaplist = []
     for pdata in plist:
         pid = pdata['PID']
         # Get grade map for pupil
-        _grades = grades[pid]
-        # Include this pupil only if the report type matches
-        if _grades.REPORT_TYPE:
-            if _grades.REPORT_TYPE != rtype:
-                REPORT.Warn(_WRONG_RTYPE, pname = pdata.name(),
-                        rtype = _grades.RTYPE)
-                continue
-        else:
-            # Update grade database (only the report-type field)
-            updateGradeReport(schoolyear, pid, term, rtype = rtype)
-        gmap = reportData.gradeManager(_grades)
-        # Build a grade mapping for the tags of the template.
-        # If the grade-level is not the same as the pupil's (current)
-        # stream (but still within the group of streams covered by
-        # <klass>), use the grade-level.
-        pdata['STREAM'] = _grades.KLASS.stream
-        pdata.grades = reportData.getTagmap(gmap, pdata)
-        pdata.REMARKS = _grades.REMARKS
+        gradedata = getGradeData(schoolyear, pid, curterm.TERM)
+        if not gradedata:
+            REPORT.Error(_NO_GRADES, pname = pdata.name())
+            continue
+        if (gradedata['CLASS'] != klass_streams.klass
+                or gradedata['STREAM'] != pdata['STREAM']):
+            REPORT.Warn(_WRONG_GROUP, pname = pdata.name())
+            continue
+        if gradedata['REPORT_TYPE'] != rtype:
+            REPORT.Warn(_WRONG_RTYPE, pname = pdata.name(),
+                    rtype = grades.REPORT_TYPE)
+            continue
+        gmap = gradedata['GRADES']  # grade mapping
+        pdata.grades = reportData.getTagmap(reportData.gradeManager(gmap),
+                pdata)
+        pdata.REMARKS = gradedata['REMARKS']
+        gd = gradedata['GDATE_D']
         pmaplist.append(pdata)
 
     ### Generate html for the reports
     source = reportData.template.render(
             report_type = rtype,
             SCHOOLYEAR = printSchoolYear(schoolyear),
-            DATE_D = date,
+            DATE_D = DATE_D,
+            GDATE_D = GDATE_D,
             todate = Dates.dateConv,
             STREAM = printStream,
             pupils = pmaplist,
-            klass = klass
+            klass = klass_streams
         )
     # Convert to pdf
     if not plist:
@@ -149,7 +159,7 @@ def makeReports(schoolyear, term, klass, pids=None):
     html = HTML(string=source,
             base_url=os.path.dirname(reportData.template.filename))
     pdfBytes = html.write_pdf(font_config=FontConfiguration())
-    REPORT.Info(_MADEKREPORTS, ks=klass)
+    REPORT.Info(_MADEKREPORTS, ks=klass_streams)
     return pdfBytes
 
 
@@ -169,8 +179,10 @@ def makeOneSheet(schoolyear, pdata, term, rtype):
     # From here on use klass and stream from <gradedata>
     klass = Klass.fromKandS(gradedata['CLASS'], gradedata['STREAM'])
     if term in CONF.MISC.TERMS:
+#TODO
         date = getDateOfIssue(schoolyear, term, klass)
     else:
+#TODO
         date = term
     reportData = GradeReportData(schoolyear, klass, rtype)
     # Build a grade mapping for the tags of the template.

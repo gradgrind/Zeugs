@@ -2,65 +2,71 @@
 {% set uplink = url_for('bp_grades.index') %}
 {% set uplink_help = "Notenzeugnisse: Startseite" %}
 
-{% block title %}{% if termn %}{{termn}}. Halbjahr
-    {% else %}Halbjahr wählen{% endif %}
+{% block title %}{{termn}}. Halbjahr
 {% endblock %}
 
 {% block content %}
-    {% if termn %}
-        <p>Dieses ist {% if termn != term0 %}nicht{% endif %}
-        das „aktuelle“ Halbjahr.
-        </p>
-        <p>Hier können Sie das andere Halbjahr wählen:
-        </p>
-    {% endif %}
-    <ul class="modules">
-        {% for hj in terms %}
-        <li><a href="{{url_for('bp_grades.term', termn=hj)}}">
-            ↪ {{ hj }}. Halbjahr
-        </a></li>
-        {% endfor %}
-    </ul>
+    <p>Dieses ist {% if not klasses %}nicht{% endif %}
+    das „aktuelle“ Halbjahr.
+    </p>
+    <p>Hier können Sie das andere Halbjahr wählen:
+    </p>
+    {% set hj = '2' if termn == '1' else '1' %}
+    <a href="{{url_for('bp_grades.term', termn=hj)}}">
+        ↪ {{ hj }}. Halbjahr
+    </a>
     <hr />
 
-    {% if termn %}
-        {% if dfile %}
-        <p>Hier können Sie die Zeugnisdatei herunterladen:</p>
-        <a href="{{url_for('download', dfile=dfile)}}">{{dfile}}</a>
-        <hr />
-        {% endif %}
+    {% if dfile %}
+    <p>Hier können Sie die Zeugnisdatei herunterladen:
+    </p>
+    <a href="{{url_for('download', dfile=dfile)}}">{{dfile}}</a>
+    <hr />
+    {% endif %}
 
-        <h2>Notentabellen</h2>
-        <div class="pure-menu">
-            <ul class="pure-menu-list">
-                <li class="pure-menu-item">
-                    <a href="{{url_for('bp_grades.termtable', termn=termn)}}"
-                        class="pure-menu-link">
+    <h2>Notentabellen</h2>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.termtable', termn=termn)}}"
+                    class="pure-menu-link">
+                    {% if klasses %}
                         Notentabellen verwalten (für die Noteneingabe)
-                    </a>
-                </li>
-            </ul>
-        </div>
+                    {% else %}
+                        Notentabellen erstellen
+                    {% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
 
-        <h2>Zeugnisse erstellen</h2>
-        <p>Wählen Sie hier die Klasse/Gruppe, für die die Zeugnisse zu
-        erstellen sind. Für das aktuelle Halbjahr können Sie das
-        Ausstellungsdatum und ggf. das Datum der Notenkonferenz auf der
-        <a href="{{ url_for('bp_grades.current_term', termn=termn)}}">
-        entsprechenden Seite</a> setzen bzw. anpassen.
-        </p>
-        <div class="pure-menu">
-            <ul class="pure-menu-list">
-            {% for k in klasses %}
-                <li class="pure-menu-item">
-                    <a href="{{url_for('bp_grades.klassview', termn=termn,
-                                    klass_stream=k)}}"
-                            class="pure-menu-link">
-                        Klasse/Gruppe {{ k }}
-                    </a>
-                </li>
-            {% endfor %}
-            </ul>
-        </div>
+    <h2>Zeugnisse erstellen</h2>
+    <p>Gesammelte Zeugnisse für Gruppen können nur für das aktuelle
+    Halbjahr erstellt werden. Alte Zeugnisse und Sonderzeugnisse
+    können nur für
+    <a href="{{url_for('bp_grades.klasses')}}">einzelne Schüler</a>
+    erstellt werden.
+    </p>
+
+    {% if klasses %}
+    <p>Wählen Sie hier die Klasse/Gruppe, für die die Zeugnisse zu
+    erstellen sind. Sie können das Ausstellungsdatum und ggf. das
+    Datum der Notenkonferenz auf der
+    <a href="{{ url_for('bp_grades.current_term')}}">
+    entsprechenden Seite</a> setzen bzw. anpassen.
+    </p>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for k in klasses %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.klassview', termn=termn,
+                                klass_stream=k)}}"
+                        class="pure-menu-link">
+                    Klasse/Gruppe {{ k }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
     {% endif %}
 {% endblock %}

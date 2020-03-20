@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-03-17
+Last updated:  2020-03-20
 
 For which school-classes and streams are grade reports possible?
 
@@ -28,8 +28,10 @@ Copyright 2020 Michael Towers
 """
 
 # Messages
+_NO_YEAR = "Kein Schuljahr is eingestellt"
+_WRONG_YEAR = "Nicht aktuelles Schuljahr: '{year}'"
+_WRONG_TERM = "Nicht aktuelles Halbjahr: '{term}'"
 _INVALID_GROUP = "Ungültige Zeugnis-Gruppe für das {term}. Halbjahr: {group}"
-_WRONG_YEAR = "Falsches Schuljahr: '{year}'"
 _INVALID_YEAR = "Ungültiges Schuljahr: '{year}'"
 _INVALID_KLASS = "Ungültige Klasse: '{klass}'"
 _MISSING_PUPIL = "Schüler {pname} ist nicht in der Kurswahltabelle"
@@ -51,73 +53,123 @@ from wz_table.matrix import KlassMatrix
 
 
 def gradeGroups(term):
-    return CONF.GRADES.TEMPLATE_INFO['GROUPS_' + term].csplit(None)
-
-
-#DEPRECATED
-def setDateOfIssue(schoolyear, term, klass, date):
-    if str(klass) not in gradeGroups(term):
-        REPORT.Fail(_INVALID_GROUP, term = term, group = klass)
-    streams = klass.streams or klass.klassStreams(schoolyear)
-    for s in streams:
-        g = klass.klass + '.' + s
-        DB(schoolyear).setInfo('GRADE_DATE_%s_%s' % (term, g), date)
-
-
-#DEPRECATED
-def getDateOfIssue(schoolyear, term, klass):
-    db = DB(schoolyear)
-    if klass.stream:
-        return db.getInfo('GRADE_DATE_%s_%s' % (term, klass))
-    group = str(klass)
-    if group in gradeGroups(term):
-        if klass.streams:
-            return db.getInfo('GRADE_DATE_%s_%s' % (term,
-                    klass.klass + '.' + klass.streams[0]))
-        return db.getInfo('GRADE_DATE_%s_%s' % (term,
-                    klass.klass + '.' + klass.klassStreams(schoolyear)[0]))
-    REPORT.Fail(_INVALID_GROUP, term = term, group = group)
-
-
-def getCurrentTerm(schoolyear):
-    """Return the current term and date info for grade input and reports.
-    It is returned as an ordered mapping:
-     {class/group -> (conference date, date of issue, open for new grades)}
-    The term is available as the <TERM> attribute.
-    If there is no current term, return <None>.
+    """Return a list of "normalised" classes/groups for the given term.
     """
-    gradesInfo = DB(schoolyear).getInfo('GRADES_CURRENT_TERM')
-    if gradesInfo:
-        ct = OrderedDict()
+    if term not in CONF.MISC.TERMS:
+        REPORT.Bug("Invalid term in <gradeGroups>: %s" % term)
+    return [str(Klass(g)) for g in CONF.GRADES.TEMPLATE_INFO[
+            'GROUPS_' + term].csplit(None)]
+
+
+
+class CurrentTerm(dict):
+    class NoTerm(Exception):
+        pass
+
+    def __init__(self, year = None, term = None):
+        """Manage the information about the current year and term.
+        If <year> and/or <term> are supplied, the information will only
+        be returned if these match the current year and term. If not,
+        a <NoTerm> exception will be raised.
+        """
+        super().__init__()
+        # Also retain per class info, a mapping:
+        #    {class -> [(<Klass> instance, (dok, doi, opn)), ... ]}
+        self.klasses = {}
+        db = DB()
         try:
-            term, kslist = gradesInfo.split(':')
-            for kdata in kslist.split('|'):
-                ks, dok, doi, opn = kdata.split(',')
-                ct[ks] = (dok, doi, opn)
+            self.schoolyear = int(db.getInfo('SCHOOLYEAR'))
         except:
-            raise
-            REPORT.Bug("in <getCurrentTerm()>, GRADES_CURRENT_TERM invalid:\n  "
-                    + gradesInfo)
-            return None
-        ct.TERM = term
-        return ct
-    return None
+            REPORT.Bug(_NO_YEAR)
+        if year and year != self.schoolyear:
+            raise self.NoTerm(_WRONG_YEAR.format(year = year))
+        self.TERM = db.getInfo('TERM')
+        if term and term != self.TERM:
+            raise self.NoTerm(_WRONG_TERM.format(term = term))
+        if not self.TERM:
+            return
+
+        gradesInfo = db.getInfo('GRADES_DATES')
+        ksmap = {}
+        if gradesInfo:
+            try:
+                for kdata in gradesInfo.split('|'):
+                    ks, dok, doi, opn = kdata.split(',')
+                    ksmap[ks] = (dok, doi, opn)
+            except:
+                REPORT.Bug("in <CurrentTerm>, info GRADES_DATES invalid:\n  "
+                        + gradesInfo)
+
+        for g in gradeGroups(self.TERM):
+            tdata = ksmap.get(g)
+            self[g] = tdata
+            # Prepare the per class information mapping
+            klass = Klass(g)
+            klass.termInfo = tdata
+            try:
+                self.klasses[klass.klass].append(klass)
+            except:
+                self.klasses[klass.klass] = [klass]
 
 
-def setCurrentTerm(schoolyear, term, ksdata=None):
-    """Set the current term and date info for grade input and reports.
-    If <term> is <None> there is no current term.
-    <ksdata> is a list of tuples:
-        [(class/group, conference date, date of issue, open for new grades), ...]
-    """
-    if term:
-        kslist = [','.join([ks, dok, doi, opn]) for ks, dok, doi, opn in ksdata]
-        val = term + ':' + '|'.join(kslist)
-        DB(schoolyear).setInfo('GRADES_CURRENT_TERM', val)
-        return term
-    else:
-        DB(schoolyear).setInfo('GRADES_CURRENT_TERM', None)
-        return '–––'
+    def setTerm(self, term, ksdata=None):
+        """Set the current term and date info for grade input and reports.
+        If <term> is <None> there is no current term.
+        <ksdata> is a list of tuples:
+            [(class/group, conference date, date of issue, open for new grades), ...]
+        """
+        if term:
+            kslist = [','.join([ks, dok, doi, opn]) for ks, dok, doi, opn in ksdata]
+            val = '|'.join(kslist)
+        else:
+            val = None
+        db = DB()
+        db.setInfo('TERM', term)
+        db.setInfo('GRADES_DATES', val)
+        return True
+
+
+    def _getInfo(self, klass, i):
+        """<klass> is a <Klass> instance. It can be either for a group
+        in the list returned by <gradeGroups()> or for a single stream.
+        Return the field indexed by <i>:
+            ("Konferenzdatum", date of issue, flag: open for input).
+        Return <None> if there is no match for class and stream, or
+        no data.
+        """
+        try:
+            return self[str(klass)][i]
+        except KeyError:
+            if klass.stream:
+                for k in self.klasses[klass.klass]:
+                    if k.containsStream(klass.stream):
+                        try:
+                            return k.termInfo[i]
+                        except:
+                            pass
+        return None
+
+
+    def getGDate(self, klass):
+        """Get the "Konferenzdatum" for the given group (<Klass>).
+        If not available, return <None>.
+        """
+        return self._getInfo(klass, 0)
+
+
+    def getIDate(self, klass):
+        """Get the date of issue for the given group (<Klass>).
+        If not available, return <None>.
+        """
+        return self._getInfo(klass, 1)
+
+
+    def getOpen(self, klass):
+        """Return true is the group (<Klass>) is open for input.
+        """
+        return bool(self._getInfo(klass, 2))
+
+
 
 def abi_sids(schoolyear, pid, report = True):
     row = DB(schoolyear).select1('ABI_SUBJECTS', PID = pid)

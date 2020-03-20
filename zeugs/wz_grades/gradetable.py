@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-03-16
+wz_grades/gradetable.py - last updated 2020-03-19
 
 Create grade tables for display and grade entry.
 
@@ -25,15 +25,16 @@ _FIRSTSIDCOL = 4    # Index (0-based) of first sid column
 _UNUSED = '/'      # Subject tag for unused column
 
 # Title for grade tables
-_TITLE = "Noten, Abgabe bis {date}"
-_TITLE1 = "Noten zu {time}"
+_TITLE0 = "Noten"
+_TITLE = "Noten, Konferenz am {date}"
+_TITLE2 = "Tabelle erstellt am {time}"
 
 
 # Messages
 _MISSING_SUBJECT = "Fachkürzel {sid} fehlt in Notentabellenvorlage:\n  {path}"
 _NO_TEMPLATE = ("Keine Notentabelle-Vorlage für Klasse/Gruppe {ks} in"
         " GRADES.TEMPLATE_INFO.GRADE_TABLE")
-_NOT_CURRENT_TERM = "Nicht aktuelles Halbjahr"
+_NOT_CURRENT_TERM = "Nicht das aktuelle Halbjahr, die Noten werden erscheinen"
 
 
 import datetime
@@ -43,41 +44,39 @@ from wz_core.db import DB
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_table.matrix import KlassMatrix
-from wz_compat.grade_classes import getCurrentTerm, gradeGroups
+from wz_compat.grade_classes import CurrentTerm, gradeGroups
 from .gradedata import getGradeData, grades2map
 
 
-def makeBasicGradeTable(schoolyear, term, klass, withgrades = False):
-    """Build a basic pupil/subject table for entering grades.
-    <klass> is a <Klass> instance, which can include one or more streams.
+def makeBasicGradeTable(schoolyear, term, klass):
+    """Build a basic pupil/subject table containing the grades (initially
+    empty).
     <term> is a string (the term number).
-    If <withgrades> is true, any existing grades (in the database) will
-    be entered into the table.
-     """
+    <klass> is <Klass> instance for a grade-report group appearing in the
+    list returned by <gradeGroups()>.
+    """
+    title = _TITLE0     # default, minimal title
     # If using old data, a pupil's stream, and even class, may have changed!
     try:
-        t, d = getCurrentTerm(schoolyear)
-        if t != term:
-            raise ValueError
-    except:
-        if withgrades:
-            # Search within <klass.klass> for <term>, include those with
-            # a stream covered by <klass>
-            plist = oldTablePupils(schoolyear, term, klass)
-        else:
-            REPORT.Error(_NOT_CURRENT_TERM)
-            return None
+        termdata = CurrentTerm(schoolyear, term)
+    except CurrentTerm.NoTerm:
+        # Not the current term.
+        # Search the GRADES table for entries with TERM == <term> and
+        # matching class. Include those with a stream covered by <klass>.
+        plist = oldTablePupils(schoolyear, term, klass)
     else:
         plist = Pupils(schoolyear).classPupils(klass)
         for pdata in plist:
-            if withgrades:
-                gdata = getGradeData(schoolyear, pdata['PID'], term)
-                if gdata:
-                    if (gdata['CLASS'] == klass.klass and
-                            gdata['STREAM'] == pdata['STREAM']):
-                        pdata.grades = gdata['GRADES']
-                        continue
+            gdata = getGradeData(schoolyear, pdata['PID'], term)
+            if gdata:
+                if (gdata['CLASS'] == klass.klass and
+                        gdata['STREAM'] == pdata['STREAM']):
+                    pdata.grades = gdata['GRADES']
+                    continue
             pdata.grades = None
+        gdate = termdata.getGDate(klass)
+        if gdate:
+            title = _TITLE.format(date = Dates.dateConv(gdate))
 
     ### Determine table template
     gtinfo = CONF.GRADES.TEMPLATE_INFO
@@ -86,12 +85,9 @@ def makeBasicGradeTable(schoolyear, term, klass, withgrades = False):
         REPORT.Fail(_NO_TEMPLATE, ks = klass)
     template = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
     table = KlassMatrix(template)
-    if withgrades:
-        title = _TITLE1.format(time = datetime.datetime.now().isoformat(
-                sep=' ', timespec='minutes'))
-    else:
-        title = _TITLE.format(date = Dates.dateConv(d))
     table.setTitle(title)
+    table.setTitle2(_TITLE2.format(time = datetime.datetime.now().isoformat(
+                sep=' ', timespec='minutes')))
     # "Translation" of info items:
     kmap = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
     info = (
@@ -179,7 +175,7 @@ def test_01():
     _term = '1'
     for ks in gradeGroups(_term):
         klass = Klass(ks)
-        bytefile = makeBasicGradeTable(_testyear, _term, klass, withgrades = True)
+        bytefile = makeBasicGradeTable(_testyear, _term, klass)
         filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make = -1,
                 term = _term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
         with open(filepath, 'wb') as fh:
@@ -190,7 +186,7 @@ def test_02():
     _term = '2'
     for ks in gradeGroups(_term):
         klass = Klass(ks)
-        bytefile = makeBasicGradeTable(_testyear, _term, klass, withgrades = True)
+        bytefile = makeBasicGradeTable(_testyear, _term, klass)
         filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make = -1,
                 term = _term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
         with open(filepath, 'wb') as fh:

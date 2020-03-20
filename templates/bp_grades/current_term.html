@@ -5,7 +5,7 @@
 {% block title %}Halbjahr setzen: {{ termn if termn else "–––" }}{% endblock %}
 
 {% block content %}
-    <p>(aktuell: {{ term0 or "–––" }})
+    <p>(aktuell: {{ ("%s. Halbjahr" % term0) if term0 else "–––" }})
     </p>
     <ul class="modules">
         {% for hj in terms %}

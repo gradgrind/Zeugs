@@ -1,7 +1,7 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_table/matrix.py - last updated 2020-02-28
+wz_table/matrix.py - last updated 2020-03-20
 
 Edit a table template (xlsx).
 
@@ -138,6 +138,12 @@ class KlassMatrix(Table):
         """The title cell is at a fixed position, "B1". "A1" is empty.
         """
         self.setCell('B1', title)
+
+
+    def setTitle2(self, title2):
+        """The subtitle cell is at a fixed position, "F1".
+        """
+        self.setCell('F1', title2)
 
 
     def setInfo(self, info):

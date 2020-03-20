@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-14
+Last updated:  2020-03-19
 
 Handle the data for grade reports.
 
@@ -58,18 +58,19 @@ from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_compat.template import getGradeTemplate, getTemplateTags, TemplateError
 from wz_compat.gradefunctions import Manager
-from wz_compat.grade_classes import getDateOfIssue
 from wz_table.dbtable import readPSMatrix
 
 
 _INVALID = '/'      # Table entry for cells marked "invalid"
 
-def grades2db(schoolyear, gtable, term=None):
+def grades2db(schoolyear, gtable, curterm):
     """Enter the grades from the given table into the database.
     <schoolyear> is checked against the value in the info part of the
     table (gtable.info['SCHOOLYEAR']).
-    <term>, if given, is only used as a check against the value in the
-    info part of the table (gtable.info['TERM']).
+    <curterm> is the current term data (<CurrentTerm>). The
+    term given in the info part of the table (gtable.info['TERM']) must
+    match. The date of issue and additional info can be extracted from
+    <curterm> for the class/stream of the pupils.
     """
     # Check school-year
     try:
@@ -81,9 +82,8 @@ def grades2db(schoolyear, gtable, term=None):
         REPORT.Fail(_WRONG_YEAR, year=y)
     # Check term
     rtag = gtable.info.get('TERM', '–––')
-    if term:
-        if term != rtag:
-            REPORT.Fail(_WRONG_TERM, term=term, termf=rtag)
+    if curterm.TERM != rtag:
+        REPORT.Fail(_WRONG_TERM, term=curterm.TERM, termf=rtag)
     # Check klass
     klass = Klass(gtable.info.get('CLASS', '–––'))
     # Check validity
@@ -113,6 +113,7 @@ def grades2db(schoolyear, gtable, term=None):
         db = DB(schoolyear)
         sid2tlist = CourseTables(schoolyear).classSubjects(klass,
                 'GRADE', keep = True)
+
         for pid, grades in p2grades.items():
             ks = Klass.fromKandS(klass.klass, p2stream[pid])
             gradeManager = Manager(ks)(schoolyear, sid2tlist, grades)
@@ -120,7 +121,9 @@ def grades2db(schoolyear, gtable, term=None):
             db.updateOrAdd('GRADES',
                     {   'CLASS': ks.klass, 'STREAM': ks.stream,
                         'PID': pid, 'TERM': rtag, 'REPORT_TYPE': None,
-                        'GRADES': gstring, 'REMARKS': None
+                        'GRADES': gstring, 'REMARKS': None,
+                        'DATE_D': curterm.getIDate(ks),
+                        'GDATE_D': curterm.getGDate(ks)
                     },
                     TERM=rtag,
                     PID=pid
@@ -245,7 +248,7 @@ def db2grades(schoolyear, term, klass, rtype = None):
     return plist
 
 
-
+#TODO: term is now unique and not a date ...
 def getGradeData(schoolyear, pid, term = None, rtype = None):
     """Return all the data from the database GRADES table for the
     given pupil as a mapping. The desired entry can be keyed by <term>
@@ -324,7 +327,6 @@ class GradeReportData:
         self.klassdata = klass
         self._GradeManager = Manager(klass)
         courses = CourseTables(schoolyear)
-#        self.sid2tlist = courses.classSubjects(klass, 'GRADE', keep=True)
         self.sid2tlist = courses.classSubjects(klass, 'GRADE')
         if rtype:
             self.setRtype(rtype)
@@ -397,6 +399,7 @@ class GradeReportData:
         return self._GradeManager.VALIDGRADES
 
 
+#TODO
     def getTermDate(self, term):
         """Fetch the date of issue for the group and given term.
         """

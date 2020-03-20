@@ -21,7 +21,7 @@
     Seite für Einzelzeugnisse</a> erhältlich (ggf. in der neuen Klasse/Gruppe).
     </p>
     <p>Sie können das Ausstellungsdatum der Zeugnisse auf der
-    <a href="{{ url_for('bp_grades.issue', termn=termn, ks=klass_stream)}}">
+    <a href="{{ url_for('bp_grades.current_term', termn=termn)}}">
     entsprechenden Seite</a> setzen bzw. anpassen.
     </p>
     <p>Um die Zeugnisse zu erstellen, klicken Sie auf die Schaltfläche
@@ -34,7 +34,7 @@
         <fieldset>
             <div class="pure-control-group">
                 <label for="{{ form.DATE_D.id }}">
-                <a href="{{url_for('bp_grades.issue', termn=termn, ks=klass_stream)}}">
+                <a href="{{url_for('bp_grades.current_term', termn=termn)}}">
                     ↪ Ausstellungsdatum
                 </a>
                 </label>
@@ -47,7 +47,7 @@
             </p>
             <div class="pure-control-group">
                 <label for="{{ form.VDATE_D.id }}">
-                <a href="{{url_for('bp_grades.vdate')}}">
+                <a href="{{url_for('bp_grades.current_term', termn=termn)}}">
                     ↪ Konferenzdatum
                 </a>
                 </label>

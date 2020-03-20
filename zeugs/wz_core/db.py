@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-03-17
+Last updated:  2020-03-20
 
 This module handles access to an sqlite database.
 
@@ -44,7 +44,7 @@ _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
 #TODO: perhaps it should be possible to delete entries, or at least mark
 # them as superseded.
 GRADE_FIELDS = ('CLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
-        'GRADES', 'REMARKS', 'DATE_D')
+        'GRADES', 'REMARKS', 'DATE_D', 'GDATE_D')
 GRADE_UNIQUE = [('PID', 'TERM'), ('PID', 'DATE_D')]
 ABI_SUBJECTS_FIELDS = ('PID', 'SUBJECTS')
 ABI_SUBJECTS_UNIQUE = ['PID']
@@ -503,14 +503,32 @@ class DB0:
 
 
 
-#TODO: Should the database contain the school year?
 class DB (DB0):
+    """There are separate databases for each school-year. These are
+    accessed by passing the school-year as argument. If no year is
+    supplied, the "master" database for the application is loaded.
+    """
     @staticmethod
     def getPath (schoolyear):
         return Paths.getYearPath (schoolyear, 'FILE_SQLITE')
 
-    def __init__ (self, schoolyear, flag=None):
-        super ().__init__ (self.getPath (schoolyear), flag)
+    def __init__ (self, schoolyear = None, flag = None):
+        if schoolyear:
+            path = self.getPath (schoolyear)
+            super ().__init__ (path, flag)
+            return
+        # The "master" database for the application.
+        # No flags are recognised.
+        path = Paths.getUserFolder('ZEUGS.sqlite')
+        self.filepath = path
+        self._dbcon = sqlite3.connect (path)
+        self._dbcon.row_factory = sqlite3.Row
+        if not self.tableExists('INFO'):
+            self.makeTable2('INFO', ('K', 'V'), index=['K'])
+        if not self.getInfo('SCHOOLYEAR'):
+            # Choose the latest year
+            y = Paths.getYears()[0]
+            self.setInfo('SCHOOLYEAR', str(y))
 
 
 

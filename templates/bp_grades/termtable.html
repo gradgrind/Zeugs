@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% set uplink = url_for('bp_grades.index') %}
-{% set uplink_help = "Notenzeugnisse: Startseite" %}
+{% set uplink = url_for('bp_grades.term', termn=termn) %}
+{% set uplink_help = "Notenzeugnisse: %s. Halbjahr" % termn %}
 
 {% block title %}{{termn}}. Halbjahr{% endblock %}
 
@@ -11,7 +11,8 @@
     <hr />
     {% endif %}
 
-    <h2>Noteneingabe-Tabelle einlesen (hochladen)</h2>
+    {% if form %}
+    <h2>Notentabelle einlesen (hochladen)</h2>
     <p>Die Tabelle kann für jede Klasse/Gruppe sein, das Halbjahr muss
     aber übereinstimmen. Das Format darf 'xlsx' oder 'ods' sein.
     </p>
@@ -25,8 +26,9 @@
         </div>
         <hr />
     </form>
+    {% endif %}
 
-    <h2>Noteneingabe-Tabelle erstellen</h2>
+    <h2>Notentabelle erstellen</h2>
     <p>Wählen Sie hier die Klasse/Gruppe, für die die Tabelle zu
     erstellen ist.
     </p>
