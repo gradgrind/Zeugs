@@ -6,21 +6,19 @@
 
 {% block content %}
     <h3>Klasse/Gruppe {{klass_stream}}, <span>{{termn}}.&nbsp;Halbjahr</span></h3>
-    <p>Notenzeugnisse werden für alle markierten Schüler erstellt. Klicken Sie
-    auf das entsprechende Kontrollkästchen, um die Markierung für einen Schüler
-    zu entfernen – oder wiederherzustellen. Schüler, für die keine Noten
-    mit passendem Maßstab gespeichert sind, können nicht
-    selektiert werden. Auch Schüler, für die besondere Zeugnistypen gewählt
-    sind, können nicht selektiert werden.
-    </p>
-    <p>Nur Schüler, die "aktuell" in der Klasse/Gruppe sind, werden hier
-    angezeigt.
+    <p>Notenzeugnisse (Typ „{{rtype}}“) werden für alle markierten Schüler
+    erstellt. Klicken Sie auf das entsprechende Kontrollkästchen, um die
+    Markierung für einen Schüler aufzuheben – oder wiederherzustellen.
+    Nur Schüler, die Noten mit passendem Maßstab haben und deren
+    Zeugnisparameter nicht von der Norm für das Halbjahr abweichen,
+    können selektiert werden.
     </p>
     <p>Zeugnisse, die hier nicht erstellt werden können, sind über die
     <a href="{{url_for('bp_grades.pupils', klass=klass_stream.klass)}}">
-    Seite für Einzelzeugnisse</a> erhältlich (ggf. in der neuen Klasse/Gruppe).
+    Seite für Einzelzeugnisse</a> erhältlich.
     </p>
-    <p>Sie können das Ausstellungsdatum der Zeugnisse auf der
+    <p>Sie können das Ausstellungsdatum der Zeugnisse und das Datum der
+    Notenkonferenz auf der
     <a href="{{ url_for('bp_grades.current_term', termn=termn)}}">
     entsprechenden Seite</a> setzen bzw. anpassen.
     </p>
@@ -43,7 +41,6 @@
             {% if form.VDATE_D %}
             <p>Für „gymnasiale“ Versetzungen am Ende der 11. und 12.
             Klasse ist auch das Datum der Notenkonferenz erforderlich.
-            Dieses kann man auf der entsprechenden Seite einstellen.
             </p>
             <div class="pure-control-group">
                 <label for="{{ form.VDATE_D.id }}">

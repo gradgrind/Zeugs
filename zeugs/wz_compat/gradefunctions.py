@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-03-15
+Last updated:  2020-03-21
 
 Calculations needed for grade handling.
 
@@ -35,7 +35,6 @@ _MULTIPLE_SUBJECT = "Fach {sid} mehrfach benotet"
 _MISSING_DEM = "Keine Note in diesen Fächern: {sids}"
 _MISSING_SID = "Keine Note im Fach {sid}"
 _BADGRADE = "Ungültige Note im Fach {sid}: {grade}"
-_VD_MISSING = "Klasse {klass}: Das Datum der Notenkonferenz fehlt"
 _MISSING_ABI_GRADE = "{pname}: Note fehlt im Abiturfach {sid}"
 # ... for Abitur final reports
 _NO_GRADE = "Kein Ergebnis in %s"
@@ -89,11 +88,6 @@ def Manager(klass):
     if klass.klass >= '12' and klass.stream == 'Gym':
         return GradeManagerQ1
     return GradeManagerN
-
-
-
-def getVDate(schoolyear, klass):
-    return DB(schoolyear).getInfo('Versetzungsdatum_' + klass)
 
 
 
@@ -392,21 +386,17 @@ class GradeManagerN(_GradeManager):
         return q
 
 
-    def X_V_D(self, rtype, pdata):
+    def X_V(self, rtype, pdata):
         """For the "gymnasial" group, 11th class. Determine qualification
-        for the 12th class.
+        for the 12th class. Return true/false.
         """
-        date = ''
         klass = pdata['CLASS']
         if (klass.startswith('11') and pdata['STREAM'] == 'Gym'
                 and rtype == 'Zeugnis' and self.SekI()):
             ave = self.AVE()
             if ave and ave <= Frac(3, 1):
-                date = getVDate(self.schoolyear, klass)
-                if not date:
-                    REPORT.Error(_VD_MISSING, klass = klass)
-                    return '?-?-?'
-        return date
+                return True
+        return False
 
 
 
@@ -565,20 +555,15 @@ class GradeManagerQ1(_GradeManager):
         return gs
 
 
-    def X_V_D(self, rtype, pdata):
+    def X_V(self, rtype, pdata):
         """For the "gymnasial" group, 12th class. Determine qualification
         for the 13th class.
         """
-        date = ''
         klass = pdata['CLASS']
         if (klass.startswith('12') and pdata['STREAM'] == 'Gym'
                 and rtype == 'Zeugnis'):
-            if self.SekII(pdata):
-                date = getVDate(self.schoolyear, klass)
-                if not date:
-                    REPORT.Error(_VD_MISSING, klass = klass)
-                    return '?-?-?'
-        return date
+            return self.SekII(pdata)
+        return False
 
 
 

@@ -6,6 +6,13 @@
 {% endblock %}
 
 {% block content %}
+    {% if dfile %}
+    <p>Hier können Sie die Zeugnisdatei herunterladen:
+    </p>
+    <a href="{{url_for('download', dfile=dfile)}}">{{dfile}}</a>
+    <hr />
+    {% endif %}
+
     <p>Dieses ist {% if not klasses %}nicht{% endif %}
     das „aktuelle“ Halbjahr.
     </p>
@@ -16,13 +23,6 @@
         ↪ {{ hj }}. Halbjahr
     </a>
     <hr />
-
-    {% if dfile %}
-    <p>Hier können Sie die Zeugnisdatei herunterladen:
-    </p>
-    <a href="{{url_for('download', dfile=dfile)}}">{{dfile}}</a>
-    <hr />
-    {% endif %}
 
     <h2>Notentabellen</h2>
     <div class="pure-menu">

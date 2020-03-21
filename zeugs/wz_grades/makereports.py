@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-03-20
+Last updated:  2020-03-21
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -47,6 +47,8 @@ _NO_ISSUE_DATE = "Kein Ausstellungsdatum für Klasse {klass}"
 _NO_GRADES = "Keine Noten für {pname} => kein Zeugnis"
 _WRONG_GROUP = "{pname} hat die Gruppe gewechselt => kein Zeugnis"
 _WRONG_RTYPE = "Zeugnistyp für {pname} ist {rtype} => kein Zeugnis"
+_WRONG_DATE = "Ausstellungsdatum ({date}) für {pname} weicht vom Standard ab"
+_WRONG_GDATE = "Konferenzdatum ({date}) für {pname} weicht vom Standard ab"
 
 
 import os
@@ -56,10 +58,11 @@ from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Pupils, Klass
+from wz_core.db import DB
 from wz_compat.config import printSchoolYear, printStream
 from wz_compat.grade_classes import CurrentTerm
 from wz_grades.gradedata import (GradeReportData,
-        db2grades, getGradeData, updateGradeReport)
+        getGradeData, updateGradeReport)
 
 
 #def getTermDefaultType (klass, term):
@@ -94,7 +97,7 @@ def makeReports(klass_streams, pids=None):
     if not DATE_D:
         REPORT.Warn(_NO_ISSUE_DATE, klass = klass_streams)
     # GDATE_D is not necessarily needed by the report, so don't report
-    # it missing – the conversion will catch the null vcalue value later.
+    # it missing – the conversion will catch the null value later.
     GDATE_D = curterm.getGDate(klass_streams)
     # Get the report type from the term and klass/stream
     rtype = getTermTypes(klass_streams, curterm.TERM)[0]
@@ -120,10 +123,12 @@ def makeReports(klass_streams, pids=None):
     # <GradeReportData> manages the report template, etc.:
     reportData = GradeReportData(schoolyear, klass_streams, rtype)
     pmaplist = []
+    db = DB(schoolyear)
     for pdata in plist:
         pid = pdata['PID']
         # Get grade map for pupil
         gradedata = getGradeData(schoolyear, pid, curterm.TERM)
+        # Check for mismatches with pupil and term info
         if not gradedata:
             REPORT.Error(_NO_GRADES, pname = pdata.name())
             continue
@@ -131,15 +136,25 @@ def makeReports(klass_streams, pids=None):
                 or gradedata['STREAM'] != pdata['STREAM']):
             REPORT.Warn(_WRONG_GROUP, pname = pdata.name())
             continue
-        if gradedata['REPORT_TYPE'] != rtype:
+        grtype = gradedata['REPORT_TYPE']
+        if grtype and grtype != rtype:
             REPORT.Warn(_WRONG_RTYPE, pname = pdata.name(),
-                    rtype = grades.REPORT_TYPE)
+                    rtype = gradedata['REPORT_TYPE'])
             continue
-        gmap = gradedata['GRADES']  # grade mapping
+        db.updateOrAdd('GRADES',
+                {   'REPORT_TYPE': rtype,
+                    'DATE_D': DATE_D,
+                    'GDATE_D': GDATE_D
+                },
+                TERM = curterm.TERM,
+                PID = pid,
+                update_only = True
+        )
+        # Add the grades, etc., to the pupil data
+        gmap = gradedata['GRADES']
         pdata.grades = reportData.getTagmap(reportData.gradeManager(gmap),
                 pdata)
         pdata.REMARKS = gradedata['REMARKS']
-        gd = gradedata['GDATE_D']
         pmaplist.append(pdata)
 
     ### Generate html for the reports

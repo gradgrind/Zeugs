@@ -374,10 +374,10 @@
             {% endfor %}
             {% endif %}
             <!-- Versetzung -->
-            {% if report_type == 'Zeugnis' and grades._V_D %}
+            {% if report_type == 'Zeugnis' and grades._V %}
             {% set remarks = True %}
             <p style="margin: 2mm 5mm; font-size: 11pt;">
-                Durch Konferenzbeschluss vom {{todate(grades._V_D)}}
+                Durch Konferenzbeschluss vom {{todate(GDATE_D)}}
                 in die Qualifikationsphase versetzt.
             </p>
             {% elif report_type == 'Abgang' and grades._GS %}

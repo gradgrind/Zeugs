@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-03-20
+Last updated:  2020-03-21
 
 Flask Blueprint for grade reports
 
@@ -50,7 +50,6 @@ from wz_grades.gradedata import (grades2db, db2grades,
 from wz_grades.makereports import getTermTypes, makeReports, makeOneSheet
 from wz_grades.gradetable import makeBasicGradeTable
 from wz_compat.grade_classes import gradeGroups, CurrentTerm
-from wz_compat.gradefunctions import getVDate
 
 
 # Set up Blueprint
@@ -125,8 +124,10 @@ def current_term(termn = None):
             except:
                 pass
             else:
-                dokd = datetime.date.fromisoformat(dok)
-                doid = datetime.date.fromisoformat(doi)
+                if dok:
+                    dokd = datetime.date.fromisoformat(dok)
+                if doi:
+                    doid = datetime.date.fromisoformat(doi)
         setattr(_Form, 'DOK_%02d' % i, DateField(validators = [Optional()],
                 default = dokd))
         setattr(_Form, 'DOI_%02d' % i, DateField(validators = [Optional()],
@@ -272,7 +273,7 @@ def termtable(termn, ks = None):
                     schoolyear, termn,
                     Klass(ks), suppressok = True)
             if xlsxbytes:
-                dfile = 'Noten_%s.xlsx' % ks
+                dfile = 'Noten_%s.xlsx' % ks.replace('.', '-')
                 session['filebytes'] = xlsxbytes
 #WARNING: This is not part of the official flask API, it might change!
                 if not session.get("_flashes"):
@@ -293,8 +294,7 @@ def termtable(termn, ks = None):
                             dfile = dfile)
 
 
-### Select which pupils should be included.
-### Generate reports.
+### Select which pupils should be included, generate reports.
 @bp.route('/klass/<termn>/<klass_stream>', methods=['GET','POST'])
 def klassview(termn, klass_stream):
     """View: Handle report generation for a group of pupils.
@@ -343,7 +343,8 @@ def klassview(termn, klass_stream):
         if pids:
             pdfBytes = REPORT.wrap(makeReports, klass, pids)
             session['filebytes'] = pdfBytes
-            session['download'] = 'Notenzeugnis_%s.pdf' % klass
+            session['download'] = ('Notenzeugnis_%s.pdf'
+                    % str(klass).replace('.', '-'))
             session.pop('nextpage', None)
             return redirect(url_for('bp_grades.term', termn=termn))
         else:
@@ -357,6 +358,7 @@ def klassview(termn, klass_stream):
                             form=form,
                             heading=_HEADING,
                             termn=termn,
+                            rtype = rtype,
                             klass_stream=klass,
                             pupils=pdlist)
 #TODO:
@@ -530,6 +532,7 @@ def grades_pupil(pid, rtag):
                 and klass.stream == 'Gym'
                 and (klass.klass.startswith('11')
                     or klass.klass.startswith('12'))):
+#TODO
             vdate = getVDate(schoolyear, klass.klass)
             _Form.VDATE_D = DateField(validators = [Optional()],
                     default = (datetime.date.fromisoformat(vdate)
