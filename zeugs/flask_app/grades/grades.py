@@ -252,7 +252,7 @@ def termtable(termn, ks = None):
 
         def readdata(f):
             gtbl = readPSMatrix(f)
-            grades2db(schoolyear, gtbl, term = curterm)
+            grades2db(gtbl)
 
         form = UploadForm()
         if form.validate_on_submit():

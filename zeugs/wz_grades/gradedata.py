@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-19
+Last updated:  2020-03-21
 
 Handle the data for grade reports.
 
@@ -33,9 +33,7 @@ _TOO_MANY_SUBJECTS = ("Zu wenig Platz für Fachgruppe {group} in Vorlage:"
 _MISSING_GRADE = "Keine Note für {pname} im Fach {sid}"
 _UNUSED_GRADES = "Noten für {pname}, die nicht im Zeugnis erscheinen:\n  {grades}"
 _NO_MAPPED_GRADE = "Keine Textform für Note '{grade}'"
-_WRONG_TERM = "In Tabelle, falsches Halbjahr / Kennzeichen: {termf} (erwartet {term})"
 _INVALID_YEAR = "Ungültiges Schuljahr: '{val}'"
-_WRONG_YEAR = "Falsches Schuljahr: '{year}'"
 _INVALID_KLASS = "Ungültige Klasse: {klass}"
 #_MISSING_PUPIL = "In Notentabelle: keine Noten für {pname}"
 _UNKNOWN_PUPIL = "In Notentabelle: unbekannte Schüler-ID – {pid}"
@@ -58,32 +56,30 @@ from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_compat.template import getGradeTemplate, getTemplateTags, TemplateError
 from wz_compat.gradefunctions import Manager
+from wz_compat.grade_classes import CurrentTerm
 from wz_table.dbtable import readPSMatrix
 
 
 _INVALID = '/'      # Table entry for cells marked "invalid"
 
-def grades2db(schoolyear, gtable, curterm):
+
+def grades2db(gtable):
     """Enter the grades from the given table into the database.
-    <schoolyear> is checked against the value in the info part of the
-    table (gtable.info['SCHOOLYEAR']).
-    <curterm> is the current term data (<CurrentTerm>). The
-    term given in the info part of the table (gtable.info['TERM']) must
-    match. The date of issue and additional info can be extracted from
-    <curterm> for the class/stream of the pupils.
+    Only tables for the current year/term are accepted (check
+        gtable.info['SCHOOLYEAR'] and gtable.info['TERM']).
     """
-    # Check school-year
+    # Check school-year and term
     try:
         y = gtable.info.get('SCHOOLYEAR', '–––')
-        yn = int(y)
+        schoolyear = int(y)
     except ValueError:
-        REPORT.Fail(_INVALID_YEAR, val=y)
-    if yn != schoolyear:
-        REPORT.Fail(_WRONG_YEAR, year=y)
-    # Check term
-    rtag = gtable.info.get('TERM', '–––')
-    if curterm.TERM != rtag:
-        REPORT.Fail(_WRONG_TERM, term=curterm.TERM, termf=rtag)
+        REPORT.Fail(_INVALID_YEAR, val = y)
+    term = gtable.info.get('TERM')
+    try:
+        curterm = CurrentTerm(schoolyear, term, nullok = False)
+    except CurrentTerm.NoTerm as e:
+        REPORT.Fail(e)
+
     # Check klass
     klass = Klass(gtable.info.get('CLASS', '–––'))
     # Check validity
@@ -93,7 +89,7 @@ def grades2db(schoolyear, gtable, curterm):
         if not plist:
             raise ValueError
     except:
-        REPORT.Fail(_INVALID_KLASS, klass=klass)
+        REPORT.Fail(_INVALID_KLASS, klass = klass)
     # Filter the relevant pids
     p2grades = {}
     p2stream = {}
@@ -107,29 +103,25 @@ def grades2db(schoolyear, gtable, curterm):
         p2stream[pid] = pdata['STREAM']
     # Anything left unhandled in <gtable>?
     for pid in gtable:
-        REPORT.Error(_UNKNOWN_PUPIL, pid=pid)
+        REPORT.Error(_UNKNOWN_PUPIL, pid = pid)
     # Now enter to database
     if p2grades:
         db = DB(schoolyear)
-        sid2tlist = CourseTables(schoolyear).classSubjects(klass,
-                'GRADE', keep = True)
-
+        sid2tlist = CourseTables(schoolyear).classSubjects(klass, 'GRADE')
         for pid, grades in p2grades.items():
             ks = Klass.fromKandS(klass.klass, p2stream[pid])
             gradeManager = Manager(ks)(schoolyear, sid2tlist, grades)
             gstring = map2grades(gradeManager)
             db.updateOrAdd('GRADES',
                     {   'CLASS': ks.klass, 'STREAM': ks.stream,
-                        'PID': pid, 'TERM': rtag, 'REPORT_TYPE': None,
-                        'GRADES': gstring, 'REMARKS': None,
-                        'DATE_D': curterm.getIDate(ks),
-                        'GDATE_D': curterm.getGDate(ks)
+                        'PID': pid, 'TERM': term,
+                        'GRADES': gstring
                     },
-                    TERM=rtag,
-                    PID=pid
+                    TERM = term,
+                    PID = pid
             )
         REPORT.Info(_NEWGRADES, n=len(p2grades),
-                klass=klass, year=schoolyear, term=rtag)
+                klass = klass, year = schoolyear, term = term)
     else:
         REPORT.Warn(_NOPUPILS)
 
@@ -491,7 +483,7 @@ def test_01 ():
     REPORT.Test("\nReading template data for class %s" % klass)
 
     # Get the report type from the term and klass/stream
-    _rtype = klass.match_map(CONF.GRADES.REPORT_TEMPLATES['_' + _term])
+    _rtype = klass.match_map(CONF.GRADES.TEMPLATE_INFO['_' + _term])
     gradedata = GradeReportData(_testyear, klass, _rtype)
     REPORT.Test("  Indexes:\n  %s" % repr(gradedata.sgroup2indexes))
     REPORT.Test("  Grade tags:\n  %s" % repr(gradedata.sgroup2sids))
@@ -503,10 +495,14 @@ def test_01 ():
     REPORT.Test("\n  Grade data:\n  %s" % repr(gm))
 
 def test_02():
-    return
     from glob import glob
+    # With term='1' this should fail.
     files = glob(Paths.getYearPath(_testyear, 'FILE_GRADE_TABLE',
                 term='*'))
     for filepath in files:
+        REPORT.Test("READ " + filepath)
         pgrades = readPSMatrix(filepath)
-        grades2db(_testyear, pgrades)
+        try:
+            grades2db(pgrades)
+        except:
+            pass

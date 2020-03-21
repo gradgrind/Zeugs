@@ -4,7 +4,7 @@
 """
 flask_app/auth/auth.py
 
-Last updated:  2020-03-01
+Last updated:  2020-03-21
 
 Flask Blueprint for user authentication (login).
 
@@ -43,6 +43,7 @@ from wtforms.validators import DataRequired, StopValidation
 from wz_table.dbtable import dbTable
 from wz_core.configuration import Paths
 from wz_core.teachers import Users
+from wz_core.db import DB
 
 
 # Set up Blueprint
@@ -94,12 +95,9 @@ def dologin(user, perms):
         if delta > 2:
             os.remove(ff)
 
-    # Set the school-year to the latest one:
-    years = Paths.getYears()
-    if years:
-        session['year'] = years[0]
-        return True
-    return False
+    # Set the school-year to the current one:
+    session['year'] = DB().schoolyear
+    return True
 
 
 @bp.route('/login', methods=('GET', 'POST'))

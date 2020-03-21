@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-03-20
+Last updated:  2020-03-21
 
 For which school-classes and streams are grade reports possible?
 
@@ -28,9 +28,9 @@ Copyright 2020 Michael Towers
 """
 
 # Messages
-_NO_YEAR = "Kein Schuljahr is eingestellt"
 _WRONG_YEAR = "Nicht aktuelles Schuljahr: '{year}'"
 _WRONG_TERM = "Nicht aktuelles Halbjahr: '{term}'"
+_NO_TERM = "Kein aktuelles Halbjahr"
 _INVALID_GROUP = "Ungültige Zeugnis-Gruppe für das {term}. Halbjahr: {group}"
 _INVALID_YEAR = "Ungültiges Schuljahr: '{year}'"
 _INVALID_KLASS = "Ungültige Klasse: '{klass}'"
@@ -66,7 +66,7 @@ class CurrentTerm(dict):
     class NoTerm(Exception):
         pass
 
-    def __init__(self, year = None, term = None):
+    def __init__(self, year = None, term = None, nullok = True):
         """Manage the information about the current year and term.
         If <year> and/or <term> are supplied, the information will only
         be returned if these match the current year and term. If not,
@@ -77,17 +77,16 @@ class CurrentTerm(dict):
         #    {class -> [(<Klass> instance, (dok, doi, opn)), ... ]}
         self.klasses = {}
         db = DB()
-        try:
-            self.schoolyear = int(db.getInfo('SCHOOLYEAR'))
-        except:
-            REPORT.Bug(_NO_YEAR)
+        self.schoolyear = db.schoolyear
         if year and year != self.schoolyear:
             raise self.NoTerm(_WRONG_YEAR.format(year = year))
         self.TERM = db.getInfo('TERM')
         if term and term != self.TERM:
             raise self.NoTerm(_WRONG_TERM.format(term = term))
         if not self.TERM:
-            return
+            if nullok:
+                return
+            raise self.NoTerm(_NO_TERM)
 
         gradesInfo = db.getInfo('GRADES_DATES')
         ksmap = {}

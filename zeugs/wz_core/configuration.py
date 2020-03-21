@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2020-03-17
+Last updated:  2020-03-21
 
 Configuration items and the handler for the configuration files.
 
@@ -424,6 +424,19 @@ class Dates:
         if d < cls.day1(schoolyear):
             return False
         return d < cls.day1(schoolyear + 1)
+
+
+    @classmethod
+    def getschoolyear(cls, d = None):
+        """Return the school-year containing the given date <d>.
+        If no date is given, use "today".
+        """
+        if not d:
+            d = cls.today()
+        y = int(d.split('-', 1)[0])
+        if d >= cls.day1(y + 1):
+            return y + 1
+        return y
 
 
     @staticmethod

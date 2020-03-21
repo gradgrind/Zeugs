@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-03-20
+Last updated:  2020-03-21
 
 This module handles access to an sqlite database.
 
@@ -503,19 +503,20 @@ class DB0:
 
 
 
-class DB (DB0):
+class DB(DB0):
     """There are separate databases for each school-year. These are
     accessed by passing the school-year as argument. If no year is
     supplied, the "master" database for the application is loaded.
     """
     @staticmethod
-    def getPath (schoolyear):
-        return Paths.getYearPath (schoolyear, 'FILE_SQLITE')
+    def getPath(schoolyear):
+        return Paths.getYearPath(schoolyear, 'FILE_SQLITE')
 
-    def __init__ (self, schoolyear = None, flag = None):
+    def __init__(self, schoolyear = None, flag = None):
         if schoolyear:
-            path = self.getPath (schoolyear)
-            super ().__init__ (path, flag)
+            path = self.getPath(schoolyear)
+            super().__init__(path, flag)
+            self.schoolyear = schoolyear
             return
         # The "master" database for the application.
         # No flags are recognised.
@@ -525,10 +526,17 @@ class DB (DB0):
         self._dbcon.row_factory = sqlite3.Row
         if not self.tableExists('INFO'):
             self.makeTable2('INFO', ('K', 'V'), index=['K'])
-        if not self.getInfo('SCHOOLYEAR'):
+        try:
+            self.schoolyear = int(self.getInfo('_SCHOOLYEAR'))
+        except:
             # Choose the latest year
-            y = Paths.getYears()[0]
-            self.setInfo('SCHOOLYEAR', str(y))
+            try:
+                y = Paths.getYears()[0]
+            except:
+                y = Dates.getschoolyear()
+                DB(y, 'CREATE')
+            self.setInfo('_SCHOOLYEAR', str(y))
+            self.schoolyear = y
 
 
 

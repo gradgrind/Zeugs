@@ -4,7 +4,7 @@
 """
 flask_app/grades/abitur.py
 
-Last updated:  2020-03-16
+Last updated:  2020-03-21
 
 Flask Blueprint for abitur reports
 
@@ -49,14 +49,12 @@ from flask import current_app as app
 from flask_wtf import FlaskForm
 from wtforms import SelectField
 from wtforms.fields.html5 import DateField
-from wtforms.validators import InputRequired#, Optional , Length
+from wtforms.validators import InputRequired
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
-#from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
-from wz_grades.gradedata import getGradeData#, grades2db, db2grades,
-#        getGradeData, GradeReportData, singleGrades2db)
+from wz_grades.gradedata import getGradeData
 from wz_grades.makeabi import saveGrades, makeAbi
 from wz_compat.grade_classes import choices2db, choiceTable, abi_sids
 

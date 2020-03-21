@@ -37,11 +37,11 @@ if __name__ == '__main__':
 #    from wz_compat import grade_classes
 #    runTests(grade_classes)
 
-#    from wz_grades import gradedata
-#    runTests (gradedata)
+    from wz_grades import gradedata
+    runTests (gradedata)
 
 #    from wz_grades import makereports
 #    runTests (makereports)
 
-    from wz_grades import gradetable
-    runTests (gradetable)
+#    from wz_grades import gradetable
+#    runTests (gradetable)
