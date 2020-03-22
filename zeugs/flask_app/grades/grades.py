@@ -102,10 +102,10 @@ def grade_tables(termn = None, ks = None):
         flash(_NO_CLASSES.format(term = termn), "Error")
         return redirect(url_for('bp_grades.index'))
 
+    schoolyear = session['year']
     dfile = None    # download file
     if ks:
         # GET: Generate the table
-        schoolyear = session['year']
         if ks in klasses:
             xlsxbytes = REPORT.wrap(makeBasicGradeTable,
                     schoolyear, termn,
@@ -122,22 +122,31 @@ def grade_tables(termn = None, ks = None):
         else:
             abort(404)
 
+    # Make a list of dates. Handle the "current" term slightly
+    # differently from the others. For the "current" term the date of
+    # the "Notenkonferenz" is necessary, though it may be not set. If
+    # it is not set, the template can use an alternative link, to
+    # redirect to the page for setting the date.
+    # For "non-current" terms, no date should be shown.
+    if termn == term0:
+        kdates = [(_ks, gradeDate(schoolyear, termn, _ks))
+                        for _ks in klasses]
+    else:
+        kdates = [(_ks, None) for _ks in klasses]
     return render_template(os.path.join(_BPNAME, 'grade_tables.html'),
                             heading = _HEADING,
                             term0 = term0,
                             termn = termn,
-                            klasses = klasses,
+                            klasses = kdates,
                             dfile = dfile)
 
 
 #TODO: current term/year setting -> "Settings"
-#TODO: Date setters -> Zeugniserstellung (bp_grades.term)
-### Select current term, "Notenkonferenz", date of issue
-@bp.route('/current_term', methods=['GET'])
-@bp.route('/current_term/<termn>', methods=['GET', 'POST'])
-def current_term(termn = None):
-    return "DEPRECATED"
-
+#TODO:
+@bp.route('/grade_dates', methods=['GET', 'POST'])
+def grade_dates():
+    """Set the "Konferenzdatum" for the groups in the current term.
+    """
     schoolyear = session['year']
     try:
         curterm = CurrentTerm(schoolyear)
@@ -146,102 +155,71 @@ def current_term(termn = None):
         flash("%d ist nicht das „aktuelle“ Schuljahr" % schoolyear, "Warning")
         return redirect(url_for('bp_grades.index'))
 
-    terms = list(CONF.MISC.TERMS)
-    term0 = curterm.TERM
-    if termn:
-        if termn not in terms:
-            abort(404)
-        if term0 and termn != term0:
-            curterm.TERM = None      # no term dates available
-    else:
-        if curterm.TERM:
-            # Redirect to page for current term
-            return redirect(url_for('bp_grades.current_term',
-                    termn = term0))
-        # A simple page for "no current term", with links to term pages
-        return render_template(os.path.join(_BPNAME, 'current_term.html'),
-                heading = _HEADING,
-                terms = terms,
-                termn = None)
-
-    terms.remove(termn)
+    termn = curterm.TERM
     klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
 
     class _Form(FlaskForm):
         pass
 
+    ogroups = curterm.openGroups() or []
     i = 0
     for _ks in klasses:
-        dokd, doid, opn = None, None, None
-        if curterm.TERM:
-            try:
-                dok, doi, opn = curterm[_ks]
-            except:
-                pass
-            else:
-                if dok:
-                    dokd = datetime.date.fromisoformat(dok)
-                if doi:
-                    doid = datetime.date.fromisoformat(doi)
+        dok = gradeDate(schoolyear, termn, _ks)
+        if dok:
+            dokd = datetime.date.fromisoformat(dok)
         setattr(_Form, 'DOK_%02d' % i, DateField(validators = [Optional()],
-                default = dokd))
-        setattr(_Form, 'DOI_%02d' % i, DateField(validators = [Optional()],
-                default = doid))
+                default = dokd if dok else None))
+        opn = 'checked' if _ks in ogroups else None
         setattr(_Form, 'OPEN_%02d' % i, BooleanField(default = opn))
         i += 1
 
     form = _Form()
     if form.validate_on_submit():
         # POST
-        if request.form['action'] == 'clear':
-            if REPORT.wrap(curterm.setTerm, None, suppressok = True):
-                flash("Kein aktuelles Halbjahr", "Info")
-                return redirect(url_for('bp_grades.index'))
-        else:
-            ksdata = []
-            i = 0
-            ok = True
-            for _ks in klasses:
-                if request.form['action'] != 'all' or i == 0:
-                    date = getattr(form, 'DOK_%02d' % i).data
-                    if date:
-                        dok = date.isoformat()
-                        if not Dates.checkschoolyear(schoolyear, dok):
-                            flash(("Konferenzdatum (Klasse %s) außerhalb"
-                                    " des Schuljahres") % _ks, "Error")
-                            ok = False
-                    else:
-                        dok = ''
-                    dok = date.isoformat() if date else ''
-                    date = getattr(form, 'DOI_%02d' % i).data
-                    if date:
-                        doi = date.isoformat()
-                        if not Dates.checkschoolyear(schoolyear, doi):
-                            flash(("Ausstellungsdatum (Klasse %s) außerhalb"
-                                    " des Schuljahres") % _ks, "Error")
-                            ok = False
-                    else:
-                        doi = ''
-                    opn = 'open' if getattr(form, 'OPEN_%02d' % i).data else ''
-                    if opn and not dok:
+#TODO
+
+        ksdata = []
+        i = 0
+        ok = True
+        for _ks in klasses:
+            if request.form['action'] != 'all' or i == 0:
+                date = getattr(form, 'DOK_%02d' % i).data
+                if date:
+                    dok = date.isoformat()
+                    if not Dates.checkschoolyear(schoolyear, dok):
+                        flash(("Konferenzdatum (Klasse %s) außerhalb"
+                                " des Schuljahres") % _ks, "Error")
                         ok = False
-                        flash(("Klasse %s: Für die Noteneingabe muss das"
-                                " Konferenzdatum gesetzt werden") % _ks,
-                                "Warning")
-                i += 1
-                ksdata.append((_ks, dok, doi, opn))
-            if ok:
-                if REPORT.wrap(curterm.setTerm, termn, ksdata,
-                        suppressok = True):
-                    flash("Aktuelles Halbjahr: %s" % termn, "Info")
-                    return redirect(url_for('bp_grades.index'))
+                else:
+                    dok = ''
+                dok = date.isoformat() if date else ''
+                date = getattr(form, 'DOI_%02d' % i).data
+                if date:
+                    doi = date.isoformat()
+                    if not Dates.checkschoolyear(schoolyear, doi):
+                        flash(("Ausstellungsdatum (Klasse %s) außerhalb"
+                                " des Schuljahres") % _ks, "Error")
+                        ok = False
+                else:
+                    doi = ''
+                opn = 'open' if getattr(form, 'OPEN_%02d' % i).data else ''
+                if opn and not dok:
+                    ok = False
+                    flash(("Klasse %s: Für die Noteneingabe muss das"
+                            " Konferenzdatum gesetzt werden") % _ks,
+                            "Warning")
+            i += 1
+            ksdata.append((_ks, dok, doi, opn))
+        if ok:
+            if REPORT.wrap(curterm.setTerm, termn, ksdata,
+                    suppressok = True):
+                flash("Aktuelles Halbjahr: %s" % termn, "Info")
+                return redirect(url_for('bp_grades.index'))
 
     # GET
-    return render_template(os.path.join(_BPNAME, 'current_term.html'),
+    return render_template(os.path.join(_BPNAME, 'grade_dates.html'),
                             heading = _HEADING,
-                            terms = terms,
                             termn = termn,
-                            term0 = term0,
                             klasses = klasses,
                             form = form)
 

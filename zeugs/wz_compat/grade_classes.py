@@ -52,11 +52,10 @@ from wz_table.dbtable import readPSMatrix
 from wz_table.matrix import KlassMatrix
 
 
+#TODO: Normalise! Return Klass?
 def gradeGroups(term):
     """Return a list of "normalised" classes/groups for the given term.
-    The <report> parameter allows certain groups to have grade tables,
-    but no group reports. Pass <False> to include entries with a
-    '_'-prefix (which will be stripped).
+    The groups are in string form.
     """
     try:
         groups = CONF.GRADES.TEMPLATE_INFO['GROUPS_' + term]

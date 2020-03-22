@@ -2,26 +2,14 @@
 {% set uplink = url_for('bp_grades.index') %}
 {% set uplink_help = "Startseite" %}
 
-{% block title %}Halbjahr setzen: {{ termn if termn else "–––" }}{% endblock %}
+{% block title %}{{ termn }}. Halbjahr{% endblock %}
 
 {% block content %}
-    <p>(aktuell: {{ ("%s. Halbjahr" % term0) if term0 else "–––" }})
+    <p>Konferenzdatum setzen / erlaube Noteneingaben
     </p>
-    <ul class="modules">
-        {% for hj in terms %}
-        <li><a href="{{url_for('bp_grades.current_term', termn=hj)}}">
-            ↪ {{ hj }}. Halbjahr
-        </a></li>
-        {% endfor %}
-    </ul>
 
-    {% if termn %}
     <form class="pure-form pure-form-aligned" method="POST">
         {{ form.csrf_token }}
-        <button type="submit" name="action" value="clear"
-                class="pure-button submit-button"
-                style="margin: 0.5rem 1rem;">kein aktuelles Halbjahr</button>
-        <hr />
 
         <fieldset>
             {% for ks in klasses %}
@@ -30,11 +18,6 @@
             <div class="pure-control-group">
                 {% set f = form['DOK_%02d' % i] %}
                 <label for="{{ f.id }}">Konferenzdatum</label>
-                {{ f }}
-            </div>
-            <div class="pure-control-group">
-                {% set f = form['DOI_%02d' % i] %}
-                <label for="{{ f.id }}">Ausstellungsdatum</label>
                 {{ f }}
             </div>
             <div class="pure-control-group">
@@ -56,5 +39,4 @@
                 class="pure-button submit-button"
                 style="margin: 0.5rem 1rem;">Übernehmen</button>
     </form>
-    {% endif %}
 {% endblock %}
