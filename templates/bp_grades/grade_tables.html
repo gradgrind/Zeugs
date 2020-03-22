@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Notenzeugnisse: Startseite" %}
+
+{% block title %}{{termn}}. Halbjahr{% endblock %}
+
+{% block content %}
+    {% if dfile %}
+    <p>Hier können Sie die Notentabelle herunterladen:</p>
+    <a href="{{url_for('download', dfile=dfile)}}">{{dfile}}</a>
+    <hr />
+    {% endif %}
+
+    <p>Dieses ist {% if termn != term0 %}nicht{% endif %}
+    das „aktuelle“ Halbjahr.
+    </p>
+    <p>Hier können Sie das andere Halbjahr wählen:
+    </p>
+    {% set hj = '2' if termn == '1' else '1' %}
+    <a href="{{url_for('bp_grades.grade_tables', termn=hj)}}">
+        ↪ {{ hj }}. Halbjahr
+    </a>
+    <hr />
+
+    <h2>Konferenzdatum festlegen</h2>
+    <p>TODO!</p>
+
+    <h2>Notentabelle erstellen</h2>
+    <p>Wählen Sie hier die Klasse/Gruppe, für die die Tabelle zu
+    erstellen ist.
+    </p>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for ks in klasses %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.grade_tables', termn=termn, ks=ks)}}"
+                    class="pure-menu-link">
+                    Klasse/Gruppe {{ ks }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+{% endblock %}

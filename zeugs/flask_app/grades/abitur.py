@@ -243,7 +243,7 @@ def grades(pid):
 
         # Get any existing grades for this pupil: {sid -> grade}
         # If there is no grade data, use <{}> to satisfy the subsequent code.
-        grades = getGradeData(schoolyear, pid, rtype = 'Abitur')
+        grades = getGradeData(schoolyear, pid, 'A')
         try:
             sid2grade = grades['GRADES']
             date = grades['TERM']

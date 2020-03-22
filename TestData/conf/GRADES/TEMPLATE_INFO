@@ -1,5 +1,5 @@
 ############## GRADES/TEMPLATE_INFO
-############## Version: 2020-03-16
+############## Version: 2020-03-22
 
 ### Info-Spalten der Notentabellen, für welche Klassen/Gruppen
 ### und Halbjahre/Zeugnistypen sie relevant sind
@@ -11,8 +11,9 @@ GRADE_TABLE =& 13*: Noteneingabe-SII
 ### Gruppen, für die Notenzeugnisse zu erstellen sind
 # 1. Halbjahr
 GROUPS_1 = 13 12.Gym 12.RS-HS 11.Gym 11.RS-HS
-# 2. Halbjahr
-GROUPS_2 = 12.Gym 12.RS-HS 11.Gym 11.RS-HS 10
+# 2. Halbjahr (für Klasse 13 sind Notentabellen, aber keine Zeugnisse
+# vorgesehen)
+GROUPS_2 = 13 12.Gym 12.RS-HS 11.Gym 11.RS-HS 10
 # Einzelzeugnisse
 GROUPS_X = 13 12 11 10 09 08 07 06 05
 
@@ -31,7 +32,8 @@ _2 =& 13*:
     & 10.*: Orientierung Abgang
 
 # Sonderzeugnisse
-_X  =& 12<??.*: Abgang 
+_X  =& 13*: Abgang
+     & 12.*: Abgang 
      & 05<??.*: Abgang Zwischenzeugnis
     
 Halbjahr =& 13*: Notenzeugnis/Notenzeugnis-13.html

@@ -44,7 +44,7 @@ from wz_core.db import DB
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_table.matrix import KlassMatrix
-from wz_compat.grade_classes import CurrentTerm, gradeGroups
+from wz_compat.grade_classes import CurrentTerm, gradeGroups, gradeDate
 from .gradedata import getGradeData, grades2map
 
 
@@ -74,7 +74,7 @@ def makeBasicGradeTable(schoolyear, term, klass):
                     pdata.grades = gdata['GRADES']
                     continue
             pdata.grades = None
-        gdate = termdata.getGDate(klass)
+        gdate = gradeDate(schoolyear, term, klass)
         if gdate:
             title = _TITLE.format(date = Dates.dateConv(gdate))
 

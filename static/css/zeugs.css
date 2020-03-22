@@ -158,7 +158,7 @@ a.pure-menu-link:visited {
     width: 15rem;
 }
 
-.pure-menu,.pure-form legend {
+.pure-menu legend,.pure-form legend {
     margin-top: 2em;
 }
 

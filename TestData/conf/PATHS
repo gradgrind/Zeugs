@@ -46,16 +46,6 @@ DIR_FONTS =& *DIR_TEMPLATES
 FILE_SUBJECT_CHOICE_TEMPLATE =& *DIR_TEMPLATES
                               & Kurswahl
 
-# Subject choice tables
-FILE_SUBJECT_CHOICE_TABLE =& *DIR_SCHOOLDATA
-                           & Kurswahl
-                           & Kurswahl_*
-
-#TEMPORARY:
-FILE_SUBJECT_CHOICE_NEW =& *DIR_SCHOOLDATA
-                         & Kurswahl
-                         & new
-                         & Kurswahl_*
          
 ###############################################################
 ## Textzeugnisse
@@ -193,3 +183,12 @@ FILE_GRADE_INPUT =& testfiles
                   & new
                   & Noten_*
 
+# Abitur course choices (12.Gym and 13)
+FILE_SUBJECT_CHOICE_TABLE =& testfiles
+                           & Kurswahl
+                           & Kurswahl_*
+
+# Subject choice tables (TEMPORARY)
+FILE_SUBJECT_CHOICE_NEW =& tmp
+                         & Kurswahl
+                         & Kurswahl_*

@@ -9,14 +9,27 @@
 
 {% block content %}
     <h3>Zeugnisart</h3>
-    <p>Notenzeugnisse können für ganze Klassen zu den Halbjahren oder für
-    einzelne Schüler zu beliebigen Zeitpunkten erstellt werden.
+    <p>Notenzeugnisse können für ganze Gruppen nur im „aktuellen“
+    Halbjahr erstellt werden. Der Zeugnistyp ist für Gruppe und Halbjahr
+    voreingestellt, sodass Abweichungen nur als Einzelzeugnis erhältlich
+    sind.
+    </p>
+    <p>
+    Für einzelne Schüler können Zeugnisse zu beliebigen Zeitpunkten
+    erstellt werden.
     </p>
     <p>Wählen Sie hier die Art Zeugnis, die es zu erstellen gilt:
     </p>
     <ul class="modules">
-        <li><a href="{{url_for('bp_grades.term')}}">Zeugnisse für Klassen/Gruppen
-                zum Halbjahr bzw. Jahresende</a></li>
+        {% if term0 %}
+        <li><a href="{{url_for('bp_grades.term')}}">
+            {% if term0 == '1' %}
+            Halbjahreszeugnisse für Klassen/Gruppen
+            {% else %}
+            Zeugnisse zum Jahresende für Klassen/Gruppen
+            {% endif %}
+        </a></li>
+        {% endif %}
         <li><a href="{{url_for('bp_grades.klasses')}}">Einzelzeugnisse</a></li>
         <li><a href="{{url_for('bp_abitur.klasses')}}">Abiturzeugnisse</a></li>
     </ul>
@@ -27,6 +40,9 @@
     </ul>
     <h3>Weiteres</h3>
     <ul class="modules">
+        <li><a href="{{url_for('bp_grades.grade_tables')}}">
+            Notentabellen erstellen
+        </a></li>
         <li><a href="{{url_for('bp_abitur.tests')}}">Abitur: Klausur-Ergebnisse</a></li>
     </ul>
 {% endblock %}

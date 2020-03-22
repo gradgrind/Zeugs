@@ -13,54 +13,37 @@
     <hr />
     {% endif %}
 
-    <p>Dieses ist {% if not klasses %}nicht{% endif %}
-    das „aktuelle“ Halbjahr.
+    <h2>Notentabelle einlesen (hochladen)</h2>
+    <p>Die Tabelle kann für jede Klasse/Gruppe sein, das Halbjahr muss
+    aber übereinstimmen. Das Format darf 'xlsx' oder 'ods' sein.
     </p>
-    <p>Hier können Sie das andere Halbjahr wählen:
-    </p>
-    {% set hj = '2' if termn == '1' else '1' %}
-    <a href="{{url_for('bp_grades.term', termn=hj)}}">
-        ↪ {{ hj }}. Halbjahr
-    </a>
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+        <div class="uploaddiv">
+            {{ form.upload.label }}{{ form.upload }}
+        </div>
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">Einlesen</button>
+    </form>
     <hr />
 
-    <h2>Notentabellen</h2>
-    <div class="pure-menu">
-        <ul class="pure-menu-list">
-            <li class="pure-menu-item">
-                <a href="{{url_for('bp_grades.termtable', termn=termn)}}"
-                    class="pure-menu-link">
-                    {% if klasses %}
-                        Notentabellen verwalten (für die Noteneingabe)
-                    {% else %}
-                        Notentabellen erstellen
-                    {% endif %}
-                </a>
-            </li>
-        </ul>
-    </div>
-
     <h2>Zeugnisse erstellen</h2>
-    <p>Gesammelte Zeugnisse für Gruppen können nur für das aktuelle
-    Halbjahr erstellt werden. Alte Zeugnisse und Sonderzeugnisse
-    können nur für
+    <p>Gesammelte Zeugnisse für Gruppen können nur für das „aktuelle“
+    Halbjahr erstellt werden. Alle Zeugnisse müssen gleichen Typs sein
+    und die Gruppenzugehörigkeit der Schüler darf sich seit der Notengebung
+    nicht geändert haben. Alte Zeugnisse und Sonderzeugnisse können nur für
     <a href="{{url_for('bp_grades.klasses')}}">einzelne Schüler</a>
     erstellt werden.
     </p>
 
-    {% if klasses %}
     <p>Wählen Sie hier die Klasse/Gruppe, für die die Zeugnisse zu
-    erstellen sind. Sie können das Ausstellungsdatum und ggf. das
-    Datum der Notenkonferenz auf der
-    <a href="{{ url_for('bp_grades.current_term')}}">
-    entsprechenden Seite</a> setzen bzw. anpassen.
+    erstellen sind.
     </p>
     <div class="pure-menu">
         <ul class="pure-menu-list">
         {% for k in klasses %}
             <li class="pure-menu-item">
-                <a href="{{url_for('bp_grades.klassview', termn=termn,
-                                klass_stream=k)}}"
+                <a href="{{url_for('bp_grades.reports', ks=k)}}"
                         class="pure-menu-link">
                     Klasse/Gruppe {{ k }}
                 </a>
@@ -68,5 +51,4 @@
         {% endfor %}
         </ul>
     </div>
-    {% endif %}
 {% endblock %}

@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-03-21
+Last updated:  2020-03-22
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -42,7 +42,6 @@ _PUPILS_NOT_IN_CLASS_STREAM = "Schüler {pids} nicht in Klasse/Gruppe {ks}"
 _MADEKREPORTS = "Notenzeugnisse für Klasse {ks} wurden erstellt"
 _NOPUPILS = "Notenzeugnisse: keine Schüler"
 _MADEPREPORT = "Notenzeugnis für {pupil} wurde erstellt"
-_NO_CURRENT_TERM = "Kein aktuelles Halbjahr"
 _NO_ISSUE_DATE = "Kein Ausstellungsdatum für Klasse {klass}"
 _NO_GRADES = "Keine Noten für {pname} => kein Zeugnis"
 _WRONG_GROUP = "{pname} hat die Gruppe gewechselt => kein Zeugnis"
@@ -60,7 +59,7 @@ from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
 from wz_compat.config import printSchoolYear, printStream
-from wz_compat.grade_classes import CurrentTerm
+from wz_compat.grade_classes import CurrentTerm, gradeIssueDate, gradeDate
 from wz_grades.gradedata import (GradeReportData,
         getGradeData, updateGradeReport)
 
@@ -71,6 +70,11 @@ from wz_grades.gradedata import (GradeReportData,
 #    return rtypes.split()[0]
 
 def getTermTypes(klass, term):
+    """Get a list of acceptable report types for the given group
+    (<Klass> instance) and term. If <term> is not a term, a list for
+    "special" reports is returned.
+    If there is no match, return <None>.
+    """
     t = ('_' + term) if term in CONF.MISC.TERMS else '_X'
     tlist = klass.match_map(CONF.GRADES.TEMPLATE_INFO[t])
     return tlist.split() if tlist else None
@@ -90,15 +94,14 @@ def makeReports(klass_streams, pids=None):
         If not supplied, generate reports for the whole klass/group.
     """
     curterm = CurrentTerm()
-    if not curterm.TERM:
-        REPORT.Fail(_NO_CURRENT_TERM)
+    termn = curterm.TERM
     schoolyear = curterm.schoolyear
-    DATE_D = curterm.getIDate(klass_streams)
+    DATE_D = gradeIssueDate(schoolyear, termn, klass_streams)
     if not DATE_D:
-        REPORT.Warn(_NO_ISSUE_DATE, klass = klass_streams)
+        REPORT.Fail(_NO_ISSUE_DATE, klass = klass_streams)
     # GDATE_D is not necessarily needed by the report, so don't report
     # it missing – the conversion will catch the null value later.
-    GDATE_D = curterm.getGDate(klass_streams)
+    GDATE_D = gradeDate(schoolyear, termn, klass_streams)
     # Get the report type from the term and klass/stream
     rtype = getTermTypes(klass_streams, curterm.TERM)[0]
     # If a pupil list is supplied, select the required pupil data,

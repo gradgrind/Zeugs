@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-03-21
+Last updated:  2020-03-22
 
 Flask Blueprint for grade reports
 
@@ -49,7 +49,8 @@ from wz_grades.gradedata import (grades2db, db2grades,
         getGradeData, GradeReportData, singleGrades2db)
 from wz_grades.makereports import getTermTypes, makeReports, makeOneSheet
 from wz_grades.gradetable import makeBasicGradeTable
-from wz_compat.grade_classes import gradeGroups, CurrentTerm
+from wz_compat.grade_classes import (gradeGroups, CurrentTerm,
+        gradeIssueDate, gradeDate)
 
 
 # Set up Blueprint
@@ -58,31 +59,85 @@ bp = Blueprint(_BPNAME,             # internal name of the Blueprint
         __name__)                   # allows the current package to be found
 
 
+def getCurrentTerm():
+    """Return the current term ('1' or '2') if it lies in the session
+    year, otherwise <None>.
+    """
+    schoolyear = session['year']
+    try:
+        curterm = CurrentTerm(schoolyear)
+        return curterm.TERM
+    except CurrentTerm.NoTerm:
+        # The current term is not in this year
+        return None
+
+
 @bp.route('/', methods=['GET'])
 def index():
-    return render_template(os.path.join(_BPNAME, 'index.html'),
-                            heading=_HEADING)
-
-
-def checkterm(term, xok = False):
-    """If not a valid term, return a "page-not-found".
-    Otherwise return the class/group – report type info for the term.
-    If xok is true, also non-integer keys may be tested.
+    """View: start-page, select function.
     """
-    try:
-        if not xok:
-            int(term)
-        return CONF.GRADES.TEMPLATE_INFO['_' + term]
-    except:
-        raise
-        abort(404)
+    term0 = getCurrentTerm()
+    return render_template(os.path.join(_BPNAME, 'index.html'),
+                            heading = _HEADING,
+                            term0 = term0)
+
 
 ########### Views for group reports ###########
 
+@bp.route('/grade_tables', methods=['GET'])
+@bp.route('/grade_tables/<termn>', methods=['GET'])
+@bp.route('/grade_tables/<termn>/<ks>', methods=['GET'])
+def grade_tables(termn = None, ks = None):
+    """View: generate grade tables.
+    """
+    term0 = getCurrentTerm()
+    if not termn:
+        # Default to the current term or else '2'
+        return redirect(url_for('bp_grades.grade_tables',
+                termn = term0 or '2'))
+    if termn not in CONF.MISC.TERMS:
+        abort(404)
+    klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
+    if not klasses:
+        flash(_NO_CLASSES.format(term = termn), "Error")
+        return redirect(url_for('bp_grades.index'))
+
+    dfile = None    # download file
+    if ks:
+        # GET: Generate the table
+        schoolyear = session['year']
+        if ks in klasses:
+            xlsxbytes = REPORT.wrap(makeBasicGradeTable,
+                    schoolyear, termn,
+                    Klass(ks), suppressok = True)
+            if xlsxbytes:
+                dfile = 'Noten_%s.xlsx' % ks.replace('.', '-')
+                session['filebytes'] = xlsxbytes
+#WARNING: This is not part of the official flask API, it might change!
+                if not session.get("_flashes"):
+                    # There are no messages: send the file for downloading.
+                    return redirect(url_for('download', dfile = dfile))
+                # If there are messages, the template will show these
+                # and then make the file available for downloading.
+        else:
+            abort(404)
+
+    return render_template(os.path.join(_BPNAME, 'grade_tables.html'),
+                            heading = _HEADING,
+                            term0 = term0,
+                            termn = termn,
+                            klasses = klasses,
+                            dfile = dfile)
+
+
+#TODO: current term/year setting -> "Settings"
+#TODO: Date setters -> Zeugniserstellung (bp_grades.term)
 ### Select current term, "Notenkonferenz", date of issue
 @bp.route('/current_term', methods=['GET'])
 @bp.route('/current_term/<termn>', methods=['GET', 'POST'])
 def current_term(termn = None):
+    return "DEPRECATED"
+
     schoolyear = session['year']
     try:
         curterm = CurrentTerm(schoolyear)
@@ -191,107 +246,135 @@ def current_term(termn = None):
                             form = form)
 
 
-### View for a term, select school-class
-@bp.route('/term', methods=['GET'])
-@bp.route('/term/<termn>', methods=['GET'])
-def term(termn = None):
-    """View: select school-class (group report generation).
-    Only possible for current year/term.
+
+@bp.route('/term', methods=['GET', 'POST'])
+def term():
+    """View: Group report generation, select school-class.
+    Only possible for current year and term.
+    Also grade tables (for this term only) may be uploaded, causing
+    their contents to be entered into the database.
     """
     schoolyear = session['year']
     try:
         curterm = CurrentTerm(schoolyear)   # check year
-        term0 = curterm.TERM
+        termn = curterm.TERM
     except CurrentTerm.NoTerm:
-        # The current term, if any, is not in this year
-        term0 = None
-    if not termn:
-        # Ensure that <termn> is set by redirecting if it is not set.
-        return redirect(url_for('bp_grades.term', termn = term0 or '1'))
+        flash("%d ist nicht das „aktuelle“ Schuljahr", "Error")
+        return redirect(url_for('bp_grades.index'))
 
     try:
         dfile = session.pop('download')
     except:
         dfile = None
-    if termn == term0:
-        klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
-        if not klasses:
-            flash("Keine Klassen!", "Error")
-            return redirect(url_for('bp_grades.index'))
-    else:
-        klasses = None
+
+    klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
+    if not klasses:
+        flash("Keine Klassen!", "Error")
+        return redirect(url_for('bp_grades.index'))
+
+    class UploadForm(FlaskForm):
+        upload = FileField('Notentabelle:', validators=[
+            FileRequired(),
+            FileAllowed(['xlsx', 'ods'], 'Notentabelle')
+        ])
+
+    def readdata(f):
+        gtbl = readPSMatrix(f)
+        grades2db(gtbl)
+
+    form = UploadForm()
+    if form.validate_on_submit():
+        # POST
+        REPORT.wrap(readdata, form.upload.data)
+        ks = None
+
     return render_template(os.path.join(_BPNAME, 'term.html'),
                             heading = _HEADING,
                             termn = termn,
                             klasses = klasses,
+                            form = form,
                             dfile = dfile)
 
 
-### View for a term: grade tables, select school-class
-@bp.route('/termtable/<termn>/<ks>', methods = ['GET', 'POST'])
-@bp.route('/termtable/<termn>', methods = ['GET', 'POST'])
-def termtable(termn, ks = None):
-    """View: select school-class (group grade-table generation).
-    The "POST" method allows uploading a completed grade-table.
+@bp.route('/reports/<ks>', methods=['GET','POST'])
+def reports(ks):
+    """View: Handle report generation for a group of pupils.
+    This is available only for the "current" term.
+    A list of pupils with checkboxes is displayed, so that some can be
+    deselected.
     """
-    schoolyear = session['year']
-    # Only if <termn> is the current term (incl. year) should upload be
-    # available
+    termn = getCurrentTerm()
+    if not termn:
+        flash(("Gruppenzeugnisse können nur im „aktuellen“ Jahr erstellt"
+                " werden"), "Error")
+        return redirect(url_for('bp_grades_index'))
+
+    klass = Klass(ks)
+    rtypes = klass.match_map(CONF.GRADES.TEMPLATE_INFO['_' + termn])
     try:
-        curterm = CurrentTerm(schoolyear, termn)
-        if not curterm.TERM:
-            raise CurrentTerm.NoTerm
-    except CurrentTerm.NoTerm:
-        form = None
-    else:
-        class UploadForm(FlaskForm):
-            upload = FileField('Notentabelle:', validators=[
-                FileRequired(),
-                FileAllowed(['xlsx', 'ods'], 'Notentabelle')
-            ])
+        rtype = rtypes.split()[0]
+    except:
+        flash("Klasse %s: keine Gruppenzeugnisse möglich" % ks, "Error")
+        return redirect(url_for('bp_grades.term'))
 
-        def readdata(f):
-            gtbl = readPSMatrix(f)
-            grades2db(gtbl)
+    schoolyear = session['year']
+    idate = gradeIssueDate(schoolyear, termn, klass)
 
-        form = UploadForm()
-        if form.validate_on_submit():
-            # POST
-            REPORT.wrap(readdata, form.upload.data)
-            ks = None
+    class _Form(FlaskForm):
+        DATE_D = DateField(validators = [InputRequired()],
+                default = (datetime.date.fromisoformat(idate)
+                            if idate else None))
 
-    klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
-    if not klasses:
-        flash(_NO_CLASSES.format(term = termn), "Error")
-        return redirect(url_for('bp_grades.index'))
+    if (termn == '2' and klass.stream == 'Gym' and klass.klass >= '11'):
+        # Grade conference date only for class 11 and 12, "gymnasial"
+        # stream and end-of-year
+        gdate = gradeDate(schoolyear, termn, klass)
+        if not gdate:
+            session['nextpage'] = request.path
+            flash("Das Konferenzdatum für %s fehlt" % ks, "Warning")
+#TODO: Where is the conference date set? table generation?
+            return redirect(url_for('bp_grades.grade_tables', termn = termn))
+        # This date field is read-only, as the setting is done elsewhere
+        _Form.VDATE_D = DateField(validators = [InputRequired()],
+                    default = (datetime.date.fromisoformat(gdate)))
 
-    dfile = None    # download file
-    if ks:
-        # GET: Generate the table
-        if ks in klasses:
-            xlsxbytes = REPORT.wrap(makeBasicGradeTable,
-                    schoolyear, termn,
-                    Klass(ks), suppressok = True)
-            if xlsxbytes:
-                dfile = 'Noten_%s.xlsx' % ks.replace('.', '-')
-                session['filebytes'] = xlsxbytes
-#WARNING: This is not part of the official flask API, it might change!
-                if not session.get("_flashes"):
-                    # There are no messages: send the file for downloading.
-                    return redirect(url_for('download', dfile = dfile))
-                # If there are messages, the template will show these
-                # and then make the file available for downloading.
-            else:
-                return redirect(url_for('bp_grades.current_term'))
+    form = _Form()
+    if form.validate_on_submit():
+        # POST
+        pids=request.form.getlist('Pupil')
+        if pids:
+            # Save date
+            gradeIssueDate(schoolyear, termn, klass,
+                    val = form.DATE_D.data.isoformat())
+            # Generate the reports
+            pdfBytes = REPORT.wrap(makeReports, klass, pids)
+            if pdfBytes:
+                session['filebytes'] = pdfBytes
+                session['download'] = ('Notenzeugnis_%s.pdf'
+                        % str(klass).replace('.', '-'))
+                session.pop('nextpage', None)
+                return redirect(url_for('bp_grades.term', termn=termn))
         else:
-            abort(404)
+            flash("** Keine Schüler ... **", "Warning")
 
-    return render_template(os.path.join(_BPNAME, 'termtable.html'),
+    # GET
+    pdlist = REPORT.wrap(db2grades, schoolyear, termn, klass,
+            rtype = rtype, suppressok = True)
+    return render_template(os.path.join(_BPNAME, 'reports.html'),
                             heading = _HEADING,
                             form = form,
                             termn = termn,
-                            klasses = klasses,
-                            dfile = dfile)
+                            rtype = rtype,
+                            ks = klass,
+                            pupils = pdlist)
+#TODO:
+# There might be a checkbox/switch for print/pdf, but print might not
+# be available on all hosts.
+#
+# It might be helpful to have a little javascript to implement a pupil-
+# selection toggle (all/none) – or else (without javascript) a redisplay
+# with all boxes unchecked?
+
 
 
 ### Select which pupils should be included, generate reports.
@@ -303,10 +386,12 @@ def klassview(termn, klass_stream):
     deselected.
     """
     schoolyear = session['year']
-    curterm = CurrentTerm(schoolyear, termn)
-    if not curterm.TERM:
-        # Group report generation is only available for the current term.
-        return redirect(url_for('bp_grades.term', termn = term))
+    try:
+        curterm = CurrentTerm(schoolyear, termn)
+    except CurrentTerm.NoTerm as e:
+        # Mismatch
+        flash(e, "Error")
+        return redirect(url_for('bp_grades.term', termn = termn))
 
     class _Form(FlaskForm):
         # Use a DateField more for the appearance than for the
@@ -314,7 +399,7 @@ def klassview(termn, klass_stream):
         DATE_D = DateField()
 
     klass = Klass(klass_stream)
-    rtypes = klass.match_map(checkterm(termn))
+    rtypes = klass.match_map(CONF.GRADES.TEMPLATE_INFO['_' + termn])
     try:
         rtype = rtypes.split()[0]
     except:
@@ -365,7 +450,7 @@ def klassview(termn, klass_stream):
 # There might be a checkbox/switch for print/pdf, but print might not
 # be available on all hosts.
 #
-# It might be helpful to a a little javascript to implement a pupil-
+# It might be helpful to have a little javascript to implement a pupil-
 # selection toggle (all/none) – or else (without javascript) a redisplay
 # with all boxes unchecked?
 
@@ -435,7 +520,7 @@ def pupil(pid):
     schoolyear = session['year']
     # Get pupil data
     pdata = Pupils(schoolyear).pupil(pid)
-    # Get "terms" and existing dates
+    # Get existing grade entries for the pupil
     dates, _terms = [], {}
     for row in DB(schoolyear).select('GRADES', PID=pid):
         t = row['TERM']
@@ -445,18 +530,17 @@ def pupil(pid):
             # A term
             rtypes = getTermTypes(gklass, t)
             if rtypes:
-                if rtype in rtypes:
-                    _terms[t] = rtype
-                else:
-                    _terms[t] = rtypes[0]           # the default
-        else:
-            # A date
+                # If not a valid type, show the default
+                _terms[t] = rtype if rtype in rtypes else rtypes[0]
+        elif t[0] == 'X':
+            # An additional report
             rtypes = getTermTypes(gklass, 'X')
-            if rtype in rtypes:
-                dates.append((t, rtype))
-            else:
-                dates.append((t, rtypes[0]))    # the default
+            date = row['DATE_D']
+            if rtype not in rtypes:
+                rtype = rtypes[0]    # the default
+            dates.append((t, rtype, date))
     dates.sort(reverse=True)
+    # Ensure that there are fields for the terms
     terms = {}
     pklass = pdata.getKlass(withStream=True)
     for t in CONF.MISC.TERMS:
@@ -481,7 +565,7 @@ def pupil(pid):
 def grades_pupil(pid, rtag):
     """View: Edit data for the report to be created. Submit to save the
     changes. A second submit possibility generates the report.
-    <rtag> is a TERM field entry from the GRADES table (term or date).
+    <rtag> is a TERM field entry from the GRADES table (term or tag).
     It may also be '_', indicating that a new date is to be set up.
     """
     class _Form(FlaskForm):
@@ -492,6 +576,8 @@ def grades_pupil(pid, rtag):
 
     schoolyear = session['year']
     pdata = Pupils(schoolyear).pupil(pid)
+    if not pdata:
+        abort(404)
     subjects = []
 
     def prepare():
@@ -500,9 +586,11 @@ def grades_pupil(pid, rtag):
         if grades:
             k, s = grades['CLASS'], grades['STREAM']
             rtype = grades['REPORT_TYPE']
+            gmap = grades['GRADES']
         else:
             k, s = pdata['CLASS'], pdata['STREAM']
             rtype = None
+            gmap = None
         klass = Klass.fromKandS(k, s)
         # Get a list of possible report types for this class/group
         rtypes = getTermTypes(klass, rtag)
@@ -521,23 +609,29 @@ def grades_pupil(pid, rtag):
         gradechoices = [(g, g) for g in gdata.validGrades()]
         gradechoices.append(('?', '?'))
         # Get the grade manager
-        try:
-            gmap = grades['GRADES']
-        except:
-            gmap = None
         gradeManager = gdata.gradeManager(gmap)
 
-        # Grade conference date only for 11(x).Gym and end-of-year
+        # Grade conference date only for 11/12(x).Gym and end-of-year
         if (rtag == '2'
                 and klass.stream == 'Gym'
                 and (klass.klass.startswith('11')
                     or klass.klass.startswith('12'))):
-#TODO
-            vdate = getVDate(schoolyear, klass.klass)
+            try:
+                gdate = grades['GDATE_D']
+            except:
+                gdate = None
+            try:
+                curterm = CurrentTerm(schoolyear, rtag)
+                gdate = curterm.getGDate(klass)
+            except CurrentTerm.NoTerm:
+                gdate = None
+                if grades:
+                    gdate = grades.get('GDATE_D')
             _Form.VDATE_D = DateField(validators = [Optional()],
-                    default = (datetime.date.fromisoformat(vdate)
-                            if vdate else None))
+                    default = (datetime.date.fromisoformat(gdate)
+                            if gdate else None))
 
+#TODO
         # Add the grade fields to the form
         for sid, tlist in gdata.sid2tlist.items():
             # Only "taught" subjects

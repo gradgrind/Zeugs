@@ -13,17 +13,11 @@
     völlig neuen Zeugnis wählen.
     </p>
     <p>Der angezeigte Zeugnistyp kann bei der Notenbearbeitung geändert
-    werden. Für „zusätzlichen“ (datierten) Zeugnissen kann auch das
+    werden. Für (datierte) Sonderzeugnisse kann auch das
     Datum geändert werden.
     </p>
 
     <div class="pure-menu">
-        <div class="pure-menu-item">
-            <a href="{{url_for('bp_grades.grades_pupil', pid=pid, rtag='_')}}"
-                    class="pure-menu-link">
-                Neues Sonderzeugnis
-            </a>
-        </div>
         <legend>Halbjahre</legend>
         <ul class="pure-menu-list">
         {% for t in terms %}
@@ -38,23 +32,30 @@
         </ul>
         <legend>Sonderzeugnisse</legend>
         <ul class="pure-menu-list">
-        {% for d, rtype in dates %}
+        {% for t, rtype, d in dates %}
             <li class="pure-menu-item">
                 {% if rtype == 'Abitur' %}
                     {% set url = url_for('bp_abitur.grades', pid=pid) %}
                 {% else %}
-                    {% set url = url_for('bp_grades.grades_pupil', pid=pid, rtag=d) %}
+                    {% set url = url_for('bp_grades.grades_pupil', pid=pid, rtag=t) %}
                 {% endif %}
                 <a href="{{url}}" class="pure-menu-link">
                     {{ todate(d) }} ({{rtype}})
                 </a>
 
             </li>
-        {% else %}
+        {% endfor %}
+
             <li class="pure-menu-item pure-menu-link">
                 –––––
             </li>
-        {% endfor %}
+
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.grades_pupil', pid=pid, rtag='_')}}"
+                        class="pure-menu-link">
+                    Neues Sonderzeugnis
+                </a>
+            </li>
         </ul>
     </div>
 {% endblock %}

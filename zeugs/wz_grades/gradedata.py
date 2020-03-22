@@ -40,7 +40,6 @@ _UNKNOWN_PUPIL = "In Notentabelle: unbekannte Schüler-ID – {pid}"
 _NOPUPILS = "Keine (gültigen) Schüler in Notentabelle"
 _NEWGRADES = "Noten für {n} Schüler aktualisiert ({year}/{term}: {klass})"
 _BAD_GRADE_DATA = "Fehlerhafte Notendaten für Schüler PID={pid}, TERM={term}"
-_BAD_TERM = "Unbekannter Zeugnis-Ausgabetermin für Schüler PID={pid}, TERM={term}"
 _UNGROUPED_SID = ("Fach fehlt in Fachgruppen (in GRADES.ORDERING): {sid}"
         "\n  Vorlage: {tfile}")
 _NO_TEMPLATE = "Keine Zeugnisvorlage für Klasse {ks}, Typ {rtype}"
@@ -240,26 +239,19 @@ def db2grades(schoolyear, term, klass, rtype = None):
     return plist
 
 
-#TODO: term is now unique and not a date ...
-def getGradeData(schoolyear, pid, term = None, rtype = None):
+
+def getGradeData(schoolyear, pid, term):
     """Return all the data from the database GRADES table for the
-    given pupil as a mapping. The desired entry can be keyed by <term>
-    or by <rtype>.
-        <term>: Normally either term (small integer) or, for "extra"
-            reports, a date (yyyy-mm-dd). <term> may also be '_',
-            indicating a new report, so there should initially be no
-            entry for this.
-        <rtype>: This can be used to key unique report types, specifically
-            the final Abitur grades.
+    given pupil and the given "term" as a mapping.
+        <term>: Either a term (small integer) or, for "extra"
+            reports, a tag (#nn). It may also may also be any other
+            permissible entry in the TERM field of the GRADES table.
     The string in field 'GRADES' is converted to a mapping. If there is
     grade data, its validity is checked. If there is no grade data, this
     field is <None>.
     """
     db = DB(schoolyear)
-    if term:
-        gdata = db.select1('GRADES', PID = pid, TERM = term)
-    else:
-        gdata = db.select1('GRADES', PID = pid, REPORT_TYPE = rtype)
+    gdata = db.select1('GRADES', PID = pid, TERM = term)
     if gdata:
         # Convert the grades to a <dict>
         gmap = dict(gdata)
@@ -268,10 +260,6 @@ def getGradeData(schoolyear, pid, term = None, rtype = None):
         except ValueError:
             REPORT.Fail(_BAD_GRADE_DATA, pid = pid, term = term)
         return gmap
-    if term and term != '_' and term not in CONF.MISC.TERMS:
-        # It is ok for the entry to be missing for terms and '_', but
-        # not for dates. Entries keyed on <rtype> may be missing.
-        REPORT.Fail(_BAD_TERM, pid = pid, term = term)
     return None
 
 
