@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-03-16
+wz_core/pupils.py - last updated 2020-03-23
 
 Database access for reading pupil data.
 
@@ -129,6 +129,33 @@ class Klass:
         if self.streams:
             return stream in self.streams
         return True
+
+
+    def subset(self, klass):
+        """Test whether this group is a subset of <klass>.
+        """
+        if self.klass != klass.klass:
+            return False
+        if klass.streams:
+            # <klass> is not the full school-class
+            if not self.streams:
+                # This group is the full school-class, so it can't be
+                # in <klass>.
+                return False
+            for s in self.streams:
+                # Test each stream in this group.
+                if s not in klass.streams:
+                    return False
+        return True
+
+
+    def inlist(self, klist):
+        """Test whether this group is in the provided <Klass> list.
+        """
+        for k in klist:
+            if self.klass == k.klass and self.streams == k.streams:
+                return True
+        return False
 
 
 

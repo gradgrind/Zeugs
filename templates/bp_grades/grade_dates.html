@@ -5,11 +5,37 @@
 {% block title %}{{ termn }}. Halbjahr{% endblock %}
 
 {% block content %}
-    <p>Konferenzdatum setzen / erlaube Noteneingaben
+    <h3>Konferenzdatum setzen / erlaube Noteneingaben
+    </h3>
+    <p>Jeder Zeugnisgruppe kann unabhängig von den anderen ein Datum für
+    die Notenkonferenz zugeordnet werden. Auch für jede Gruppe kann
+    man die Noteneingabe sperren.
+    </p>
+    <p>Einzelne Gruppen können aber auch vollständig „gesperrt“ sein,
+    sodass auch das Datum nicht mehr geändert werden kann. Die Sperrung
+    wird bei der (TODO)
+    <a href="">Verwaltung des „aktuellen“ Halbjahres
+    </a> geregelt.
+    Außerhalb des „aktuellen“ Halbjahres sind alle Gruppen so gesperrt.
     </p>
 
     <form class="pure-form pure-form-aligned" method="POST">
         {{ form.csrf_token }}
+
+        <hr>
+        <p>Hier kann das Datum für alle nicht gesperrten Gruppen gesetzt
+        werden:
+        </p>
+        <div class="pure-control-group">
+            <label for="{{ form.ALL_D.id }}">Konferenzdatum</label>
+            {{ form.ALL_D }}
+        </div>
+        <button type="submit" name="action" value="all"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            für alle Gruppen übernehmen
+        </button>
+        <hr>
 
         <fieldset>
             {% for ks in klasses %}
@@ -25,18 +51,14 @@
                 <label for="{{ f.id }}">Noteneingabe</label>
                 {{ f }}
             </div>
-            {% if i == 0 %}
-            <button type="submit" name="action" value="all"
-                    class="pure-button submit-button"
-                    style="margin: 0.5rem 1rem;">für alle Klassen übernehmen</button>
-            <hr />
-            {% endif %}
             {% endfor %}
         </fieldset>
 
         <hr />
         <button type="submit" name="action" value="update"
                 class="pure-button submit-button"
-                style="margin: 0.5rem 1rem;">Übernehmen</button>
+                style="margin: 0.5rem 1rem;">
+            Übernehmen
+        </button>
     </form>
 {% endblock %}

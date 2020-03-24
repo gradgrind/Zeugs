@@ -173,8 +173,7 @@ def oldTablePupils(schoolyear, term, klass):
 _testyear = 2016
 def test_01():
     _term = '1'
-    for ks in gradeGroups(_term):
-        klass = Klass(ks)
+    for klass in gradeGroups(_term):
         bytefile = makeBasicGradeTable(_testyear, _term, klass)
         filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make = -1,
                 term = _term).replace('*', str(klass).replace('.', '-')) + '.xlsx'
@@ -184,8 +183,7 @@ def test_01():
 
 def test_02():
     _term = '2'
-    for ks in gradeGroups(_term):
-        klass = Klass(ks)
+    for klass in gradeGroups(_term):
         bytefile = makeBasicGradeTable(_testyear, _term, klass)
         filepath = Paths.getYearPath(_testyear, 'FILE_GRADE_INPUT', make = -1,
                 term = _term).replace('*', str(klass).replace('.', '-')) + '.xlsx'

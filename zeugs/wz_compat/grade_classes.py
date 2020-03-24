@@ -1,10 +1,10 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-03-22
+Last updated:  2020-03-24
 
 For which school-classes and streams are grade reports possible?
 
@@ -30,7 +30,6 @@ Copyright 2020 Michael Towers
 # Messages
 _WRONG_YEAR = "Nicht aktuelles Schuljahr: '{year}'"
 _WRONG_TERM = "Nicht aktuelles Halbjahr: '{term}'"
-_NO_TERM = "Kein aktuelles Halbjahr"
 _INVALID_GROUP = "Ungültige Zeugnis-Gruppe für das {term}. Halbjahr: {group}"
 _INVALID_YEAR = "Ungültiges Schuljahr: '{year}'"
 _INVALID_KLASS = "Ungültige Klasse: '{klass}'"
@@ -40,56 +39,111 @@ _NEWCHOICES = "[{year}] Kurswahl für Klasse {klass} aktualisiert."
 _NOPUPILS = "Keine Schüler"
 _NSUBJECTS = "Für {pname} sind nicht genau 8 Fächer markiert"
 _ABI_CHOICES = "{pname} muss genau 8 Fächer für das Abitur wählen"
+_DATE_NOT_IN_YEAR = "Das Ausstellungsdatum (Klasse {ks}) liegt nicht im Schuljahr"
+_SET_DATE_NOT_CURRENT = ("Das Ausstellungsdatum kann nur im „aktuellen“"
+        " Halbjahr modifiziert werden")
+_SET_GDATE_NOT_CURRENT = ("Das Konferenzdatum kann nur im „aktuellen“"
+        " Halbjahr modifiziert werden")
+_GDATE_NOT_IN_YEAR = "Das Konferenzdatum (Klasse {ks}) liegt nicht im Schuljahr"
+_INVALID_OPEN_LEVEL = "Ungültiger Wert für Gruppensperrung: {level}"
 
 
 from collections import OrderedDict
 
 from wz_core.db import DB
-from wz_core.configuration import Paths
+from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Klass, Pupils
 from wz_core.courses import CourseTables
 from wz_table.dbtable import readPSMatrix
 from wz_table.matrix import KlassMatrix
 
 
-#TODO: Normalise! Return Klass?
 def gradeGroups(term):
     """Return a list of "normalised" classes/groups for the given term.
-    The groups are in string form.
+    The groups are <Klass> instances.
     """
     try:
         groups = CONF.GRADES.TEMPLATE_INFO['GROUPS_' + term]
     except KeyError:
         REPORT.Bug("Invalid term in <gradeGroups>: %s" % term)
-    return groups.csplit(None)
+    return [Klass(g) for g in groups.csplit(None)]
 
 
-def gradeIssueDate(schoolyear, termn, klass, val = None):
+def getGradeGroup(term, klass):
+    """Return the element of the <gradeGroups()> list for the given term
+    which either matches or is a superset of <klass> (a <Klass> instance).
+    If there is no match, return <None>.
+    """
+    groups = gradeGroups(term)
+    if groups:
+        for g in groups:
+            if klass.subset(g):
+                return g
+    return None
+
+
+def gradeIssueDate(schoolyear, termn, klass, date = None):
     """Manage the date of issue for the grade reports for this year,
     term and class/group.
         val = None: return the date (not set => <None>),
         Otherwise: set the date to this value.
     """
-    if val == None:
+    if date == None:
         return DB(schoolyear).getInfo('GRADE_ISSUE_DATE_%s:%s'
                 % (termn, klass))
     else:
-        DB(schoolyear).setInfo('GRADE_ISSUE_DATE_%s:%s'
-                % (termn, klass), val)
+        try:
+            CurrentTerm(schoolyear, termn)
+        except CurrentTerm.NoTerm:
+            REPORT.Fail(_SET_DATE_NOT_CURRENT)
+        if not Dates.checkschoolyear(schoolyear, date):
+            REPORT.Fail(_DATE_NOT_IN_YEAR, ks = klass)
+        if klass.inlist(gradeGroups(termn)):
+#TODO: check locking?
+            DB(schoolyear).setInfo('GRADE_ISSUE_DATE_%s:%s'
+                % (termn, klass), date)
+        else:
+            REPORT.Fail(_INVALID_GROUP, term = termn, group = klass)
 
 
-def gradeDate(schoolyear, termn, klass, val = None):
+def gradeDate(schoolyear, termn, klass, date = None):
     """Manage the date of the "Notenkonferenz" for the grade reports
     for this year, term and class/group.
-        val = None: return the date (not set => <None>),
-        Otherwise: set the date to this value.
+        date = None: return the date,
+        otherwise: set the date to this value.
+    On reading, return the date, or <None> if it is not set.
     """
-    if val == None:
-        return DB(schoolyear).getInfo('KDATE_%s:%s'
-                % (termn, klass))
+    db = DB(schoolyear)
+    if date == None:
+        # Read date
+        return db.getInfo('GDATE_%s:%s' % (termn, klass))
     else:
-        DB(schoolyear).setInfo('KDATE_%s:%s'
-                % (termn, klass), val)
+        # Set date should only be done in "current" term
+        try:
+            curterm = CurrentTerm(schoolyear, termn)
+        except CurrentTerm.NoTerm:
+            REPORT.Fail(_SET_GDATE_NOT_CURRENT)
+            # Continuing here may be a mistake, it could corrupt old
+            # data so rather avoid it.
+        if not Dates.checkschoolyear(schoolyear, date):
+            REPORT.Fail(_GDATE_NOT_IN_YEAR, ks = klass)
+        if klass.inlist(gradeGroups(termn)):
+#TODO: check locking?
+            db.setInfo('GDATE_%s:%s' % (termn, klass), date)
+        else:
+            REPORT.Fail(_INVALID_GROUP, term = termn, group = klass)
+        return True # must be "true" for REPORT.wrap
+
+
+def needGradeDate(termn, klass):
+    """The grade conference date is only needed in the reports for
+    class 11 and 12, "gymnasial" stream and end-of-year (term '2').
+    Return <True> if needed.
+    """
+    return (termn == '2'
+            and klass.stream == 'Gym'
+            and klass.klass >= '11'
+            and klass.klass < '13')
 
 
 
@@ -99,9 +153,9 @@ class CurrentTerm():
 
     def __init__(self, year = None, term = None):
         """Manage the information about the current year and term.
-        If <year> and/or <term> are supplied, the information will only
-        be returned if these match the current year and term. If not,
-        a <NoTerm> exception will be raised.
+        If <year> and/or <term> are supplied, these will be checked
+        against the actual values. If there is a mismatch, a <NoTerm>
+        exception will be raised with an appropriate message.
         """
         db = DB()
         self.schoolyear = db.schoolyear
@@ -129,33 +183,58 @@ class CurrentTerm():
 
 
     def openGroups(self):
-        """Return the list of groups (a subset of the list returned by
-        <gradeGroups()>) which are open for grade input.
+        """Return the groups (a subset of the list returned by
+        <gradeGroups()>) which are open for change / grade input.
+        Return a mapping {group (str) -> open-level}
+        The possible levels are:
+            0: locked,
+            1: unlocked,
+            2: unlocked and open for grade input.
+        Note that groups with no date set should be unlocked (but not
+        open for grade input) whatever the setting here.
         """
+        omap = {}
         try:
-            return DB().getInfo('GRADE_OPEN').split()
+            klist = DB().getInfo('GRADE_OPEN').split()
         except:
-            return None
+            return omap
+        for k2o in klist:
+            try:
+                k, o = k2o.split(':', 1)
+                if getGradeGroup(self.TERM, Klass(k)):
+                    omap[k] = int(o)
+            except:
+                REPORT.Bug("Bad GRADE_OPEN entry in main DB: " + k2o)
+        return omap
 
 
-    def isOpen(self, klass):
-        """<klass> is a <Klass> instance. It can be either for a group
-        in the list returned by <gradeGroups()> or for a single stream.
-        Return <True> if <klass> is open for grade input, else <False>.
+    def setOpen(self, klass, level):
+        """Set the open-level for a group (<klass> is a <Klass> instance).
         """
+        if not getGradeGroup(self.TERM, klass):
+            REPORT.Fail(_INVALID_GROUP, term = self.TERM, group = klass)
         ogroups = self.openGroups()
-        if not ogroups:
-            return False
-        if str(klass) in ogroups:
-            return True
-        if not klass.stream:
-            return False
-        for g in ogroups:
-            k = Klass(g)
-            if klass.klass != k.klass:
-                continue
-            if k.containsStream(klass.stream):
-                return True
+        k = str(klass)
+        if level not in (0, 1, 2):
+            REPORT.Fail(_INVALID_OPEN_LEVEL, level = level)
+        ogroups[k] = level
+        klist = ['%s:%d' % (k, o) for k, o in ogroups.items()]
+        DB().setInfo('GRADE_OPEN', ' '.join(klist))
+        return True # must be "true" for REPORT.wrap
+
+
+
+#def getGradeGroup(term, klass):
+#    """Return the element of the <gradeGroups()> list for the given term
+#    which either matches or is a superset of <klass> (a <Klass> instance).
+#    If there is no match, return <None>.
+#    """
+#    groups = gradeGroups(term)
+#    if groups:
+#        for g in groups:
+#            if klass.subset(g):
+#                return g
+#    return None
 
 
 
@@ -326,7 +405,7 @@ _testyear = 2016
 def test_01():
     for key in ('1', '2', 'X'):
         REPORT.Test("\n Term %s (reports): %s" % (key, repr(gradeGroups(key))))
-        REPORT.Test("\n Term %s (tables): %s" % (key, repr(gradeGroups(key, False))))
+#        REPORT.Test("\n Term %s (tables): %s" % (key, repr(gradeGroups(key, False))))
 
 def test_02():
     for _klass in ('13', '12'):
