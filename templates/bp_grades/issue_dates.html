@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}{{ termn }}. Halbjahr{% endblock %}
+
+{% block content %}
+    <h3>Ausstellungsdatum setzen
+    </h3>
+    <p>Jeder Zeugnisgruppe kann unabhängig von den anderen ein
+    Ausstellungsdatum zugeordnet werden.
+    </p>
+    <p>Einzelne Gruppen können auch vollständig „gesperrt“ werden,
+    sodass die Gruppendaten nicht mehr geändert werden können. Als
+    Einzelzeugnisse bleiben die Daten allerdings zugänglich (für
+    nachträgliche Korrekturen, usw.). Außerhalb des „aktuellen“
+    Halbjahres sind alle Gruppen automatisch gesperrt.
+    </p>
+    <p><strong>Wichtig:</strong> Die Gruppen nicht zu früh sperren –
+    Korrekturen und Ergänzungen sind dann schwieriger.
+    </p>
+
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+
+        <hr>
+        <p>Hier kann das Datum für alle nicht gesperrten Gruppen gesetzt
+        werden:
+        </p>
+        <div class="pure-control-group">
+            <label for="ALL_D">Ausstellungsdatum</label>
+            <input id="ALL_D" name="ALL_D" type="date"
+                    min="{{ MIN_D }}" max="{{ MAX_D }}">
+        </div>
+        <button type="submit" name="action" value="all"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            für alle Gruppen übernehmen
+        </button>
+        <hr>
+
+        <fieldset>
+        {% for ks, dates in klasses.items() %}
+            {% set locked = dates.LOCK == 0 %}
+            <legend>Klasse {{ ks }}</legend>
+            <div class="pure-control-group">
+                <label for="{{ ks }}">Ausstellungsdatum</label>
+                <input id="{{ ks }}" name="{{ ks }}" type="date"
+                        min="{{ MIN_D }}" max="{{ MAX_D }}"
+                        value="{{ dates.DATE_D }}"
+                        {% if locked %}readonly{% endif %}>
+            </div>
+            <div class="pure-control-group">
+            {% set l = 'L_' + ks %}
+            {% if locked %}
+                <label>gesperrt</label>
+            {% else %}
+                <label for="{{ l }}">sperren</label>
+                <input id="{{ l }}" name="{{ l }}" type="checkbox">
+            {% endif %}
+            </div>
+        {% endfor %}
+        </fieldset>
+
+        <hr />
+        <button type="submit" name="action" value="update"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Übernehmen
+        </button>
+    </form>
+{% endblock %}

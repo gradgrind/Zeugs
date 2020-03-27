@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-03-23
+wz_core/pupils.py - last updated 2020-03-25
 
 Database access for reading pupil data.
 
@@ -269,7 +269,7 @@ class Pupils:
         If a <date> is supplied, pupils who left the school before that
         date will not be included.
         <klass> is a <Klass> instance. If it has no streams, all pupils
-        are returned. If there are strems, only those pupils in one of
+        are returned. If there are streams, only those pupils in one of
         the given streams are returned.
         To enable indexing on pupil-id, the result has an extra
         attribute, <pidmap>: {pid-> <PupilData> instance}

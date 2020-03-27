@@ -377,7 +377,7 @@
             {% if report_type == 'Zeugnis' and grades._V %}
             {% set remarks = True %}
             <p style="margin: 2mm 5mm; font-size: 11pt;">
-                Durch Konferenzbeschluss vom {{todate(GDATE_D)}}
+                Durch Konferenzbeschluss vom {{todate(pupil.GDATE_D)}}
                 in die Qualifikationsphase versetzt.
             </p>
             {% elif report_type == 'Abgang' and grades._GS %}
@@ -408,7 +408,7 @@
 
         <!-- Ort, Datum -->
         <p style="margin: 10mm 0 0 0">
-            Hannover, den {{todate(DATE_D)}}
+            Hannover, den {{todate(pupil.DATE_D)}}
         </p>
 
         <!-- Unterschriften -->

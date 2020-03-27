@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-03-19
+wz_grades/gradetable.py - last updated 2020-03-27
 
 Create grade tables for display and grade entry.
 
@@ -44,8 +44,8 @@ from wz_core.db import DB
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_table.matrix import KlassMatrix
-from wz_compat.grade_classes import CurrentTerm, gradeGroups, gradeDate
-from .gradedata import getGradeData, grades2map
+from wz_compat.grade_classes import gradeGroups
+from .gradedata import getGradeData, CurrentTerm, grades2map
 
 
 def makeBasicGradeTable(schoolyear, term, klass):
@@ -59,6 +59,9 @@ def makeBasicGradeTable(schoolyear, term, klass):
     # If using old data, a pupil's stream, and even class, may have changed!
     try:
         termdata = CurrentTerm(schoolyear, term)
+        gdate = termdata.dates()[klass].GDATE_D
+        if gdate:
+            title = _TITLE.format(date = Dates.dateConv(gdate))
     except CurrentTerm.NoTerm:
         # Not the current term.
         # Search the GRADES table for entries with TERM == <term> and
@@ -74,9 +77,6 @@ def makeBasicGradeTable(schoolyear, term, klass):
                     pdata.grades = gdata['GRADES']
                     continue
             pdata.grades = None
-        gdate = gradeDate(schoolyear, term, klass)
-        if gdate:
-            title = _TITLE.format(date = Dates.dateConv(gdate))
 
     ### Determine table template
     gtinfo = CONF.GRADES.TEMPLATE_INFO

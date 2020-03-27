@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-21
+Last updated:  2020-03-27
 
 Handle the data for grade reports.
 
@@ -32,30 +32,36 @@ _TOO_MANY_SUBJECTS = ("Zu wenig Platz für Fachgruppe {group} in Vorlage:"
         "\n  {template}\n  {pname}: {sids}")
 _MISSING_GRADE = "Keine Note für {pname} im Fach {sid}"
 _UNUSED_GRADES = "Noten für {pname}, die nicht im Zeugnis erscheinen:\n  {grades}"
-_NO_MAPPED_GRADE = "Keine Textform für Note '{grade}'"
 _INVALID_YEAR = "Ungültiges Schuljahr: '{val}'"
 _INVALID_KLASS = "Ungültige Klasse: {klass}"
-#_MISSING_PUPIL = "In Notentabelle: keine Noten für {pname}"
 _UNKNOWN_PUPIL = "In Notentabelle: unbekannte Schüler-ID – {pid}"
 _NOPUPILS = "Keine (gültigen) Schüler in Notentabelle"
 _NEWGRADES = "Noten für {n} Schüler aktualisiert ({year}/{term}: {klass})"
-_BAD_GRADE_DATA = "Fehlerhafte Notendaten für Schüler PID={pid}, TERM={term}"
+_BAD_GRADE_DATA = "Fehlerhafte Notendaten für {pname}, TERM={term}"
 _UNGROUPED_SID = ("Fach fehlt in Fachgruppen (in GRADES.ORDERING): {sid}"
         "\n  Vorlage: {tfile}")
 _NO_TEMPLATE = "Keine Zeugnisvorlage für Klasse {ks}, Typ {rtype}"
 _GROUP_CHANGE = "Die Noten für {pname} ({pk}) sind für Gruppe {gk}"
+_WRONG_TERM = "Nicht aktuelles Halbjahr: '{term}'"
+_BAD_LOCK_VALUE = "Ungültige Sperrung: {val} for {group}"
+_BAD_IDATE_VALUE = "Ungültiges Ausstellungsdatum: {val} for {group}"
+_BAD_GDATE_VALUE = "Ungültiges Datum der Notenkonferenz: {val} for {group}"
+_UPDATE_LOCKED_GROUP = "Zeugnisgruppe {group} is gesperrt, keine Änderung möglich"
+_NO_GRADES_FOR_PUPIL = "{pname} hat keine Noten => Sperrung nicht sinnvoll"
+_PUPIL_ALREADY_LOCKED = "{pname} ist schon gesperrt"
+_LOCK_NO_DATE = "Sperrung ohne Datum"
 
 
 import os
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 
-from wz_core.configuration import Paths
+from wz_core.configuration import Paths, Dates
 from wz_core.db import DB, UpdateError
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_compat.template import getGradeTemplate, getTemplateTags, TemplateError
 from wz_compat.gradefunctions import Manager
-from wz_compat.grade_classes import CurrentTerm
+from wz_compat.grade_classes import gradeGroups
 from wz_table.dbtable import readPSMatrix
 
 
@@ -75,7 +81,7 @@ def grades2db(gtable):
         REPORT.Fail(_INVALID_YEAR, val = y)
     term = gtable.info.get('TERM')
     try:
-        curterm = CurrentTerm(schoolyear, term, nullok = False)
+        curterm = CurrentTerm(schoolyear, term)
     except CurrentTerm.NoTerm as e:
         REPORT.Fail(e)
 
@@ -184,57 +190,53 @@ def updateGradeReport(schoolyear, pid, term, rtype):
 
 
 
-def db2grades(schoolyear, term, klass, rtype = None):
-    """Fetch the grades for the given school-class/group, term, schoolyear.
+def db2grades(schoolyear, term, klass, rtype):
+    """Fetch the grades for the given school-class/group, term,
+    schoolyear and report type. This is intended to supply the grades
+    for reports generated as a batch.
+    All pupils in <klass> are included. Those without grades, or whose
+    class/stream has changed or whose report type doesn't match will
+    have <None> instead of the grade mapping.
     Return a list [(pid, pname, {subject -> grade}), ...]
     <klass> is a <Klass> instance, which can include a list of streams
     (including '_' for pupils without a stream). If there are streams,
     only grades for pupils in one of these streams will be included.
-    If <rtype> is provided, grade entries with a different report type
-    will be treated as if there were no grades.
     """
-    slist = klass.streams
     plist = []
     # Get the pupils from the pupils db and search for grades for these.
     pupils = Pupils(schoolyear)
     db = DB(schoolyear)
     for pdata in pupils.classPupils(klass):
-        # Check pupil's stream if there is a stream filter
-        pstream = pdata['STREAM']
-        if slist and (pstream not in slist):
-            continue
         pid = pdata['PID']
-        gdata = db.select1('GRADES', PID=pid, TERM=term)
+        gdata = db.select1('GRADES', PID = pid, TERM = term)
+        gmap = None
         if gdata:
             gstring = gdata['GRADES'] or None
             if gstring:
+                # Check class/stream match
+                pklass = pdata.getKlass(withStream = True)
                 gklass = Klass.fromKandS(gdata['CLASS'], gdata['STREAM'])
-                if gklass.klass != klass.klass or gklass.stream != pstream:
+                if (gklass.klass != pklass.klass
+                        or gklass.stream != pklass.stream):
                     # Pupil has switched klass and/or stream.
                     REPORT.Warn(_GROUP_CHANGE, pname = pdata.name(),
-                            pk = Klass.fromKandS(klass.klass, pstream),
-                            gk = gklass)
-                    if gklass.stream not in slist:
-                        # This can only be handled via individual view.
-                        gstring = None
-        else:
-            gstring = None
-        if gstring:
-            # Check report type match
-            _rtype = gdata['REPORT_TYPE']
-            if _rtype and rtype and _rtype != rtype:
-                gmap = None
-            else:
-                try:
-                    gmap = grades2map(gstring)
-                except ValueError:
-                    REPORT.Fail(_BAD_GRADE_DATA, pid=pid, term=term)
-                # Add additional info from the GRADES table
-                gmap.REMARKS = gdata['REMARKS']
-                gmap.KLASS = gklass
-                gmap.REPORT_TYPE = _rtype
-        else:
-            gmap = None
+                            pk = pklass, gk = gklass)
+                    # This can only be handled via individual view.
+                else:
+                    # Check report type match
+                    _rtype = gdata['REPORT_TYPE']
+                    if (not _rtype) or _rtype == rtype:
+                        try:
+                            gmap = grades2map(gstring)
+                        except ValueError:
+                            REPORT.Fail(_BAD_GRADE_DATA,
+                                    pname = pdata.name(),
+                                    term = term)
+                        # Add additional info from the GRADES table
+                        gmap.REMARKS = gdata['REMARKS']
+                        gmap.DATE_D = gdata['DATE_D']
+                        gmap.GDATE_D = gdata['GDATE_D']
+                        gmap.KLASS = gklass
         plist.append((pid, pdata.name(), gmap))
     return plist
 
@@ -258,7 +260,9 @@ def getGradeData(schoolyear, pid, term):
         try:
             gmap['GRADES'] = grades2map(gdata['GRADES'])
         except ValueError:
-            REPORT.Fail(_BAD_GRADE_DATA, pid = pid, term = term)
+            REPORT.Fail(_BAD_GRADE_DATA,
+                    pname = Pupils.pid2name(schoolyear, pidpid),
+                    term = term)
         return gmap
     return None
 
@@ -379,13 +383,6 @@ class GradeReportData:
         return self._GradeManager.VALIDGRADES
 
 
-#TODO
-    def getTermDate(self, term):
-        """Fetch the date of issue for the group and given term.
-        """
-        return getDateOfIssue(self.schoolyear, term, self.klassdata)
-
-
     def gradeManager(self, grades):
         return self._GradeManager(self.schoolyear, self.sid2tlist, grades)
 
@@ -457,6 +454,172 @@ class GradeReportData:
 
 
 
+def getTermTypes(klass, term):
+    """Get a list of acceptable report types for the given group
+    (<Klass> instance) and term. If <term> is not a term, a list for
+    "special" reports is returned.
+    If there is no match, return <None>.
+    """
+    t = ('_' + term) if term in CONF.MISC.TERMS else '_X'
+    tlist = klass.match_map(CONF.GRADES.TEMPLATE_INFO[t])
+    return tlist.split() if tlist else None
+
+
+
+GradeDates = namedtuple("GradeDates", ('DATE_D', 'LOCK', 'GDATE_D'))
+
+class CurrentTerm():
+    class NoTerm(Exception):
+        pass
+
+    def __init__(self, year = None, term = None):
+        """Manage the information about the current year and term.
+        If <year> and/or <term> are supplied, these will be checked
+        against the actual values. If there is a mismatch, a <NoTerm>
+        exception will be raised with an appropriate message.
+        """
+        db = DB()
+        self.schoolyear = db.schoolyear
+        if year and year != self.schoolyear:
+            raise self.NoTerm(_WRONG_YEAR.format(year = year))
+        self.TERM = db.getInfo('TERM')
+        if not self.TERM:
+            self.setTerm('1')
+        if term and term != self.TERM:
+            raise self.NoTerm(_WRONG_TERM.format(term = term))
+
+
+#TODO: Handle dates, etc.
+    def setTerm(self, term):
+        """Set the current term for grade input and reports.
+        Also set no groups open for grade input.
+        """
+        raise TODO
+
+        if term not in CONF.MISC.TERMS:
+            REPORT.Bug("Invalid school term: %s" % term)
+        db = DB()
+        db.setInfo('TERM', term)
+        self.TERM = term
+        # No groups open for grade input
+#        db.setInfo('GRADE_OPEN', '')
+        return term
+
+
+    def dates(self, group = None, date = None, lock = None, gdate = None):
+        """Manage group dates and locking for the current term.
+        With no arguments, return a mapping of date/locking info:
+            {(string) group -> <GradeDates> instance}
+            with empty dates being ''
+        Otherwise, <group> (a <Klass> instance) should be provided.
+        One or more of the other arguments should then be provided,
+        the value being written to the database.
+        <lock>, should be 0, 1 or 2.
+            0: Lock completely. The dates, etc., should be transferred
+               to the individual GRADES entries.
+            1: Grade input is only possible for administrators using
+               the single-report interface.
+            2: Open for grade input (for this there must be a grade
+               conference date).
+        The dates must be within the schoolyear.
+        """
+        db = DB()
+        gmap = {}
+        info = {}
+        dstring = db.getInfo('GRADE_DATES')
+        if dstring:
+            for k2d in dstring.split():
+                try:
+                    k, d, l, g = k2d.split(':')
+                    if l not in ('0', '1', '2'):
+                        raise ValueError
+                    if d and not Dates.checkschoolyear(self.schoolyear, d):
+                        raise ValueError
+                    if g and not Dates.checkschoolyear(self.schoolyear, g):
+                        raise ValueError
+                    info[k] = GradeDates(DATE_D = d, LOCK = int(l),
+                            GDATE_D = g)
+                except:
+                    raise
+                    REPORT.Bug("Bad GRADE_DATES entry in master DB: " + k2d)
+        for ks in gradeGroups(self.TERM):
+            k = str(ks)
+            gmap[k] = info.get(k) or GradeDates(DATE_D = '', LOCK = 1,
+                    GDATE_D = '')
+        if not group:
+            return gmap
+
+        # Write value(s)
+        k = str(group)
+        try:
+            data = gmap[k]
+        except:
+            REPORT.Fail(_BAD_DATE_GROUP, group = k)
+        if data.LOCK == 0:
+            REPORT.Fail(_UPDATE_LOCKED_GROUP, group = k)
+
+        if date:
+            if not Dates.checkschoolyear(self.schoolyear, date):
+                REPORT.Fail(_BAD_IDATE_VALUE, group = group, val = date)
+            if date != data.DATE_D:
+                data = data._replace(DATE_D = date)
+
+        if gdate:
+            if not Dates.checkschoolyear(self.schoolyear, gdate):
+                REPORT.Fail(_BAD_GDATE_VALUE, group = group, val = gdate)
+            if gdate != data.GDATE_D:
+                data = data._replace(GDATE_D = gdate)
+
+        if lock != None:
+            if lock not in (0, 1, 2):
+                REPORT.Fail(_BAD_LOCK_VALUE, group = group, val = lock)
+            if lock != data.LOCK:
+                data = data._replace(LOCK = lock)
+
+            if lock == 0:
+                # Transfer all dates to GRADES table (lock) for all
+                # pupils in this group, if they have grades and are
+                # not already locked.
+                date = data.DATE_D
+                if not date:
+                    REPORT.Fail(_LOCK_NO_DATE)
+                gdate = data.GDATE_D
+                try:
+                    rtype = getTermTypes(group, self.TERM)[0]
+                except:
+                    rtype = ''
+                dbY = DB(self.schoolyear)
+                for pdata in Pupils(self.schoolyear).classPupils(group):
+                    # Get existing GRADES entry
+                    pid = pdata['PID']
+                    gdata = getGradeData(self.schoolyear, pid, self.TERM)
+                    if (not gdata) or (not gdata['GRADES']):
+                        REPORT.Warn(_NO_GRADES_FOR_PUPIL, pname = pdata.name())
+                        continue
+                    if gdata['DATE_D']:
+                        REPORT.Warn(_PUPIL_ALREADY_LOCKED, pname = pdata.name())
+                        continue
+                    # If no existing report type, use the default
+                    # ... this can be empty.
+                    _rtype = gdata['REPORT_TYPE'] or rtype or 'X'
+                    dbY.updateOrAdd('GRADES',
+                            {   'DATE_D': date,
+                                'GDATE_D': gdate,
+                                'REPORT_TYPE': _rtype
+                            },
+                            TERM = self.TERM,
+                            PID = pid,
+                            update_only = True
+                    )
+        gmap[k] = data
+        # Rewrite master-DB entry
+        slist = ['%s:%s:%d:%s' % (g, v.DATE_D, v.LOCK, v.GDATE_D)
+                for g, v in gmap.items()]
+        gd = '\n'.join(slist)
+        db.setInfo('GRADE_DATES', gd)
+        return True
+
+
 
 ##################### Test functions
 _testyear = 2016
@@ -483,6 +646,14 @@ def test_01 ():
     REPORT.Test("\n  Grade data:\n  %s" % repr(gm))
 
 def test_02():
+    _term = '1'
+    for klass in gradeGroups(_term):
+        REPORT.Test("\n ++++ Class %s ++++" % klass)
+        rtype = getTermTypes(klass, _term)[0]
+        for pid, pname, gmap in db2grades(_testyear, _term, klass, rtype):
+            REPORT.Test("GRADES for %s: %s" % (pname, repr(gmap)))
+
+def test_03():
     from glob import glob
     # With term='1' this should fail.
     files = glob(Paths.getYearPath(_testyear, 'FILE_GRADE_TABLE',

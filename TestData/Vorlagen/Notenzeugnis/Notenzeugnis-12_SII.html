@@ -210,7 +210,7 @@
                         hat den 12. Jahrgang der Qualifikationsphase vom
                         {{todate(pupil.QUALI_D)}}
                         bis zum
-                        {{todate(DATE_D)}}
+                        {{todate(pupil.DATE_D)}}
                         besucht.
                     </span>
                 </div>
@@ -386,7 +386,7 @@
                     <strong>Bemerkungen:</strong>
                 </p>
                 <p style="margin: 2mm 5mm; font-size: 11pt;">
-                    Durch Konferenzbeschluss vom {{todate(GDATE_D)}}
+                    Durch Konferenzbeschluss vom {{todate(pupil.GDATE_D)}}
                     in die 13. Klasse versetzt.
                 </p>
                 {% elif report_type == 'Abgang' and grades._GS %}
@@ -425,7 +425,7 @@
 
         <!-- Ort, Datum -->
         <p style="margin: 5mm 0 0 0">
-            Hannover, den {{todate(DATE_D)}}
+            Hannover, den {{todate(pupil.DATE_D)}}
         </p>
 
         <!-- Unterschriften -->

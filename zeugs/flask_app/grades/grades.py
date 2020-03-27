@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-03-24
+Last updated:  2020-03-27
 
 Flask Blueprint for grade reports
 
@@ -38,19 +38,18 @@ from flask import (Blueprint, render_template, request, session,
 from flask_wtf import FlaskForm
 from wtforms import SelectField, TextAreaField, BooleanField
 from wtforms.fields.html5 import DateField
-from wtforms.validators import InputRequired, Optional #, Length
+from wtforms.validators import InputRequired, Optional
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
 from wz_table.dbtable import readPSMatrix
-from wz_grades.gradedata import (grades2db, db2grades,
-        getGradeData, GradeReportData, singleGrades2db)
-from wz_grades.makereports import getTermTypes, makeReports, makeOneSheet
+from wz_grades.gradedata import (grades2db, db2grades, CurrentTerm,
+        getTermTypes, getGradeData, GradeReportData, singleGrades2db)
+from wz_grades.makereports import makeReports, makeOneSheet
 from wz_grades.gradetable import makeBasicGradeTable
-from wz_compat.grade_classes import (gradeGroups, CurrentTerm,
-        gradeIssueDate, gradeDate, needGradeDate)
+from wz_compat.grade_classes import gradeGroups, needGradeDate
 
 
 # Set up Blueprint
@@ -90,13 +89,15 @@ def index():
 def grade_tables(termn = None, ks = None):
     """View: generate grade tables.
     """
-    term0 = getCurrentTerm()
-    if not termn:
-        # Default to the current term or else '2'
+    curterm = CurrentTerm()
+    if termn:
+        if termn not in CONF.MISC.TERMS:
+            abort(404)
+    else:
+        # Default to the current term
         return redirect(url_for('bp_grades.grade_tables',
-                termn = term0 or '2'))
-    if termn not in CONF.MISC.TERMS:
-        abort(404)
+                termn = curterm.TERM))
+
     klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
     if not klasses:
         flash(_NO_CLASSES.format(term = termn), "Error")
@@ -128,21 +129,118 @@ def grade_tables(termn = None, ks = None):
     # it is not set, the template can use an alternative link, to
     # redirect to the page for setting the date.
     # For "non-current" terms, no date should be shown.
-    if termn == term0:
-        kdates = [(_ks, gradeDate(schoolyear, termn, _ks))
+    if termn == curterm.TERM:
+        dateInfo = REPORT.wrap(curterm.dates, suppressok = True)
+        if not dateInfo:
+            return redirect(url_for('bp_grades.index'))
+        kdates = [(_ks, dateInfo[str(_ks)].GDATE_D)
                         for _ks in klasses]
     else:
         kdates = [(_ks, None) for _ks in klasses]
     return render_template(os.path.join(_BPNAME, 'grade_tables.html'),
                             heading = _HEADING,
-                            term0 = term0,
+                            term0 = curterm.TERM,
                             termn = termn,
                             klasses = kdates,
                             dfile = dfile)
 
 
 #TODO: current term/year setting -> "Settings"
-#TODO: debug
+
+@bp.route('/issue_dates', methods=['GET', 'POST'])
+def issue_dates():
+    """Set the date of issue for the groups in the current term.
+    Also allow locking of the date control for each group.
+    """
+    schoolyear = session['year']
+    try:
+        curterm = CurrentTerm(schoolyear)
+    except CurrentTerm.NoTerm:
+        # The current term, if any, is not in this year
+        flash("%d ist nicht das „aktuelle“ Schuljahr" % schoolyear, "Warning")
+        return redirect(url_for('bp_grades.index'))
+
+    termn = curterm.TERM
+    # Get current date info for all groups
+    dateInfo = REPORT.wrap(curterm.dates, suppressok = True)
+    if not dateInfo:
+        return redirect(url_for('bp_grades.index'))
+
+    class _Form(FlaskForm):
+        pass
+
+    form = _Form()
+    if request.method == 'POST':
+        if form.validate():
+            ok = True
+            action = request.form['action']
+            if action == 'all':
+                date0 = request.form['ALL_D']
+                if not date0:
+                    flash("Kein Ausstellungsdatum", "Error")
+                    ok = False
+            else:
+                date0 = None
+
+            if ok:
+                count = 0
+                for ks, termDates in dateInfo.items():
+                    changes = 0
+                    if termDates.LOCK == 0:
+                        continue
+                    if date0:
+                        date = date0
+                    else:
+                        date = request.form[ks]
+                    d = None
+                    if date and date != termDates.DATE_D:
+                        d = date
+
+                    lock = False
+                    if request.form.get('L_' + ks):
+                        if date:
+                            lock = True
+                        else:
+                            flash(("Klasse %s kann nicht ohne Datum"
+                                    " gesperrt werden" % ks, "Error"))
+
+                    if d or lock:
+                        if REPORT.wrap(curterm.dates, Klass(ks),
+                                date = d,
+                                lock = 0 if lock else None,
+                                suppressok = True):
+                            flash("Klasse %s: %s%s"
+                                    % (ks, date,
+                                        " – gesperrt" if lock
+                                        else ""), "Info")
+                            count += 1
+                        else:
+                            break
+
+                if count:
+                    flash("%d Änderungen" % count, "Info")
+                    return redirect(request.path)
+#???
+        else:
+            for e in form.errors:
+                flash(e, "Error")
+                flash("Ungültige Daten", "Fail")
+
+    # GET
+    MIN_D, MAX_D = Dates.checkschoolyear(schoolyear)
+#TODO
+#    form.default = dates
+#    form.locked = klocked
+    return render_template(os.path.join(_BPNAME, 'issue_dates.html'),
+                            heading = _HEADING,
+                            termn = termn,
+                            MIN_D = MIN_D,
+                            MAX_D = MAX_D,
+                            klasses = dateInfo,
+                            form = form)
+
+
+#TODO: without wtf fields?
 @bp.route('/grade_dates', methods=['GET', 'POST'])
 def grade_dates():
     """Set the "Konferenzdatum" for the groups in the current term.
@@ -157,28 +255,26 @@ def grade_dates():
         return redirect(url_for('bp_grades.index'))
 
     termn = curterm.TERM
-    klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
 
     class _Form(FlaskForm):
         ALL_D = DateField(validators = [Optional()])
 
-    ogroups = curterm.openGroups()
-    dates = {}  # remember current dates
+    # Get current date info for all groups
+    dateInfo = REPORT.wrap(curterm.dates, suppressok = True)
+    if not dateInfo:
+        return redirect(url_for('bp_grades.index'))
     i = 0
-    for _ks in klasses:
-        dok = gradeDate(schoolyear, termn, _ks)
-        ks = str(_ks)
-        dates[ks] = dok
+    for ks, termDates in dateInfo.items():
+        dok = termDates.GDATE_D
         dokd = datetime.date.fromisoformat(dok) if dok else None
-        opn = ogroups.get(ks, 0)
-        locked = bool(dok) and opn == 0
+        lock = termDates.LOCK
         setattr(_Form, 'DOK_%02d' % i, DateField(
                 validators = [Optional()],
                 default = dokd,
-                render_kw={'readonly': locked}))
+                render_kw={'readonly': lock == 0}))
         setattr(_Form, 'OPEN_%02d' % i, BooleanField(
-                default = bool(dok) and opn == 2,
-                render_kw={'disabled': locked}))
+                default = bool(dok) and lock == 2,
+                render_kw={'disabled': lock == 0}))
         i += 1
 
     form = _Form()
@@ -202,12 +298,11 @@ def grade_dates():
         if ok:
             count = 0
             i = 0
-            for _ks in klasses:
-                ok = True
-                ks = str(_ks)
-                opn0 = ogroups.get(ks, 0)
-                locked = opn0 == 0
-                if date0 and not locked:
+            for ks, termDates in dateInfo.items():
+                if termDates.LOCK == 0:
+                    i += 1
+                    continue
+                if date0:
                     date = date0
                 else:
                     date = getattr(form, 'DOK_%02d' % i).data
@@ -216,42 +311,32 @@ def grade_dates():
                         if not Dates.checkschoolyear(schoolyear, date):
                             flash(("Konferenzdatum (Klasse %s) außerhalb"
                                     " des Schuljahres") % ks, "Error")
-                            ok = False
-                    else:
-                        locked = False
-                        date = date0
+                            break
 
-                if not locked:
-                    opn = 1
-                    if getattr(form, 'OPEN_%02d' % i).data:
-                        if date:
-                            opn = 2
+                lock = 1
+                if getattr(form, 'OPEN_%02d' % i).data:
+                    if date:
+                        lock = 2
+                    else:
+                        flash(("Klasse %s: Für die Noteneingabe muss das"
+                                " Konferenzdatum gesetzt werden") % ks,
+                                "Warning")
+                        break
+                if date:
+                    # Set date and/or lock if changed
+                    if (termDates.LOCK != lock
+                            or termDates.GDATE_D != date):
+                        if REPORT.wrap(curterm.dates, Klass(ks),
+                                gdate = date,
+                                lock = lock,
+                                suppressok = True):
+                            flash("Klasse %s: %s Noteneingabe %s"
+                                    % (ks, date,
+                                        "freigegeben" if lock == 2
+                                        else "gesperrt"), "Info")
+                            count += 1
                         else:
-                            flash(("Klasse %s: Für die Noteneingabe muss das"
-                                    " Konferenzdatum gesetzt werden") % ks,
-                                    "Warning")
-                            ok = False
-                    if ok and date:
-                        # Set date and/or opn if changed
-                        if opn0 != opn:
-                            if REPORT.wrap(curterm.setOpen, _ks, opn,
-                                    suppressok = True):
-                                flash("Klasse %s für die Noteneingabe %s"
-                                        % (ks, "freigegeben" if opn == 2
-                                            else "gesperrt"), "Info")
-                                count += 1
-                            else:
-                                ok = False
-                        if ok and date != dates[ks]:
-                            if REPORT.wrap(gradeDate, schoolyear, termn,
-                                    _ks, date, suppressok = True):
-                                flash("Datum für Klasse %s aktualisiert"
-                                        % ks, "Info")
-                                count += 1
-                            else:
-                                ok = False
-                if not ok:
-                    break
+                            break
                 i += 1
 
             if count:
@@ -262,9 +347,8 @@ def grade_dates():
     return render_template(os.path.join(_BPNAME, 'grade_dates.html'),
                             heading = _HEADING,
                             termn = termn,
-                            klasses = klasses,
+                            klasses = dateInfo,
                             form = form)
-
 
 
 @bp.route('/term', methods=['GET', 'POST'])
@@ -338,7 +422,8 @@ def reports(ks):
         return redirect(url_for('bp_grades.term'))
 
     schoolyear = session['year']
-    idate = gradeIssueDate(schoolyear, termn, klass)
+#TODO: curterm.dates()
+    idate = gradeDate(schoolyear, termn, klass)
 
     class _Form(FlaskForm):
         DATE_D = DateField(validators = [InputRequired()],
@@ -346,7 +431,8 @@ def reports(ks):
                             if idate else None))
 
     if needGradeDate(termn, klass):
-        gdate = gradeDate(schoolyear, termn, klass)
+#TODO: curterm.dates()
+        gdate = gradeDate(schoolyear, termn, klass, key = 'GDATE')
         if not gdate:
             session['nextpage'] = request.path
             flash("Das Konferenzdatum für %s fehlt" % klass, "Error")
@@ -365,7 +451,8 @@ def reports(ks):
             date = form.DATE_D.data.isoformat()
             if Dates.checkschoolyear(schoolyear, date):
                 # Store the date in the database
-                gradeIssueDate(schoolyear, termn, klass, val = date)
+#TODO: curterm.dates()
+                gradeDate(schoolyear, termn, klass, date = date)
                 # Generate the reports
                 pdfBytes = REPORT.wrap(makeReports, klass, pids)
                 if pdfBytes:
@@ -382,8 +469,8 @@ def reports(ks):
             flash("** Keine Schüler ... **", "Warning")
 
     # GET
-    pdlist = REPORT.wrap(db2grades, schoolyear, termn, klass,
-            rtype = rtype, suppressok = True)
+    pdlist = REPORT.wrap(db2grades, schoolyear, termn, klass, rtype,
+            suppressok = True)
     return render_template(os.path.join(_BPNAME, 'reports.html'),
                             heading = _HEADING,
                             form = form,
@@ -391,87 +478,6 @@ def reports(ks):
                             rtype = rtype,
                             ks = klass,
                             pupils = pdlist)
-#TODO:
-# There might be a checkbox/switch for print/pdf, but print might not
-# be available on all hosts.
-#
-# It might be helpful to have a little javascript to implement a pupil-
-# selection toggle (all/none) – or else (without javascript) a redisplay
-# with all boxes unchecked?
-
-
-
-### Select which pupils should be included, generate reports.
-@bp.route('/klass/<termn>/<klass_stream>', methods=['GET','POST'])
-def klassview(termn, klass_stream):
-    """View: Handle report generation for a group of pupils.
-    This is specific to the selected term.
-    A list of pupils with checkboxes is displayed, so that some can be
-    deselected.
-    """
-#TODO
-    return "DEPRECATED"
-    schoolyear = session['year']
-    try:
-        curterm = CurrentTerm(schoolyear, termn)
-    except CurrentTerm.NoTerm as e:
-        # Mismatch
-        flash(e, "Error")
-        return redirect(url_for('bp_grades.term', termn = termn))
-
-    class _Form(FlaskForm):
-        # Use a DateField more for the appearance than for the
-        # functionality – it should be displayed read-only.
-        DATE_D = DateField()
-
-    klass = Klass(klass_stream)
-    rtypes = klass.match_map(CONF.GRADES.TEMPLATE_INFO['_' + termn])
-    try:
-        rtype = rtypes.split()[0]
-    except:
-        abort(404)
-    session['nextpage'] = request.path
-    date = curterm.getIDate(klass)
-    if not date:
-        flash("Das Ausstellungsdatum für %s fehlt" % klass_stream, "Warning")
-        return redirect(url_for('bp_grades.grade_dates'))
-
-    if (termn == '2' and klass.stream == 'Gym' and
-            (klass.klass.startswith('11') or klass.klass.startswith('12'))):
-        # Grade conference date only for 11(x).Gym and end-of-year
-        gdate = curterm.getGDate(klass)
-        if not gdate:
-            flash("Das Konferenzdatum für %s fehlt" % klass_stream, "Warning")
-            return redirect(url_for('bp_grades.grade_dates'))
-        _Form.VDATE_D = DateField(validators = [Optional()],
-                    default = (datetime.date.fromisoformat(gdate)
-                            if gdate else None))
-
-    form = _Form()
-    if form.validate_on_submit():
-        # POST
-        pids=request.form.getlist('Pupil')
-        if pids:
-            pdfBytes = REPORT.wrap(makeReports, klass, pids)
-            session['filebytes'] = pdfBytes
-            session['download'] = ('Notenzeugnis_%s.pdf'
-                    % str(klass).replace('.', '-'))
-            session.pop('nextpage', None)
-            return redirect(url_for('bp_grades.term', termn=termn))
-        else:
-            flash("** Keine Schüler ... **", "Warning")
-
-    # GET
-    form.DATE_D.data = datetime.date.fromisoformat(date)
-    pdlist = REPORT.wrap(db2grades, schoolyear, termn, klass,
-            rtype = rtype, suppressok = True)
-    return render_template(os.path.join(_BPNAME, 'klass.html'),
-                            form=form,
-                            heading=_HEADING,
-                            termn=termn,
-                            rtype = rtype,
-                            klass_stream=klass,
-                            pupils=pdlist)
 #TODO:
 # There might be a checkbox/switch for print/pdf, but print might not
 # be available on all hosts.
@@ -598,12 +604,17 @@ def grades_pupil(pid, rtag):
         # The date of issue can not be changed here for term reports,
         # so for these supply a link to the term date editor and render
         # the field as read-only.
-        DATE_D = DateField(validators = [InputRequired()])
+        DATE_D = DateField(validators = [Optional()])
 
     schoolyear = session['year']
     pdata = Pupils(schoolyear).pupil(pid)
     if not pdata:
         abort(404)
+    try:
+        CurrentTerm(schoolyear, rtag)
+        pdata.CURRENT = True
+    except:
+        pdata.CURRENT = False
     subjects = []
 
     def prepare():
@@ -611,19 +622,22 @@ def grades_pupil(pid, rtag):
         grades = getGradeData(schoolyear, pid, rtag)
         if grades:
             k, s = grades['CLASS'], grades['STREAM']
-            rtype = grades['REPORT_TYPE']
+            pdata.RTYPE = grades['REPORT_TYPE']
             gmap = grades['GRADES']
+            pdata.DATE_D = grades['DATE_D']
+            pdata.GDATE_D = grades['GDATE_D']
         else:
             k, s = pdata['CLASS'], pdata['STREAM']
-            rtype = None
+            pdata.RTYPE = None
             gmap = None
+            pdata.DATE_D = None
+            pdata.GDATE_D = None
         klass = Klass.fromKandS(k, s)
         # Get a list of possible report types for this class/group
         rtypes = getTermTypes(klass, rtag)
-        if rtype not in rtypes:
-            rtype = rtypes[0]
+        rtype = pdata.RTYPE if pdata.RTYPE in rtypes else rtypes[0]
         _Form.RTYPE = SelectField("Zeugnistyp",
-                    choices = rtypes,
+                    choices = [(rt, rt) for rt in rtypes],
                     default = rtype)
 
         # Get subject data
@@ -638,26 +652,15 @@ def grades_pupil(pid, rtag):
         gradeManager = gdata.gradeManager(gmap)
 
         # Grade conference date only for 11/12(x).Gym and end-of-year
-        if (rtag == '2'
-                and klass.stream == 'Gym'
-                and (klass.klass.startswith('11')
-                    or klass.klass.startswith('12'))):
-            try:
-                gdate = grades['GDATE_D']
-            except:
-                gdate = None
-            try:
-                curterm = CurrentTerm(schoolyear, rtag)
-                gdate = curterm.getGDate(klass)
-            except CurrentTerm.NoTerm:
-                gdate = None
-                if grades:
-                    gdate = grades.get('GDATE_D')
+        if needGradeDate(rtag, klass):
+#TODO: curterm.dates()
+            pdata.GDATE0 = gradeDate(schoolyear, rtag, klass, key = 'GDATE')
+            gdate = pdata.GDATE_D
             _Form.VDATE_D = DateField(validators = [Optional()],
                     default = (datetime.date.fromisoformat(gdate)
                             if gdate else None))
 
-#TODO
+#TODO?
         # Add the grade fields to the form
         for sid, tlist in gdata.sid2tlist.items():
             # Only "taught" subjects
@@ -679,6 +682,10 @@ def grades_pupil(pid, rtag):
         return gdata
 
     def enterGrades():
+#TODO
+        REPORT.Test("TODO: enterGrades")
+        return False
+
         # Enter grade data into db
         _grades = gdata.gradeManager(gmap)
         singleGrades2db(schoolyear, pid, gdata.klassdata, term = rtag,
@@ -702,6 +709,8 @@ def grades_pupil(pid, rtag):
             REMARKS = form['REMARKS'].data
         except:
             REMARKS = None
+#TODO: Only update changed fields and only change dates from <None>
+# when the
         if REPORT.wrap(enterGrades, suppressok = True):
             ok = True
             if request.form['action'] == 'build':
@@ -719,25 +728,20 @@ def grades_pupil(pid, rtag):
                         klass = gdata.klassdata.klass))
 
     # GET
-    if rtag in CONF.MISC.TERMS:
-        # There must be a date of issue
-        term = rtag
-        date = gdata.getTermDate(term)
-        if not date:
-            session['nextpage'] = url_for('bp_grades.grades_pupil',
-                    pid = pid, rtag = rtag)
-            flash("Ausstellungsdatum für Klasse %s fehlt"
-                    % gdata.klassdata, "Error")
-            return redirect(url_for('bp_grades.issue', termn = term))
-        form.DATE_D.data = datetime.date.fromisoformat(date)
-    else:
-        term = None
+# Move to prepare (like GDATE)?
+    if pdata.DATE_D:
+        form.DATE_D.data = datetime.date.fromisoformat(pdata.DATE_D)
+    # There is also the date set for the group
+#TODO: Must be available on PUSH!
+#TODO: curterm.dates()
+#    pdata.DATE0 = gradeDate(schoolyear, rtag, klass)
+
     return render_template(os.path.join(_BPNAME, 'grades_pupil.html'),
             form = form,
             heading = _HEADING,
             subjects = subjects,
-            pname = pdata.name(),
-            termn = term,
+            pdata = pdata,
+            termn = rtag if rtag in CONF.MISC.TERMS else None,
             klass = gdata.klassdata
     )
 

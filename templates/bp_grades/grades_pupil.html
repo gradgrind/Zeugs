@@ -5,13 +5,13 @@
 {% block title %}Einzelschüler{% endblock %}
 
 {% block content %}
-    <h3>Noten für {{pname}}, Klasse {{klass}}</h3>
+    <h3>Noten für {{ pdata.name() }}, Klasse {{ klass }}</h3>
     <p>Die Noten für das Zeugnis am angezeigten Datum können hier
-    bearbeitet werden. Falls es sich um ein außerordentliches Zeugnis
-    (nicht ein Pflichtzeugnis zum Halbjahr) handelt, kann auch das
-    Datum geändert werden. Das Ausstellungsdatum für ein Zeugnis zum
-    Halbjahr/Jahresende kann nur für die ganze Gruppe geändert werden.
-    <p>Die Art des Zeugnisses kann aus der Liste der zulässigen Vorlagen
+    bearbeitet werden. Auch die Pflichtzeugnisse (zum Halbjahr) können
+    bearbeitet werden, dies könnte aber dazu führen, dass das Zeugnis
+    nicht mehr mit der Gruppe erstellt werden kann (insbesondere wenn
+    der Zeugnistyp geändert wird).
+    <p>Der Zeugnistyp kann aus der Liste der zulässigen Vorlagen
     ausgewählt werden.
     </p>
     <p>Die Änderungen können dann gespeichert werden. Es gibt aber auch
@@ -23,36 +23,44 @@
         {{ form.csrf_token }}
 
         <fieldset>
-            {% if termn %}
+        {% if termn %}
             <legend>{{ termn }}. Halbjahr</legend>
+            {% if pdata.CURRENT %}
+                <p>Das Ausstellungsdatum der Gruppen wird dann benutzt,
+                wenn das individuelle Datum auf null gesetzt wird. Um das
+                Gruppendatum zu ändern, gehen Sie
+                <a href="{{url_for('bp_grades.issue_dates')}}">
+                    zur entsprechenden Seite
+                </a>.
+                </p>
+
+            {% endif %}
             <div class="pure-control-group">
-                <label for="{{ form.DATE_D.id }}">
-                <a href="{{url_for('bp_grades.issue', termn=termn)}}">
-                    ↪ Ausstellungsdatum
-                </a>
+                <label for="{{ form.DATE_D.id }}">Ausstellungsdatum
                 </label>
-                {{ form.DATE_D(readonly=true) }}
+                {{ form.DATE_D }}
             </div>
             {% if form.VDATE_D %}
-            <p>Für manche Zeugnisse (Versetzungen in der Qualifikationsphase)
-                ist auch das Datum der Notenkonferenz erforderlich. Dieses kann
-                man auf der entsprechenden Seite einstellen.
-            </p>
-            <div class="pure-control-group">
-                <label for="{{ form.VDATE_D.id }}">
-                <a href="{{url_for('bp_grades.vdate')}}">
-                    ↪ Konferenzdatum
-                </a>
-                </label>
-                {{ form.VDATE_D(readonly=true) }}
-            </div>
+                <p>Für manche Zeugnisse (Versetzungen in der Qualifikationsphase)
+                    ist auch das Datum der Notenkonferenz erforderlich. Dieses kann
+                    man auf
+                    <a href="{{url_for('bp_grades.grade_dates')}}">
+                        der entsprechenden Seite einstellen.
+                    </a>
+                </p>
+                <div class="pure-control-group">
+                    <label for="{{ form.VDATE_D.id }}">
+                        Konferenzdatum
+                    </label>
+                    {{ form.VDATE_D }}
+                </div>
             {% endif %}
-            {% else %}
+        {% else %}
             <div class="pure-control-group">
                 <label for="{{ form.DATE_D.id }}">Ausstellungsdatum</label>
                 {{ form.DATE_D }}
             </div>
-            {% endif %}
+        {% endif %}
             <div class="pure-control-group">
                 {{ form.RTYPE.label }}{{ form.RTYPE }}  <!-- select report type -->
             </div>
