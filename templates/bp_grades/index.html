@@ -29,6 +29,11 @@
             Zeugnisse zum Jahresende für Klassen/Gruppen
             {% endif %}
         </a></li>
+            {% if term0 == '1' %}
+            <li><a href="{{url_for('bp_grades.switchterm')}}">
+                Halbjahr abschließen
+            </a></li>
+            {% endif %}
         {% endif %}
         <li><a href="{{url_for('bp_grades.klasses')}}">Einzelzeugnisse</a></li>
         <li><a href="{{url_for('bp_abitur.klasses')}}">Abiturzeugnisse</a></li>

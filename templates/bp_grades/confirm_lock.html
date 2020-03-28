@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.issue_dates') %}
+{% set uplink_help = "Ausstellungsdatum" %}
+
+{% block title %}{{ termn }}. Halbjahr{% endblock %}
+
+{% block content %}
+    <h3>Sperrung bestätigen
+    </h3>
+    <h2>TODO</h2>
+    <p>Sind Sie wirklich sicher, dass Sie für folgende Klassen das
+    Halbjahr abschließen wollen? Das Ausstellungsdatum und ggf. das
+    Konferenzdatum können dann nur über die Einzelzeugnisse geändert
+    werden.
+    </p>
+
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+        <p>TODO: List of groups</p>
+        <button type="submit" name="action" value="all"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            alle Gruppen sperren
+        </button>
+    </form>
+{% endblock %}

@@ -26,7 +26,7 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
-from .grades_base import bp, _HEADING, _BPNAME, getCurrentTerm
+from .grades_base import bp, _HEADING, _BPNAME
 
 
 #TODO: filter

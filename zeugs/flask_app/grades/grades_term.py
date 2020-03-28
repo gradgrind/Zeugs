@@ -26,7 +26,7 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
-from .grades_base import bp, _HEADING, _BPNAME, getCurrentTerm
+from .grades_base import bp, _HEADING, _BPNAME
 
 import datetime, os
 
@@ -54,30 +54,35 @@ from wz_compat.grade_classes import gradeGroups, needGradeDate
 def grade_tables(termn = None, ks = None):
     """Generate grade tables.
     """
-    curterm = CurrentTerm()
+    schoolyear = session['year']
+    try:
+        curterm = CurrentTerm(schoolyear)   # check year
+        term0 = curterm.TERM
+    except CurrentTerm.NoTerm:
+        term0 = None
     if termn:
         if termn not in CONF.MISC.TERMS:
             abort(404)
     else:
         # Default to the current term
         return redirect(url_for('bp_grades.grade_tables',
-                termn = curterm.TERM))
+                termn = term0 or '1'))
 
     klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
     if not klasses:
         flash(_NO_CLASSES.format(term = termn), "Error")
         return redirect(url_for('bp_grades.index'))
 
-    schoolyear = session['year']
     dfile = None    # download file
     if ks:
+        klass = Klass(ks)
         # GET: Generate the table
-        if ks in klasses:
+        if klass.inlist(klasses):
             xlsxbytes = REPORT.wrap(makeBasicGradeTable,
                     schoolyear, termn,
-                    ks, suppressok = True)
+                    klass, suppressok = True)
             if xlsxbytes:
-                dfile = 'Noten_%s.xlsx' % str(ks).replace('.', '-')
+                dfile = 'Noten_%s.xlsx' % ks.replace('.', '-')
                 session['filebytes'] = xlsxbytes
 #WARNING: This is not part of the official flask API, it might change!
                 if not session.get("_flashes"):
@@ -94,7 +99,7 @@ def grade_tables(termn = None, ks = None):
     # it is not set, the template can use an alternative link, to
     # redirect to the page for setting the date.
     # For "non-current" terms, no date should be shown.
-    if termn == curterm.TERM:
+    if termn == term0:
         dateInfo = REPORT.wrap(curterm.dates, suppressok = True)
         if not dateInfo:
             return redirect(url_for('bp_grades.index'))
@@ -102,9 +107,10 @@ def grade_tables(termn = None, ks = None):
                         for _ks in klasses]
     else:
         kdates = [(_ks, None) for _ks in klasses]
+    session['nextpage'] = request.path
     return render_template(os.path.join(_BPNAME, 'grade_tables.html'),
                             heading = _HEADING,
-                            term0 = curterm.TERM,
+                            term0 = term0,
                             termn = termn,
                             klasses = kdates,
                             dfile = dfile)
@@ -247,6 +253,22 @@ def reports(ks):
 
 ########### Views for term-based settings ###########
 
+@bp.route('/switchterm', methods=['GET', 'POST'])
+def switchterm():
+    schoolyear = session['year']
+    try:
+        curterm = CurrentTerm(schoolyear)
+    except CurrentTerm.NoTerm:
+        # The current term, if any, is not in this year
+        flash("%d ist nicht das „aktuelle“ Schuljahr" % schoolyear, "Warning")
+        return redirect(url_for('bp_grades.index'))
+    return "TODO: Switch term from %s" % curterm.TERM
+#TODO:
+#    REPORT.wrap(closeTerm, curterm.TERM)
+#    DB().setInfo('TERM', '2')
+# This needs to be coupled to current-year changes ...
+
+
 @bp.route('/issue_dates', methods=['GET', 'POST'])
 def issue_dates():
     """Set the date of issue for the groups in the current term.
@@ -328,6 +350,35 @@ def issue_dates():
                             MIN_D = MIN_D,
                             MAX_D = MAX_D,
                             klasses = dateInfo,
+                            form = form)
+
+
+#TODO
+@bp.route('/confirm_lock', methods=['GET', 'POST'])
+def confirm_lock():
+    """Confirm locking the date control for each group.
+    """
+    schoolyear = session['year']
+    try:
+        curterm = CurrentTerm(schoolyear)
+    except CurrentTerm.NoTerm:
+        # The current term, if any, is not in this year
+        flash("%d ist nicht das „aktuelle“ Schuljahr" % schoolyear, "Warning")
+        return redirect(url_for('bp_grades.index'))
+    termn = curterm.TERM
+#TODO: POST handling
+    if POP:
+        groups = session.pop('lock_groups', None)
+
+    # GET
+    try:
+        groups = session['lock_groups']
+    except:
+        abort(404)
+    return render_template(os.path.join(_BPNAME, 'confirm_lock.html'),
+                            heading = _HEADING,
+                            termn = termn,
+                            klasses = groups,
                             form = form)
 
 

@@ -28,7 +28,7 @@
     das Datum der Notenkonferenz angegeben werden. Das aktuelle Datum
     steht in Klammern hinter dem Klassennamen in der Liste unten.
     Dieses Datum kann man
-    <a href="{{url_for('bp_grades.issue_dates')}}">hier setzen</a>.
+    <a href="{{url_for('bp_grades.grade_dates')}}">hier bearbeiten</a>.
     </p>
     {% endif %}
 
@@ -41,13 +41,16 @@
         {% for ks, date in klasses %}
             <li class="pure-menu-item">
                 <a class="pure-menu-link" href=
-                {% if date %}
+                {% if termn == term0 %}
+                    {% if date %}
+                    "{{url_for('bp_grades.grade_tables', termn=termn, ks=ks)}}"
+                    {% else %}
+                    "{{url_for('bp_grades.grade_dates')}}"
+                    {% endif %}>
+                    Klasse/Gruppe {{ ks }} ( {{ date if date else '–––' }} )
+                {% else %}
                     "{{url_for('bp_grades.grade_tables', termn=termn, ks=ks)}}">
                     Klasse/Gruppe {{ ks }}
-                        {% if termn == term0 %}( {{ date }} ){% endif %}
-                {% else %}
-                    "{{url_for('bp_grades.grade_dates')}}">
-                    Klasse/Gruppe {{ ks }} ( ––– )
                 {% endif %}
                 </a>
             </li>

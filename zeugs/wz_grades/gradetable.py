@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-03-27
+wz_grades/gradetable.py - last updated 2020-03-28
 
 Create grade tables for display and grade entry.
 
@@ -59,7 +59,7 @@ def makeBasicGradeTable(schoolyear, term, klass):
     # If using old data, a pupil's stream, and even class, may have changed!
     try:
         termdata = CurrentTerm(schoolyear, term)
-        gdate = termdata.dates()[klass].GDATE_D
+        gdate = termdata.dates()[str(klass)].GDATE_D
         if gdate:
             title = _TITLE.format(date = Dates.dateConv(gdate))
     except CurrentTerm.NoTerm:

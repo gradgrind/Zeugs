@@ -28,29 +28,9 @@ Copyright 2019-2020 Michael Towers
 
 _HEADING = "Notenzeugnis"   # page heading
 
-
-import datetime, os
-
-from wz_grades.gradedata import CurrentTerm
-
-from flask import Blueprint, session
-
+from flask import Blueprint
 
 # Set up Blueprint
 _BPNAME = 'bp_grades'
 bp = Blueprint(_BPNAME,             # internal name of the Blueprint
         __name__)                   # allows the current package to be found
-
-
-#DEPRECATED?
-def getCurrentTerm():
-    """Return the current term ('1' or '2') if it lies in the session
-    year, otherwise <None>.
-    """
-    schoolyear = session['year']
-    try:
-        curterm = CurrentTerm(schoolyear)
-        return curterm.TERM
-    except CurrentTerm.NoTerm:
-        # The current term is not in this year
-        return None

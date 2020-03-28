@@ -28,10 +28,10 @@ Copyright 2019-2020 Michael Towers
 
 #TODO: current term/year setting -> "Settings"
 
-from .grades_base import bp, _HEADING, _BPNAME, getCurrentTerm
+from .grades_base import bp, _HEADING, _BPNAME
+from wz_grades.gradedata import CurrentTerm
 
-from flask import render_template
-#from flask import current_app as app
+from flask import render_template, session
 
 # "Sub-modules"
 from .grades_term import *
@@ -42,7 +42,11 @@ from .grades_single import *
 def index():
     """View: start-page, select function.
     """
-    term0 = getCurrentTerm()
+    schoolyear = session['year']
+    try:
+        term0 = CurrentTerm(schoolyear).TERM
+    except CurrentTerm.NoTerm:
+        term0 = None
     return render_template(os.path.join(_BPNAME, 'index.html'),
                             heading = _HEADING,
                             term0 = term0)
