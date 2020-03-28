@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-03-21
+Last updated:  2020-03-28
 
 Calculations needed for grade handling.
 
@@ -36,6 +36,7 @@ _MISSING_DEM = "Keine Note in diesen Fächern: {sids}"
 _MISSING_SID = "Keine Note im Fach {sid}"
 _BADGRADE = "Ungültige Note im Fach {sid}: {grade}"
 _MISSING_ABI_GRADE = "{pname}: Note fehlt im Abiturfach {sid}"
+_FAIL = "{pname} wird nicht versetzt"
 # ... for Abitur final reports
 _NO_GRADE = "Kein Ergebnis in %s"
 _NULL_ERROR = "0 Punkte in %s"
@@ -396,6 +397,7 @@ class GradeManagerN(_GradeManager):
             ave = self.AVE()
             if ave and ave <= Frac(3, 1):
                 return True
+            REPORT.Warn(_FAIL, pname = pdata.name())
         return False
 
 
@@ -562,7 +564,9 @@ class GradeManagerQ1(_GradeManager):
         klass = pdata['CLASS']
         if (klass.startswith('12') and pdata['STREAM'] == 'Gym'
                 and rtype == 'Zeugnis'):
-            return self.SekII(pdata)
+            if self.SekII(pdata):
+                return True
+            REPORT.Warn(_FAIL, pname = pdata.name())
         return False
 
 

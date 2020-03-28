@@ -7,8 +7,10 @@
 {% block content %}
     <h3>Klasse/Gruppe {{ks}}, <span>{{termn}}.&nbsp;Halbjahr</span></h3>
     <p>Notenzeugnisse (Typ „{{rtype}}“) werden für alle markierten Schüler
-    erstellt. Klicken Sie auf das entsprechende Kontrollkästchen, um die
-    Markierung für einen Schüler aufzuheben – oder wiederherzustellen.
+    erstellt. Um die Markierung für einen Schüler aufzuheben – oder
+    wiederherzustellen –, klicken Sie auf den Namen oder das
+    Kontrollkästchen.</p>
+    <p>
     Nur Schüler, die Noten mit passendem Maßstab haben und deren
     Zeugnisparameter nicht von der Norm für das Halbjahr abweichen,
     können selektiert werden.
@@ -26,22 +28,28 @@
 
         <fieldset>
             <div class="pure-control-group">
-                <label for="{{ form.DATE_D.id }}">
-                    Ausstellungsdatum
+                <label for="DATE_D">
+                <a href="{{url_for('bp_grades.issue_dates')}}">
+                    ↪ Ausstellungsdatum
+                </a>
                 </label>
-                {{ form.DATE_D }}
+                <input id="DATE_D" name="DATE_D" type="date"
+                        min="{{ MIN_D }}" max="{{ MAX_D }}"
+                        value="{{ dates.DATE_D }}" readonly>
             </div>
-            {% if form.VDATE_D %}
+            {% if form.withgdate %}
             <p>Für „gymnasiale“ Versetzungen am Ende der 11. und 12.
             Klasse ist auch das Datum der Notenkonferenz erforderlich.
             </p>
             <div class="pure-control-group">
-                <label for="{{ form.VDATE_D.id }}">
+                <label for="GDATE_D">
                 <a href="{{url_for('bp_grades.grade_dates')}}">
                     ↪ Konferenzdatum
                 </a>
                 </label>
-                {{ form.VDATE_D(readonly=true) }}
+                <input id="GDATE_D" name="GDATE_D" type="date"
+                        min="{{ MIN_D }}" max="{{ MAX_D }}"
+                        value="{{ dates.GDATE_D }}" readonly>
             </div>
             {% endif %}
              <button type="submit" class="pure-button submit-button"
@@ -54,9 +62,10 @@
 
         {% for pid, pname, ok in pupils %}
         <div class="form-group">
-            <input name="Pupil" type="checkbox" value="{{pid}}"
+            <input id="{{pid}}" name="Pupil" type="checkbox"
+                    value="{{pid}}"
                     {% if ok %}checked{% else %}disabled{% endif %}>
-            <span class="menu-item">{{pname}}</span>
+            <label for="{{pid}}">{{pname}}</label>
 <!-- Link to single report page, with term preset? -->
         </div>
         {% endfor %}

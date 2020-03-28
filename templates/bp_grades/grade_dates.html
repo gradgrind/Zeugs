@@ -28,8 +28,9 @@
         werden:
         </p>
         <div class="pure-control-group">
-            <label for="{{ form.ALL_D.id }}">Konferenzdatum</label>
-            {{ form.ALL_D }}
+            <label for="ALL_D">Konferenzdatum</label>
+            <input id="ALL_D" name="ALL_D" type="date"
+                    min="{{ MIN_D }}" max="{{ MAX_D }}">
         </div>
         <button type="submit" name="action" value="all"
                 class="pure-button submit-button"
@@ -39,20 +40,24 @@
         <hr>
 
         <fieldset>
-            {% for ks in klasses %}
-            {% set i = loop.index0 %}
+        {% for ks, dates in klasses.items() %}
+            {% set locked = dates.LOCK %}
             <legend>Klasse {{ ks }}</legend>
             <div class="pure-control-group">
-                {% set f = form['DOK_%02d' % i] %}
-                <label for="{{ f.id }}">Konferenzdatum</label>
-                {{ f }}
+                <label for="{{ ks }}">Konferenzdatum</label>
+                <input id="{{ ks }}" name="{{ ks }}" type="date"
+                        min="{{ MIN_D }}" max="{{ MAX_D }}"
+                        value="{{ dates.GDATE_D }}"
+                        {% if locked == 0 %}readonly{% endif %}>
             </div>
             <div class="pure-control-group">
-                {% set f = form['OPEN_%02d' % i] %}
-                <label for="{{ f.id }}">Noteneingabe</label>
-                {{ f }}
+            {% set l = 'L_' + ks %}
+                <label for="{{ l }}">Noteneingabe</label>
+                <input id="{{ l }}" name="{{ l }}" type="checkbox"
+                {% if locked == 2 %}checked{% endif %}
+                {% if locked == 0 %}disabled{% endif %}>
             </div>
-            {% endfor %}
+        {% endfor %}
         </fieldset>
 
         <hr />

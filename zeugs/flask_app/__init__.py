@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-03-01
+Last updated:  2020-03-28
 
 The Flask application: zeugs front-end.
 
@@ -85,8 +85,22 @@ def logger(messages, suppressok):
         flash("+++ Aktion erfolgreich abgeschlossen ...", "Info")
     return Paths.logfile(l)
 
-ZEUGS_DATA = init(None, xlog=logger)
 
+def isPOST(form):
+    """Test for POST method and validate form.
+    Return <True> if valid POST.
+    """
+    if request.method == 'POST':
+        if form.validate():
+            return True
+        else:
+            for e in form.errors:
+                flash(e, "Error")
+                flash("Ungültige Daten", "Fail")
+    return False
+
+
+ZEUGS_DATA = init(None, xlog=logger)
 
 def create_app(test_config=None):
     # create and configure the app
@@ -94,6 +108,7 @@ def create_app(test_config=None):
             instance_relative_config=True,
             static_folder=os.path.join(ZEUGS_BASE, 'static'),
             template_folder=os.path.join(ZEUGS_BASE, 'templates'))
+    app.isPOST = isPOST
     SECRET_KEY0 = "not-very-secret" # generate real one with: os.urandom(24)
 #    SECRET_KEY0 = os.environ.get('SECRET_KEY') or 'you-will-never-guess'
     app.config.from_mapping(
