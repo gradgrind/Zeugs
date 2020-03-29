@@ -263,11 +263,27 @@ def switchterm():
         # The current term, if any, is not in this year
         flash("%d ist nicht das „aktuelle“ Schuljahr" % schoolyear, "Warning")
         return redirect(url_for('bp_grades.index'))
-    return "TODO: Switch term from %s" % curterm.TERM
-#TODO:
-#    REPORT.wrap(closeTerm, curterm.TERM)
-#    DB().setInfo('TERM', '2')
-# This needs to be coupled to current-year changes ...
+    nextterm = curterm.next()
+    if not nextterm:
+        abort(404)
+
+    form = FlaskForm()
+    if app.isPOST(form):
+        msg = "Kein Halbjahreswechsel"
+        mtype = "Warning"
+        if request.form['action'] == 'switch':
+            if REPORT.wrap(curterm.setTerm, nextterm):
+                flash("Wechselte zum %s. Halbjahr" % nextterm, "Info")
+        else:
+            flash("Kein Halbjahreswechsel", "Warning")
+        return redirect(url_for('bp_grades.index'))
+
+    # GET
+    return render_template(os.path.join(_BPNAME, 'switchterm.html'),
+                            heading = _HEADING,
+                            form = form,
+                            termn = curterm.TERM,
+                            nextterm = nextterm)
 
 
 @bp.route('/issue_dates', methods=['GET', 'POST'])

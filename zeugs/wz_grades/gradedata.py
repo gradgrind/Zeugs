@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-27
+Last updated:  2020-03-29
 
 Handle the data for grade reports.
 
@@ -50,6 +50,8 @@ _UPDATE_LOCKED_GROUP = "Zeugnisgruppe {group} is gesperrt, keine Änderung mögl
 _NO_GRADES_FOR_PUPIL = "{pname} hat keine Noten => Sperrung nicht sinnvoll"
 _PUPIL_ALREADY_LOCKED = "{pname} ist schon gesperrt"
 _LOCK_NO_DATE = "Sperrung ohne Datum"
+_LOCK_GROUP = "Klass {ks} wird gesperrt ..."
+_GROUP_LOCKED = "Klass {ks} ist schon gesperrt"
 
 
 import os
@@ -489,20 +491,35 @@ class CurrentTerm():
             raise self.NoTerm(_WRONG_TERM.format(term = term))
 
 
-#TODO: Handle dates, etc.
+    def next(self):
+        """Return the next term, or <None> if the current one is the
+        final term of the year.
+        """
+        n = str(int(self.TERM) + 1)
+        if n in CONF.MISC.TERMS:
+            return n
+        return None
+
+
     def setTerm(self, term):
         """Set the current term for grade input and reports.
         Also set no groups open for grade input.
         """
-        raise TODO
-
         if term not in CONF.MISC.TERMS:
             REPORT.Bug("Invalid school term: %s" % term)
+        # Close current term
+        dateInfo = self.dates()
+        for ks, termDates in dateInfo.items():
+            if termDates.LOCK == 0:
+                REPORT.Info(_GROUP_LOCKED, ks = ks)
+                continue
+            REPORT.Info(_LOCK_GROUP, ks = ks)
+            self.dates(Klass(ks), lock = 0)
+        # Start new term
         db = DB()
+        db.setInfo('GRADE_DATES', None)
         db.setInfo('TERM', term)
         self.TERM = term
-        # No groups open for grade input
-#        db.setInfo('GRADE_OPEN', '')
         return term
 
 

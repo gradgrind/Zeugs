@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-03-28
+Last updated:  2020-03-29
 
 Flask Blueprint for grade reports (modular)
 
@@ -44,12 +44,17 @@ def index():
     """
     schoolyear = session['year']
     try:
-        term0 = CurrentTerm(schoolyear).TERM
+        curterm = CurrentTerm(schoolyear)
     except CurrentTerm.NoTerm:
         term0 = None
+        nextterm = None
+    else:
+        term0 = curterm.TERM
+        nextterm = curterm.next()
     return render_template(os.path.join(_BPNAME, 'index.html'),
                             heading = _HEADING,
-                            term0 = term0)
+                            term0 = term0,
+                            nextterm = nextterm)
 
 
 

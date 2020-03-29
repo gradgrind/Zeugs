@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}{{ termn }}. Halbjahr{% endblock %}
+
+{% block content %}
+    <h3>Halbjahr abschließen und wechseln
+    </h3>
+    <p>Um mit dem zweiten Halbjahr zu arbeiten, muss das erste
+    ordentlich abgeschlossen werden.
+    </p>Das bedeutet vor allem, dass die Daten für die Zeugnisgruppen
+    in Zukunft auf das zweite Halbjahr bezogen sind – und neu eingegeben
+    werden müssen. Notenzeugnisse für das erste Halbjahr können dann nur
+    für einzelne Schülerinnen und Schüler erstellt werden.
+    <p>
+
+    <form class="pure-form" method="POST">
+        {{ form.csrf_token }}
+
+        <button type="submit" name="action" value="switch"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Wechseln
+        </button>
+        <button type="submit" name="action" value="cancel"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Abbrechen
+        </button>
+    </form>
+{% endblock %}
