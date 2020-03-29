@@ -18,10 +18,10 @@
     </p>
 
     <div class="pure-menu">
+    {% if terms %}
         <legend>Halbjahre</legend>
         <ul class="pure-menu-list">
-        {% for t in terms %}
-            {% set rtype = terms[t] %}
+        {% for t, rtype in terms %}
             <li class="pure-menu-item">
                 <a href="{{url_for('bp_grades.grades_pupil', pid=pid, rtag=t)}}"
                         class="pure-menu-link">
@@ -30,32 +30,21 @@
             </li>
         {% endfor %}
         </ul>
+    {% endif %}
+    {% if dates %}
         <legend>Sonderzeugnisse</legend>
         <ul class="pure-menu-list">
         {% for t, rtype, d in dates %}
             <li class="pure-menu-item">
-                {% if rtype == 'Abitur' %}
-                    {% set url = url_for('bp_abitur.grades', pid=pid) %}
-                {% else %}
-                    {% set url = url_for('bp_grades.grades_pupil', pid=pid, rtag=t) %}
-                {% endif %}
+                {% set url = url_for('bp_grades.grades_pupil', pid=pid, rtag=t) %}
                 <a href="{{url}}" class="pure-menu-link">
-                    {{ todate(d) }} ({{rtype}})
+                    {% if d %}{{ todate(d) }} ({{rtype}})
+                    {% else %}Neues Sonderzeugnis ({{rtype}})
+                    {% endif %}
                 </a>
-
             </li>
         {% endfor %}
-
-            <li class="pure-menu-item pure-menu-link">
-                –––––
-            </li>
-
-            <li class="pure-menu-item">
-                <a href="{{url_for('bp_grades.grades_pupil', pid=pid, rtag='_')}}"
-                        class="pure-menu-link">
-                    Neues Sonderzeugnis
-                </a>
-            </li>
         </ul>
+    {% endif %}
     </div>
 {% endblock %}

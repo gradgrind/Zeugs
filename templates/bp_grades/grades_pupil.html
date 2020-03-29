@@ -25,60 +25,70 @@
         <fieldset>
         {% if termn %}
             <legend>{{ termn }}. Halbjahr</legend>
-            {% if pdata.CURRENT %}
-                <p>Das Ausstellungsdatum der Gruppen wird dann benutzt,
-                wenn das individuelle Datum auf null gesetzt wird. Um das
-                Gruppendatum zu ändern, gehen Sie
+            {% if pdata.TERM0 == termn %}
+                <p>Das Ausstellungsdatum der Gruppe
+                ( {{pdata.DATE_D0 or '–––'}} ) wird dann benutzt,
+                wenn das individuelle Datum auf null gesetzt wird.
+                Um das Gruppendatum zu ändern, gehen Sie
                 <a href="{{url_for('bp_grades.issue_dates')}}">
                     zur entsprechenden Seite
                 </a>.
                 </p>
 
             {% endif %}
+        {% endif %}
             <div class="pure-control-group">
-                <label for="{{ form.DATE_D.id }}">Ausstellungsdatum
-                </label>
-                {{ form.DATE_D }}
+                <label for="DATE_D">Ausstellungsdatum</label>
+                <input id="DATE_D" name="DATE_D" type="date"
+                value="{{pdata.DATE_D}}">
             </div>
-            {% if form.VDATE_D %}
-                <p>Für manche Zeugnisse (Versetzungen in der Qualifikationsphase)
-                    ist auch das Datum der Notenkonferenz erforderlich. Dieses kann
-                    man auf
-                    <a href="{{url_for('bp_grades.grade_dates')}}">
-                        der entsprechenden Seite einstellen.
-                    </a>
-                </p>
-                <div class="pure-control-group">
-                    <label for="{{ form.VDATE_D.id }}">
-                        Konferenzdatum
-                    </label>
-                    {{ form.VDATE_D }}
-                </div>
-            {% endif %}
-        {% else %}
+        {% if pdata.GDATE %}
+            <p>Für manche Zeugnisse (Versetzungen in der Qualifikationsphase)
+                ist auch das Datum der Notenkonferenz erforderlich.
+                Das Konferenzdatum der Gruppe
+                ( {{pdata.GDATE_D0 or '–––'}} ) wird dann benutzt,
+                wenn das individuelle Datum auf null gesetzt wird.
+                Um das Gruppendatum zu ändern, gehen Sie
+                <a href="{{url_for('bp_grades.grade_dates')}}">
+                    zur entsprechenden Seite
+                </a>.
+            </p>
             <div class="pure-control-group">
-                <label for="{{ form.DATE_D.id }}">Ausstellungsdatum</label>
-                {{ form.DATE_D }}
+                <label for="GDATE_D">Ausstellungsdatum</label>
+                <input id="GDATE_D" name="GDATE_D" type="date"
+                value="{{pdata.GDATE_D}}">
             </div>
         {% endif %}
             <div class="pure-control-group">
-                {{ form.RTYPE.label }}{{ form.RTYPE }}  <!-- select report type -->
+                <label for="rtype">Zeugnistyp</label>
+                <select id="rtype">
+                {% for rtype in pdata.RTYPES %}
+                    <option {% if rtype == pdata.RTYPE %}selected{% endif %}>
+                        {{ rtype }}
+                    </option>
+                {% endfor %}
+                </select>
             </div>
         </fieldset>
 
         <fieldset>
             <legend>Noten</legend>
-            {% for s in subjects %}
-                <div class="pure-control-group">
-                {{ form[s].label }}{{ form[s] }}
-                </div>
-            {% endfor %}
+        {% for s, g0 in subjects %}
+            <div class="pure-control-group">
+                <label for="k">{{ s }}</label>
+                <select id="k">
+                {% for g in pdata.VALIDGRADES %}
+                    <option {% if g == g0 %}selected{% endif %}>
+                        {{ g0 }}
+                    </option>
+                {% endfor %}
+                </select>
+            </div>
+        {% endfor %}
         </fieldset>
 
-        {% if form.REMARKS %}
         <legend>Bemerkungen</legend>
-        {{ form.REMARKS }}
-        {% endif %}
+        <textarea id="REMARKS"></textarea>
 
         <hr />
         <button type="submit" name="action" value="update"
