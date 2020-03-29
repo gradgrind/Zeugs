@@ -7,20 +7,31 @@
 {% block content %}
     <h3>Sperrung bestätigen
     </h3>
-    <h2>TODO</h2>
     <p>Sind Sie wirklich sicher, dass Sie für folgende Klassen das
     Halbjahr abschließen wollen? Das Ausstellungsdatum und ggf. das
     Konferenzdatum können dann nur über die Einzelzeugnisse geändert
-    werden.
+    werden. Einzelne Klassen können abgewählt werden.
     </p>
 
-    <form class="pure-form pure-form-aligned" method="POST">
+    <form class="pure-form" method="POST">
         {{ form.csrf_token }}
-        <p>TODO: List of groups</p>
-        <button type="submit" name="action" value="all"
+
+        {% for ks in klasses %}
+        <div class="form-group">
+            <input name="locks" type="checkbox" value="{{ks}}" checked>
+            <span class="menu-item">Klasse {{ks}}</span>
+        </div>
+        {% endfor %}
+
+        <button type="submit" name="action" value="lock"
                 class="pure-button submit-button"
                 style="margin: 0.5rem 1rem;">
-            alle Gruppen sperren
+            Sperren
+        </button>
+        <button type="submit" name="action" value="cancel"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Abbrechen
         </button>
     </form>
 {% endblock %}

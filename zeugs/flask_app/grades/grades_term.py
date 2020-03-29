@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_term.py
 
-Last updated:  2020-03-28
+Last updated:  2020-03-29
 
 "Sub-module" of grades for group term reports
 
@@ -40,7 +40,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wz_core.configuration import Dates
 from wz_core.pupils import Klass
 from wz_table.dbtable import readPSMatrix
-from wz_grades.gradedata import grades2db, db2grades, CurrentTerm
+from wz_grades.gradedata import grades2db, db2grades, CurrentTerm, getTermTypes
 from wz_grades.makereports import makeReports
 from wz_grades.gradetable import makeBasicGradeTable
 from wz_compat.grade_classes import gradeGroups, needGradeDate
@@ -137,6 +137,9 @@ def term():
         dfile = None
 
     klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
+    if klasses:
+        # Check report types
+        klasses = [k for k in klasses if getTermTypes(k, termn)]
     if not klasses:
         flash("Keine Klassen!", "Error")
         return redirect(url_for('bp_grades.index'))
@@ -181,10 +184,10 @@ def reports(ks):
         return redirect(url_for('bp_grades_index'))
     termn = curterm.TERM
 
+    # Get default report type for term
     klass = Klass(ks)
-    rtypes = klass.match_map(CONF.GRADES.TEMPLATE_INFO['_' + termn])
     try:
-        rtype = rtypes.split()[0]
+        rtype = getTermTypes(klass, termn)[0]
     except:
         flash("Klasse %s: keine Gruppenzeugnisse möglich" % ks, "Error")
         return redirect(url_for('bp_grades.term'))
@@ -208,9 +211,7 @@ def reports(ks):
         # Redirect to set the conference date
         return redirect(url_for('bp_grades.issue_dates'))
 
-    class _Form(FlaskForm):
-        pass
-    form = _Form()
+    form = FlaskForm()
     form.withgdate = withgdate
     if app.isPOST(form):
         # POST
@@ -288,10 +289,7 @@ def issue_dates():
     if not dateInfo:
         return redirect(url_for('bp_grades.index'))
 
-    class _Form(FlaskForm):
-        pass
-
-    form = _Form()
+    form = FlaskForm()
     if app.isPOST(form):
         ok = True
         action = request.form['action']
@@ -304,6 +302,7 @@ def issue_dates():
             date0 = None
 
         if ok:
+            locks = []
             count = 0
             for ks, termDates in dateInfo.items():
                 if termDates.LOCK == 0:
@@ -314,33 +313,27 @@ def issue_dates():
                     date = request.form[ks]
                 d = None
                 if date and date != termDates.DATE_D:
+                    if REPORT.wrap(curterm.dates, Klass(ks),
+                            date = date,
+                            suppressok = True):
+                        flash("Klasse %s: %s" % (ks, date), "Info")
+                        count += 1
                     d = date
 
-                lock = False
                 if request.form.get('L_' + ks):
                     if date:
-                        lock = True
+                        locks.append(ks)
                     else:
                         flash(("Klasse %s kann nicht ohne Datum"
                                 " gesperrt werden" % ks, "Error"))
 
-                if d or lock:
-                    if REPORT.wrap(curterm.dates, Klass(ks),
-                            date = d,
-                            lock = 0 if lock else None,
-                            suppressok = True):
-                        flash("Klasse %s: %s%s"
-                                % (ks, date,
-                                    " – gesperrt" if lock
-                                    else ""), "Info")
-                        count += 1
-                    else:
-                        break
-
             if count:
                 flash("%d Änderungen" % count, "Info")
-                nextpage = session.pop('nextpage', None)
-                return redirect(nextpage or request.path)
+            if locks:
+                session['confirm_lock'] = locks
+                return redirect(url_for('bp_grades.confirm_lock'))
+            nextpage = session.pop('nextpage', None)
+            return redirect(nextpage or request.path)
 
     # GET
     MIN_D, MAX_D = Dates.checkschoolyear(schoolyear)
@@ -353,7 +346,6 @@ def issue_dates():
                             form = form)
 
 
-#TODO
 @bp.route('/confirm_lock', methods=['GET', 'POST'])
 def confirm_lock():
     """Confirm locking the date control for each group.
@@ -365,21 +357,30 @@ def confirm_lock():
         # The current term, if any, is not in this year
         flash("%d ist nicht das „aktuelle“ Schuljahr" % schoolyear, "Warning")
         return redirect(url_for('bp_grades.index'))
-    termn = curterm.TERM
-#TODO: POST handling
-    if POP:
-        groups = session.pop('lock_groups', None)
+    form = FlaskForm()
+    if app.isPOST(form):
+        if request.form['action'] == 'lock':
+            locks = request.form.getlist('locks')
+            count = 0
+            for ks in locks:
+                if REPORT.wrap(curterm.dates, Klass(ks),
+                            lock = 0,
+                            suppressok = True):
+                    flash("Klasse %s gesperrt" % ks, "Info")
+                    count += 1
+            if count:
+                flash("%d Änderungen" % count, "Info")
+        nextpage = session.pop('nextpage', None)
+        return redirect(nextpage or url_for('bp_grades.issue_dates'))
 
-    # GET
-    try:
-        groups = session['lock_groups']
-    except:
+    locks = session.pop('confirm_lock', None)
+    if not locks:
         abort(404)
     return render_template(os.path.join(_BPNAME, 'confirm_lock.html'),
-                            heading = _HEADING,
-                            termn = termn,
-                            klasses = groups,
-                            form = form)
+                        heading = _HEADING,
+                        termn = curterm.TERM,
+                        klasses = locks,
+                        form = form)
 
 
 @bp.route('/grade_dates', methods=['GET', 'POST'])
@@ -401,10 +402,7 @@ def grade_dates():
     if not dateInfo:
         return redirect(url_for('bp_grades.index'))
 
-    class _Form(FlaskForm):
-        pass
-
-    form = _Form()
+    form = FlaskForm()
     if app.isPOST(form):
         ok = True
         action = request.form['action']

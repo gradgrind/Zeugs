@@ -3,7 +3,7 @@
 """
 search.py
 
-Last updated:  2020-03-15
+Last updated:  2020-03-28
 
 A utility for searching the source files for particular text strings.
 This is not used by the programm itself, but it may be useful for tracing
@@ -34,7 +34,7 @@ thisdir = os.path.dirname (os.path.realpath ( __file__ ))
 appdir = os.path.dirname (thisdir)
 basedir = os.path.dirname (appdir)
 # This is the path for test data:
-userdir = os.path.join (basedir, 'DefaultData')
+userdir = os.path.join (basedir, 'TestData')
 
 
 def search_dir (dpath, searchstring, mask='*', deep=True):
@@ -87,7 +87,10 @@ if __name__ == "__main__":
     import sys
     sstring = sys.argv [-1]
     print ("Seek '%s'" % sstring)
-    search_dir (thisdir, sstring, '*.py')
+    if sys.argv[1] == '.':
+    	search_appdir (sstring)
+    else:
+	    search_dir (thisdir, sstring, '*.py')
     quit (0)
 
     search_appdir ('#TODO', '*.py')

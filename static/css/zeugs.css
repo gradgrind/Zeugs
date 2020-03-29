@@ -240,6 +240,9 @@ textarea {
     color: #00e;
     border-radius: 4px;
 }
+.submit-button:hover {
+    background-color: #faa;
+}
 
 /* The sidepanel menu */
 .sidepanel {
