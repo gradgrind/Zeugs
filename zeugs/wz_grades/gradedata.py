@@ -523,14 +523,15 @@ class CurrentTerm():
         """
         if term not in CONF.MISC.TERMS:
             REPORT.Bug("Invalid school term: %s" % term)
-        # Close current term
-        dateInfo = self.dates()
-        for ks, termDates in dateInfo.items():
-            if termDates.LOCK == 0:
-                REPORT.Info(_GROUP_LOCKED, ks = ks)
-                continue
-            REPORT.Info(_LOCK_GROUP, ks = ks)
-            self.dates(Klass(ks), lock = 0)
+        if self.TERM:
+            # Close current term
+            dateInfo = self.dates()
+            for ks, termDates in dateInfo.items():
+                if termDates.LOCK == 0:
+                    REPORT.Info(_GROUP_LOCKED, ks = ks)
+                    continue
+                REPORT.Info(_LOCK_GROUP, ks = ks)
+                self.dates(Klass(ks), lock = 0)
         # Start new term
         db = DB()
         db.setInfo('GRADE_DATES', None)

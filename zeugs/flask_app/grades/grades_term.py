@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_term.py
 
-Last updated:  2020-03-29
+Last updated:  2020-03-30
 
 "Sub-module" of grades for group term reports
 
@@ -207,7 +207,7 @@ def reports(ks):
 
     if not dates.DATE_D:
         session['nextpage'] = request.path
-        flash("Das Ausstelungsdatum für %s fehlt" % ks, "Error")
+        flash("Das Ausstellungsdatum für %s fehlt" % ks, "Error")
         # Redirect to set the conference date
         return redirect(url_for('bp_grades.issue_dates'))
 
@@ -344,7 +344,7 @@ def issue_dates():
                                 " gesperrt werden" % ks, "Error"))
 
             if count:
-                flash("%d Änderungen" % count, "Info")
+                flash("%d Änderung(en)" % count, "Info")
             if locks:
                 session['confirm_lock'] = locks
                 return redirect(url_for('bp_grades.confirm_lock'))
@@ -385,7 +385,7 @@ def confirm_lock():
                     flash("Klasse %s gesperrt" % ks, "Info")
                     count += 1
             if count:
-                flash("%d Änderungen" % count, "Info")
+                flash("%d Änderung(en)" % count, "Info")
         nextpage = session.pop('nextpage', None)
         return redirect(nextpage or url_for('bp_grades.issue_dates'))
 
@@ -468,7 +468,7 @@ def grade_dates():
                         break
 
             if count:
-                flash("%d Änderungen" % count, "Info")
+                flash("%d Änderung(en)" % count, "Info")
                 nextpage = session.pop('nextpage', None)
                 return redirect(nextpage or request.path)
 

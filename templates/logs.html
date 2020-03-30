@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Logs{% endblock %}
+{% block imports %}
+<style>
+    #upbtn { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+    <h3>Die letzten Meldungen:</h3>
+
+    {% for messages in session.messages %}
+    <legend>Operation {{ loop.index0 - loop.length }}</legend>
+    <ul>
+        {% for message, category in messages %}
+        <li class="{{ category }}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endfor %}
+{% endblock %}

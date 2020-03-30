@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-03-28
+Last updated:  2020-03-30
 
 The Flask application: zeugs front-end.
 
@@ -58,6 +58,7 @@ def logger(messages, suppressok):
         # Make new log-file
         l = now.isoformat(timespec='seconds') + '-' + user
         session['logger'] = l
+        session['messages'] = []
     mimax = -10
     toflash = []
     for mi, mt, msg in messages:
@@ -71,18 +72,23 @@ def logger(messages, suppressok):
             etype = "ERROR %d" % mi
             mimax = 10
         toflash.append ((etype + '::: ' + msg, mt))
-    if len(toflash) > 10:
-        flash("Abgekürzt: für alle Meldungen, siehe Log-Datei %s. ..." % l)
-        toflash = toflash[-9:]
-    for msg in toflash:
-        flash(*msg)
+
     # Add a headline (the template will render this to the top, visible, line)
     if mimax >= 6:
-        flash("!!! Aktion mit Fehler(n) abgeschlossen ...", "Error")
+        toflash.append(("!!! Aktion mit Fehler(n) abgeschlossen ...",
+                "Error"))
     elif mimax >= 4:
-        flash("*** Aktion mit Warnung(en) abgeschlossen ...", "Warning")
+        toflash.append(("*** Aktion mit Warnung(en) abgeschlossen ...",
+                "Warning"))
     elif not suppressok:
-        flash("+++ Aktion erfolgreich abgeschlossen ...", "Info")
+        toflash.append(("+++ Aktion erfolgreich abgeschlossen ...",
+                "Info"))
+    if toflash:
+        # Keep 3 message groups
+        session['messages'] = session['messages'][-2:]
+        session['messages'].append(toflash)
+    for msg in toflash:
+        flash(*msg)
     return Paths.logfile(l)
 
 
@@ -96,7 +102,7 @@ def isPOST(form):
         else:
             for e in form.errors:
                 flash(e, "Error")
-                flash("Ungültige Daten", "Fail")
+            flash("Validation Error", "Fail")
     return False
 
 
@@ -147,9 +153,6 @@ def create_app(test_config=None):
     # Register csrf protection
     csrf.init_app(app)
 
-#    from . import db
-#    db.init_app(app)
-
     from .auth import auth
     app.register_blueprint(auth.bp, url_prefix='/auth')
 
@@ -160,9 +163,8 @@ def create_app(test_config=None):
         session.modified = True     # to hinder session expiry
         request_endpoint = request.endpoint
         request_path = request.path
-#TODO: remove
-        print ("--->", request_endpoint)
-        print (" @@@", request_path)
+#        print ("--->", request_endpoint)
+#        print (" @@@", request_path)
 
         if request_endpoint in (None, 'index', 'bp_auth.login', 'static', 'zeugs_data'):
             return None
@@ -170,8 +172,7 @@ def create_app(test_config=None):
             return None
 #        print ("SESSION:", session)
         perms = session.get('permission', '')
-#TODO: remove
-        print("ACCESS:", perms, request_endpoint, request_path)
+#        print("ACCESS:", perms, request_endpoint, request_path)
 #TODO: more elaborate access controls ...
         if 's' in perms:
             return None
@@ -195,60 +196,21 @@ def create_app(test_config=None):
     def index():
         """The landing page.
         """
-        """
-        ### Some test code ...
-        from flask import render_template_string
-        from wtforms import SelectMultipleField, SubmitField
-        from wtforms.widgets import ListWidget, CheckboxInput
-        class MultiCheckboxField(SelectMultipleField):
-            widget = ListWidget(prefix_label=False)
-            option_widget = CheckboxInput()
-            def iter_choices(self):
-                '''Overridden method to force all boxes to 'checked'.
-                '''
-                for value, label in self.choices:
-                    yield (value, label, True)
-
-        class ExampleForm(FlaskForm):
-            example = MultiCheckboxField(
-                'Pick Things!',
-                choices=[('value_a','<a href="/Page_A">Value A</a>'),
-                         ('value_b','Value B'),
-                         ('value_c','Value C')],
-#                default=['value_a','value_c']
-            )
-            submit = SubmitField('Post')
-        form = ExampleForm()
-        #if request.method == 'POST':
-        if form.validate_on_submit():
-            return repr(form.example.data)
-        return render_template_string('<form method="POST">'
-                                      '{{ form.csrf_token }}'
-                                      '{{ form.example }}'
-                                      '{{ form.submit }}</form>'
-                ,form=form)
-
-
-        if request.method == 'POST':
-#TODO: validation ...
-            return 'Pupils: {}'.format(
-                    repr(request.form.getlist('Pupil')),
-#                    repr (request.form))
-            )
-        return render_template('test1.html')
-        """
         return render_template('index.html')
 
 
     # Links to useful functions
-    @app.route('/dispatch', methods=['GET'])
-    def dispatch():
-        return render_template('dispatch.html')
+    @app.route('/logs', methods=['GET'])
+    def logs():
+        """Show the most recent logs.
+        """
+        return render_template('logs.html')
 
 
-    # Serve images (etc.?) from zeugs data
     @app.route('/zeugs_data/<path:filename>', methods=['GET'])
     def zeugs_data(filename):
+        """Serve images (etc.?) from the data area.
+        """
         _dir = os.path.join(ZEUGS_DATA, *CONF.PATHS.DIR_TEMPLATES)
         return send_from_directory(os.path.join(ZEUGS_DATA,
                 *CONF.PATHS.DIR_TEMPLATES),
