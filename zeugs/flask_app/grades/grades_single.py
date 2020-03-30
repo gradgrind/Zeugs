@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_single.py
 
-Last updated:  2020-03-29
+Last updated:  2020-03-30
 
 "Sub-module" of grades for single reports
 
@@ -28,8 +28,8 @@ Copyright 2019-2020 Michael Towers
 
 # Messages
 _NO_REPORT_TYPES = "Kein Zeugnistyp für {ks} (Halbjahr/Kennzeichen {term})"
-_TOO_MANY_REPORTS = "{pname} hat zu viele Zeugnisse ..."
 _BAD_RTAG = "Ungültiges Halbjahr/Kennzeichen: {rtag}"
+_NO_REPORT_POSSIBLE = "Zeugnis für {pname} ({tag}) ist nicht möglich"
 
 
 from .grades_base import bp, _HEADING, _BPNAME
@@ -40,6 +40,7 @@ import datetime, os
 
 from flask import (render_template, request, session,
         url_for, abort, redirect, flash)
+from flask import current_app as app
 
 from flask_wtf import FlaskForm
 from wtforms import SelectField, TextAreaField, BooleanField
@@ -122,7 +123,7 @@ def pupil(pid):
     pdata = Pupils(schoolyear).pupil(pid)
     # Get existing grade entries for the pupil
     dates, _terms = [], {}
-    for row in DB(schoolyear).select('GRADES', PID=pid):
+    for row in DB(schoolyear).select('GRADES', PID = pid):
         t = row['TERM']
         rtype = row['REPORT_TYPE']
         gklass = Klass.fromKandS(row['CLASS'], row['STREAM'])
@@ -242,12 +243,13 @@ def grades_pupil(pid, rtag):
         # Dates ...
         if pdata.TERM0 == rtag:
             # Need the containing group, not the pupil/grade group!
-            dates = curterm.dates()[str(getGradeGroup(rtag, klass))]
-            pdata.DATE_D0 = dates.DATE_D
-            pdata.GDATE_D0 = dates.GDATE_D
+            ggroup = str(getGradeGroup(rtag, klass))
+            dates = curterm.dates().get(ggroup)
+            if dates:
+                pdata.DATE_D0 = dates.DATE_D
+                pdata.GDATE_D0 = dates.GDATE_D
         # Grade conference date only for some classes / terms
-        if needGradeDate(rtag, klass):
-            pdata.GDATE = True
+        pdata.GDATE = needGradeDate(rtag, klass)
 
         # Add the grade fields to the form
         for sid, tlist in gdata.sid2tlist.items():
@@ -257,48 +259,41 @@ def grades_pupil(pid, rtag):
             subjects.append((sid, gradeManager[sid] or '?'))
 
         try:
-            pdata.REMARKS = grades['REMARKS']
+            pdata.REMARKS = grades['REMARKS'] or ''
         except:
             pdata.REMARKS = ''
         return gdata
 
     def enterGrades():
-#TODO
-        REPORT.Test("TODO: enterGrades")
-        return False
-
         # Enter grade data into db
         _grades = gdata.gradeManager(gmap)
-        singleGrades2db(schoolyear, pid, gdata.klassdata, term = rtag,
-                date = DATE_D, rtype = rtype, grades = _grades,
-                remarks = REMARKS)
+        singleGrades2db(schoolyear, pdata, rtag = rtag,
+                date = DATE_D, gdate = GDATE_D, grades = _grades)
         return True
 
-    # Test for new report
     gdata = REPORT.wrap(prepare, suppressok = True)
+    if not gdata:
+        return redirect(url_for('bp_grades.pupils',
+                klass = pdata['CLASS']))
     form = FlaskForm()
-    if form.validate_on_submit():
+    if app.isPOST(form):
         # POST
-        DATE_D = form.DATE_D.data.isoformat()
-        rtype = form.RTYPE.data
+        DATE_D = request.form['DATE_D']
+        GDATE_D = request.form.get('GDATE_D')
+        pdata.RTYPE = request.form['rtype']
         gmap = {}   # grade mapping {sid -> "grade"}
-        for key in subjects:
-            g = form[key].data
+        for sid, g0 in subjects:
+            g = request.form[sid]
             if g == '?':
                 g = None
-            gmap[key.split('_', 1)[1]] = g
-        try:
-            REMARKS = form['REMARKS'].data
-        except:
-            REMARKS = None
-#TODO: Only update changed fields and only change dates from <None>
-# when the
+            gmap[sid] = g
+        pdata.REMARKS = request.form.get('REMARKS') or None
+        # Update GRADES entry, or add new one
         if REPORT.wrap(enterGrades, suppressok = True):
             ok = True
             if request.form['action'] == 'build':
                 pdfBytes = REPORT.wrap(makeOneSheet,
-                        schoolyear, pdata,
-                        rtag if rtag.isdigit() else DATE_D, rtype)
+                        schoolyear, pdata, rtag)
                 if pdfBytes:
                     session['filebytes'] = pdfBytes
                     session['download'] = 'Notenzeugnis_%s.pdf' % (

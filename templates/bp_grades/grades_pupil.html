@@ -18,14 +18,17 @@
     eine Schaltfläche, um das Zeugnis direkt zu erstellen (was eine
     Speicherung der Änderungen einschließt).
     </p>
-
+    <!-- termn is the term, if it is a term report, else None.
+         pdata.TERM0 is the "current" term, if that is in the
+         present year. -->
+    {% set currentterm = termn and pdata.TERM0 == termn %}
     <form class="pure-form pure-form-aligned widelabel" method="POST">
         {{ form.csrf_token }}
 
         <fieldset>
         {% if termn %}
             <legend>{{ termn }}. Halbjahr</legend>
-            {% if pdata.TERM0 == termn %}
+            {% if currentterm %}
                 <p>Das Ausstellungsdatum der Gruppe
                 ( {{pdata.DATE_D0 or '–––'}} ) wird dann benutzt,
                 wenn das individuelle Datum auf null gesetzt wird.
@@ -40,7 +43,8 @@
             <div class="pure-control-group">
                 <label for="DATE_D">Ausstellungsdatum</label>
                 <input id="DATE_D" name="DATE_D" type="date"
-                value="{{pdata.DATE_D}}">
+                value="{{pdata.DATE_D}}"
+                {% if not currentterm %}required{% endif %}>
             </div>
         {% if pdata.GDATE %}
             <p>Für manche Zeugnisse (Versetzungen in der Qualifikationsphase)
@@ -54,14 +58,15 @@
                 </a>.
             </p>
             <div class="pure-control-group">
-                <label for="GDATE_D">Ausstellungsdatum</label>
+                <label for="GDATE_D">Konferenzdatum</label>
                 <input id="GDATE_D" name="GDATE_D" type="date"
-                value="{{pdata.GDATE_D}}">
+                value="{{pdata.GDATE_D}}"
+                {% if not currentterm %}required{% endif %}>
             </div>
         {% endif %}
             <div class="pure-control-group">
                 <label for="rtype">Zeugnistyp</label>
-                <select id="rtype">
+                <select id="rtype" name="rtype">
                 {% for rtype in pdata.RTYPES %}
                     <option {% if rtype == pdata.RTYPE %}selected{% endif %}>
                         {{ rtype }}
@@ -75,8 +80,8 @@
             <legend>Noten</legend>
         {% for s, g0 in subjects %}
             <div class="pure-control-group">
-                <label for="k">{{ s }}</label>
-                <select id="k">
+                <label for="{{ s }}">{{ s }}</label>
+                <select id="{{ s }}" name="{{ s }}">
                 {% for g in pdata.VALIDGRADES %}
                     <option {% if g == g0 %}selected{% endif %}>
                         {{ g0 }}
@@ -88,7 +93,7 @@
         </fieldset>
 
         <legend>Bemerkungen</legend>
-        <textarea id="REMARKS"></textarea>
+        <textarea id="REMARKS" name="REMARKS">{{ pdata.REMARKS }}</textarea>
 
         <hr />
         <button type="submit" name="action" value="update"

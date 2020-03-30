@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-03-27
+Last updated:  2020-03-30
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -60,6 +60,7 @@ from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
 from wz_compat.config import printSchoolYear, printStream
+from wz_compat.grade_classes import getGradeGroup
 from wz_grades.gradedata import (GradeReportData, CurrentTerm,
         getGradeData, updateGradeReport, getTermTypes)
 
@@ -162,12 +163,11 @@ def makeReports(klass_streams, pids=None):
 
 
 
-def makeOneSheet(schoolyear, pdata, term, rtype):
+def makeOneSheet(schoolyear, pdata, term):
     """
     <schoolyear>: year in which school-year ends (int)
     <pdata>: a <PupilData> instance for the pupil whose report is to be built
-    <term>: keys the grades in the database (term or date)
-    <rtype>: report category, determines template
+    <term>: keys the grades in the database (term or tag)
     """
     pid = pdata['PID']
     # Read database entry for the grades
@@ -176,12 +176,24 @@ def makeOneSheet(schoolyear, pdata, term, rtype):
     # <GradeReportData> manages the report template, etc.:
     # From here on use klass and stream from <gradedata>
     klass = Klass.fromKandS(gradedata['CLASS'], gradedata['STREAM'])
-    if term in CONF.MISC.TERMS:
-#TODO
-        date = getDateOfIssue(schoolyear, term, klass)
-    else:
-#TODO
-        date = term
+    try:
+        curterm = CurrentTerm(schoolyear, term)
+    except CurrentTerm.NoTerm:
+        curterm = None
+    pdata.DATE_D = gradedata['DATE_D']
+    pdata.GDATE_D = gradedata['GDATE_D']
+    rtype = gradedata['REPORT_TYPE']
+    if curterm:
+        ggroup = str(getGradeGroup(term, klass))
+        dates = curterm.dates().get(ggroup)
+        if not pdata.DATE_D:
+            if dates:
+                pdata.DATE_D = dates.DATE_D
+        if not pdata.GDATE_D:
+            if dates:
+                pdata.GDATE_D = dates.GDATE_D
+        if not rtype:
+            rtype = getTermTypes(klass, curterm.TERM)[0]
     reportData = GradeReportData(schoolyear, klass, rtype)
     # Build a grade mapping for the tags of the template.
     # Use the class and stream from the grade data
@@ -194,7 +206,6 @@ def makeOneSheet(schoolyear, pdata, term, rtype):
     source = reportData.template.render(
             report_type = rtype,
             SCHOOLYEAR = printSchoolYear(schoolyear),
-            DATE_D = date,
             todate = Dates.dateConv,
             STREAM = printStream,
             pupils = [pdata],

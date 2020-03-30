@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-29
+Last updated:  2020-03-30
 
 Handle the data for grade reports.
 
@@ -52,6 +52,7 @@ _PUPIL_ALREADY_LOCKED = "{pname} ist schon gesperrt"
 _LOCK_NO_DATE = "Sperrung ohne Datum"
 _LOCK_GROUP = "Klass {ks} wird gesperrt ..."
 _GROUP_LOCKED = "Klass {ks} ist schon gesperrt"
+_TOO_MANY_REPORTS = "{pname} hat zu viele Zeugnisse ..."
 
 
 import os
@@ -134,39 +135,54 @@ def grades2db(gtable):
 
 
 
-def singleGrades2db(schoolyear, pid, klass, term, date, rtype, grades,
-        remarks=None):
+def singleGrades2db(schoolyear, pdata, rtag, date, gdate, grades):
     """Add or update GRADES table entry for a single pupil and date.
-    <term> may be a small integer – the term – or, for irregular entries,
-    the date of issue, which may already exist: the TERM field in the
-    GRADES table. For new entries <term> may be anything which may not be
-    in the TERM field, e.g. '_'.
-    <date> is the new date, which may be the same as <term>, but can also
-    indicate a change, in which case also the TERM field will be changed
-    (unless it is a real term, i.e. an integer).
-    <rtype> is the report type.
+    <pdata> is an extended <PupilData> instance. It needs the following
+    additional attributes:
+        <GKLASS>: A <Klass> instance to be used for the class and stream
+        of the grade entry (mostly the same as the current values for
+        the pupil, but there is a slight possibility that the pupil has
+        changed group since the entry was created).
+        <RTYPE>: The report type.
+        <REMARKS>: The entry for the remarks field.
+    <rtag> is the TERM key.
+    <date> is for the DATE_D field.
+    <gdate> is for the GDATE_D field.
     <grades> is a mapping {sid -> grade}.
     """
     db = DB(schoolyear)
+    pid = pdata['PID']
+    if rtag == 'X':
+        # Make new tag
+        xmax = 0
+        for row in DB(schoolyear).select('GRADES', PID = pid):
+            t = row['TERM']
+            if t[0] == 'X':
+                try:
+                    x = int(t[1:])
+                except:
+#TODO: illegal tag, delete entry?
+                    raise TODO
+                if x > xmax:
+                    xmax = x
+        if xmax >= 99:
+            REPORT.Fail(_TOO_MANY_REPORTS, pname = pdata.name())
+        rtag = 'X%02d' % (xmax + 1)
     gstring = map2grades(grades)
-    if term in CONF.MISC.TERMS:
-        db.updateOrAdd('GRADES',
-                {   'CLASS': klass.klass, 'STREAM': klass.stream, 'PID': pid,
-                    'TERM': term, 'REPORT_TYPE': rtype, 'GRADES': gstring,
-                    'REMARKS': remarks
-                },
-                TERM=term,
-                PID=pid
-        )
-    else:
-        db.updateOrAdd('GRADES',
-                {   'CLASS': klass.klass, 'STREAM': klass.stream, 'PID': pid,
-                    'TERM': date, 'REPORT_TYPE': rtype, 'GRADES': gstring,
-                    'REMARKS': remarks
-                },
-                TERM=term,
-                PID=pid
-        )
+    db.updateOrAdd('GRADES',
+            {   'CLASS': pdata.GKLASS.klass,
+                'STREAM': pdata.GKLASS.stream,
+                'PID': pdata['PID'],
+                'TERM': rtag,
+                'REPORT_TYPE': pdata.RTYPE,
+                'GRADES': gstring,
+                'REMARKS': pdata.REMARKS,
+                'DATE_D': date,
+                'GDATE_D': gdate
+            },
+            TERM=rtag,
+            PID=pid
+    )
 
 
 
