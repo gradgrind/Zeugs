@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_single.py
 
-Last updated:  2020-03-30
+Last updated:  2020-03-31
 
 "Sub-module" of grades for single reports
 
@@ -29,34 +29,25 @@ Copyright 2019-2020 Michael Towers
 # Messages
 _NO_REPORT_TYPES = "Kein Zeugnistyp für {ks} (Halbjahr/Kennzeichen {term})"
 _BAD_RTAG = "Ungültiges Halbjahr/Kennzeichen: {rtag}"
-_NO_REPORT_POSSIBLE = "Zeugnis für {pname} ({tag}) ist nicht möglich"
 
 
 from .grades_base import bp, _HEADING, _BPNAME
 
 
-#TODO: filter
 import datetime, os
 
 from flask import (render_template, request, session,
         url_for, abort, redirect, flash)
 from flask import current_app as app
-
 from flask_wtf import FlaskForm
-from wtforms import SelectField, TextAreaField, BooleanField
-from wtforms.fields.html5 import DateField
-from wtforms.validators import InputRequired, Optional
-from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
-from wz_table.dbtable import readPSMatrix
-from wz_grades.gradedata import (grades2db, db2grades, CurrentTerm,
-        getTermTypes, getGradeData, GradeReportData, singleGrades2db)
-from wz_grades.makereports import makeReports, makeOneSheet
-from wz_grades.gradetable import makeBasicGradeTable
-from wz_compat.grade_classes import gradeGroups, needGradeDate, getGradeGroup
+from wz_grades.gradedata import (CurrentTerm, getTermTypes,
+        getGradeData, GradeReportData, singleGrades2db)
+from wz_grades.makereports import makeOneSheet
+from wz_compat.grade_classes import needGradeDate, getGradeGroup
 
 
 ########### Views for single reports ###########

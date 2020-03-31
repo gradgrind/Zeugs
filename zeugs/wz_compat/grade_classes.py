@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-03-27
+Last updated:  2020-03-31
 
 For which school-classes and streams are grade reports possible?
 
@@ -82,6 +82,28 @@ def needGradeDate(termn, klass):
             and klass.klass >= '11'
             and klass.klass < '13')
 
+
+def abi_klausur_classes(schoolyear):
+    """Return a list of names (str) of classes writing "Klausuren" for
+    the Abitur which need to be recorded.
+    """
+    pupils = Pupils(schoolyear)
+    return [k for k in pupils.classes('Gym') if k.startswith('13')]
+
+
+def abi_choice_classes(schoolyear):
+    """Return a list of names (str) of classes with pupils in the
+    "Qualifikationsphase".
+    """
+    pupils = Pupils(schoolyear)
+    return [k for k in pupils.classes('Gym')
+            if k.startswith('12') or k.startswith('13')]
+
+
+def abi_klausuren():
+    """Return a list (tuple) of tags for the Abitur-Klausuren.
+    """
+    return ("T1", "T2", "T3")
 
 
 def abi_sids(schoolyear, pid, report = True):

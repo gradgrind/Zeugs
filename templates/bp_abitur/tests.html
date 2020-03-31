@@ -2,7 +2,7 @@
 {% set uplink = url_for('bp_grades.index') %}
 {% set uplink_help = "Startseite" %}
 
-{% block title %}Klausuren{% endblock %}
+{% block title %}{{ test[1] }}.Klausuren{% endblock %}
 
 {% block content %}
     <h2>Verwaltung der Ergebnis-Tabellen
@@ -16,26 +16,26 @@
 
     <p>Hier können Sie eine Klausur-Ergebnistabelle einlesen (hochladen).
     </p>
-    <form class="pure-form pure-form-stacked" method="POST" enctype="multipart/form-data">
+    <form class="pure-form pure-form-aligned" method="POST"
+            enctype="multipart/form-data">
         {{ form.csrf_token }}
         <div class="uploaddiv">
             {{ form.upload.label }}{{ form.upload }}
         </div>
-        <div class="formsubmit">
-            <button type="submit" class="pure-button pure-button-primary">Einlesen</button>
-        </div>
-        <hr />
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">Einlesen</button>
     </form>
+    <hr />
 
-    <p>Wählen Sie hier die gewünschte Tabelle, um diese zu erstellen.
+    <p>Wählen Sie hier die gewünschte Klasse:
     </p>
     <div class="pure-menu">
         <ul class="pure-menu-list">
-        {% for k in ("1", "2", "3") %}
+        {% for k in klasses %}
             <li class="pure-menu-item">
-                <a href="{{url_for('bp_abitur.test_table', test=k)}}"
+                <a href="{{url_for('bp_abitur.tests', testn=test, klass=k)}}"
                         class="pure-menu-link">
-                    {{ k }}. Klausur
+                    Klasse {{ k }}
                 </a>
             </li>
         {% endfor %}

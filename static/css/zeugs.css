@@ -143,7 +143,19 @@ a:visited {
 }
 
 a.pure-menu-link:visited {
-    color: #777;
+    color: #00e;
+}
+
+a.pure-menu-link {
+    color: #00e;
+}
+
+a.pure-menu-link:focus {
+    background-color: transparent;
+}
+
+a.pure-menu-link:hover {
+    background-color: #eee;
 }
 
 .pure-form {

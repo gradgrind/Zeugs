@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Startseite" %}
+
+{% block title %}Klausuren{% endblock %}
+
+{% block content %}
+    <h2>Wählen Sie hier die gewünschte Klausur:
+    </h2>
+
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for t in tests %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_abitur.tests', testn=t)}}"
+                        class="pure-menu-link">
+                    {{ t[1] }}. Klausur
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+{% endblock %}

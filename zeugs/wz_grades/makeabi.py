@@ -1,9 +1,9 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_grades/makeabi.py
 
-Last updated:  2020-03-15
+Last updated:  2020-03-31
 
 Generate final grade reports for the Abitur.
 
@@ -12,8 +12,6 @@ Fields in the template file are replaced by the report information.
 The template has grouped and numbered slots for subject names
 and the corresponding grades.
 
-Some of this code is specific to the forms in Niedersachsen!
-Perhaps that can be exported to compat?
 
 =+LICENCE=============================
 Copyright 2020 Michael Towers
@@ -44,9 +42,8 @@ import os
 from weasyprint import HTML, CSS
 from weasyprint.fonts import FontConfiguration
 
-#TODO: Check imports
 from wz_core.configuration import Dates
-from wz_core.pupils import Pupils, Klass
+from wz_core.pupils import Klass
 from wz_core.courses import CourseTables
 from wz_core.db import DB
 from wz_grades.gradedata import map2grades, getGradeData
@@ -56,19 +53,19 @@ from wz_compat.template import openTemplate
 
 def saveGrades(schoolyear, pdata, grades, date):
     """The given grade mapping is saved to the GRADES table, with
-    "term" = "Abitur".
+    'A' in the TERM field and 'Abitur' in the REPORT_TYPE field.
     """
     db = DB(schoolyear)
     gstring = map2grades(grades)
     klass = pdata.getKlass()
-    rtype = 'Abitur'
     pid = pdata['PID']
+    term = 'A'
     db.updateOrAdd('GRADES',
             {   'CLASS': klass.klass, 'STREAM': pdata['STREAM'],
-                'PID': pid, 'TERM': date,
-                'REPORT_TYPE': rtype, 'GRADES': gstring
+                'PID': pid, 'TERM': term, 'DATE_D': date,
+                'REPORT_TYPE': 'Abitur', 'GRADES': gstring
             },
-            REPORT_TYPE = rtype,
+            TERM = term,
             PID = pid
     )
     REPORT.Info(_ABIGRADES, pname = pdata.name())
@@ -79,10 +76,10 @@ def makeAbi(schoolyear, pdata,):
     """Make an Abitur report. Return it as a byte-stream (pdf).
     """
     # Get grade data: This needs to be an ordered mapping.
-    grades = getGradeData(schoolyear, pdata['PID'], rtype = 'Abitur')
+    grades = getGradeData(schoolyear, pdata['PID'], term = 'A')
     try:
         sid2grade = grades['GRADES']
-        date = grades['TERM']
+        date = grades['DATE_D']
     except:
         REPORT.Fail(_NO_GRADES, pname = pdata.name())
 

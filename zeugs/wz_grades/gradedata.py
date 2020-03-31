@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-30
+Last updated:  2020-03-31
 
 Handle the data for grade reports.
 
@@ -264,7 +264,7 @@ def getGradeData(schoolyear, pid, term):
     """Return all the data from the database GRADES table for the
     given pupil and the given "term" as a mapping.
         <term>: Either a term (small integer) or, for "extra"
-            reports, a tag (#nn). It may also may also be any other
+            reports, a tag (Xnn). It may also may also be any other
             permissible entry in the TERM field of the GRADES table.
     The string in field 'GRADES' is converted to a mapping. If there is
     grade data, its validity is checked. If there is no grade data, this
