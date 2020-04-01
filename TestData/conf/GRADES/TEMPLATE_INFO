@@ -1,5 +1,5 @@
 ############## GRADES/TEMPLATE_INFO
-############## Version: 2020-03-22
+############## Version: 2020-04-01
 
 ### Info-Spalten der Notentabellen, für welche Klassen/Gruppen
 ### und Halbjahre/Zeugnistypen sie relevant sind
@@ -25,7 +25,7 @@ GROUPS_X = 13 12 11 10 09 08 07 06 05
 _1 =& 12<??.*: Halbjahr Abgang
     & 11.*: Orientierung Abgang Zwischenzeugnis
 
-_2 =& 13*:
+_2 =& 13*: X Abgang
     & 12.Gym: Zeugnis Abgang
     & 12.*: Abschluss
     & 11.*: Zeugnis Abgang
@@ -35,7 +35,12 @@ _2 =& 13*:
 _X  =& 13*: Abgang
      & 12.*: Abgang 
      & 05<??.*: Abgang Zwischenzeugnis
-    
+
+### Zuordnung: Zeugnistyp -> Zeugnisvorlage
+
+# Für diesen Zeugnistyp gibt es keine Vorlage
+X =
+
 Halbjahr =& 13*: Notenzeugnis/Notenzeugnis-13.html
           & 12.Gym: Notenzeugnis/Notenzeugnis-12_SII.html
           & 11<??.*: Notenzeugnis/Notenzeugnis-SI.html

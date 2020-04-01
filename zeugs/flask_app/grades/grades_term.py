@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_term.py
 
-Last updated:  2020-03-30
+Last updated:  2020-04-01
 
 "Sub-module" of grades for group term reports
 
@@ -136,10 +136,14 @@ def term():
     except:
         dfile = None
 
-    klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
-    if klasses:
+    _klist0 = REPORT.wrap(gradeGroups, termn, suppressok = True)
+    klasses = []
+    if _klist0:
         # Check report types
-        klasses = [k for k in klasses if getTermTypes(k, termn)]
+        for k in _klist0:
+            tt = getTermTypes(k, termn)
+            if tt and tt[0] != 'X':
+                klasses.append(k)
     if not klasses:
         flash("Keine Klassen!", "Error")
         return redirect(url_for('bp_grades.index'))

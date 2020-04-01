@@ -281,6 +281,7 @@ def grades_pupil(pid, rtag):
         pdata.REMARKS = request.form.get('REMARKS') or None
         # Update GRADES entry, or add new one
         if REPORT.wrap(enterGrades, suppressok = True):
+            flash("Zeugnisdaten gespeichert", "Info")
             ok = True
             if request.form['action'] == 'build':
                 pdfBytes = REPORT.wrap(makeOneSheet,
@@ -294,6 +295,7 @@ def grades_pupil(pid, rtag):
             if ok:
                 return redirect(url_for('bp_grades.pupils',
                         klass = gdata.klassdata.klass))
+        return redirect(request.path)
 
     # GET
     return render_template(os.path.join(_BPNAME, 'grades_pupil.html'),

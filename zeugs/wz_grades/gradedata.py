@@ -1,10 +1,10 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-03-31
+Last updated:  2020-04-01
 
 Handle the data for grade reports.
 
@@ -405,7 +405,7 @@ class GradeReportData:
         return self._GradeManager(self.schoolyear, self.sid2tlist, grades)
 
 
-    def getTagmap(self, grades, pdata):
+    def getTagmap(self, grades, pdata, report = True):
         """Prepare tag mapping for substitution in the report template,
         for the pupil <pdata> (a <PupilData> instance).
         <grades> is a grade manager (<GradeManagerXXX> instance),
@@ -415,6 +415,9 @@ class GradeReportData:
         according to the numbered slots defined for the predefined ordering
         (config: GRADES/ORDERING).
         Return a mapping {template tag -> replacement text}.
+        If <report> is false, the processing is basically unchanged,
+        but the grades are not "translated" and extra elements are
+        not included in the mapping.
         """
         grades.addDerivedEntries()
         tagmap = {}                     # for the result
@@ -449,11 +452,12 @@ class GradeReportData:
                 except:
                     REPORT.Bug("Bad grade for {pname} in {sid}: {g}",
                             pname = pdata.name(), sid = sid, g = g)
-                tagmap["%s_%d" % (group, i)] = g1
+                tagmap["%s_%d" % (group, i)] = g1 if report else g
             # Process superfluous indexes
-            for i in indexes:
-                tagmap["%s_%d_N" % (group, i)] = grades.NO_ENTRY
-                tagmap["%s_%d" % (group, i)] = grades.NO_ENTRY
+            if report:
+                for i in indexes:
+                    tagmap["%s_%d_N" % (group, i)] = grades.NO_ENTRY
+                    tagmap["%s_%d" % (group, i)] = grades.NO_ENTRY
         # Report unused grade entries
         unused = ["%s: %s" % (sid, g) for sid, g in gmap.items()
                 if g != _INVALID]
@@ -467,7 +471,8 @@ class GradeReportData:
             except:
                 REPORT.Bug("No xfield-handler for %s" % x)
             xval = method(self.rtype, pdata)
-            tagmap['_' + x] = xval
+            if report:
+                tagmap['_' + x] = xval
         return tagmap
 
 

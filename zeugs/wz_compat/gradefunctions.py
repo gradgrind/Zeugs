@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-03-28
+Last updated:  2020-04-01
 
 Calculations needed for grade handling.
 
@@ -130,6 +130,7 @@ class _GradeManager(dict):
         # Collect lists of "component" subjects. The tag is after '_':
         self.components = {}    # {tag -> [(stripped sid, int/None), ...]}
         self.composites = {}    # {sid -> composite tag}
+        self.XINFO = {}         # additional (calculated) fields
         for sid, tlist in sid2tlist.items():
             if tlist == None:
                 continue
@@ -269,8 +270,8 @@ class GradeManagerN(_GradeManager):
 
 
 #TODO: According to "Verordnung AVO-Sek_I, 2016", the averages should
-# not be rounded, but the deviations (2nd decimal place) should be
-# insignificant.
+# be truncated, not rounded, but the deviations (2nd decimal place)
+# should be insignificant.
     def AVE(self):
         """Return the grade average in all subjects in <self.grades>.
         Round to two decimal places, or return <None> if there are
@@ -280,7 +281,9 @@ class GradeManagerN(_GradeManager):
         for sid, g in self.grades.items():
             asum += g
             acount += 1
-        return Frac(asum, acount) if acount else None
+        avg = Frac(asum, acount) if acount else None
+        self.XINFO['AVE'] = avg.truncate(2)
+        return avg
 
 
     def DEM(self):
@@ -295,10 +298,19 @@ class GradeManagerN(_GradeManager):
             except:
                 REPORT.Error(_MISSING_SID, sid=sid)
                 ok = False
-        return Frac(asum, 3) if ok else None
+        dem = Frac(asum, 3) if ok else None
+        self.XINFO['DEM'] = dem.truncate(2)
+        return dem
 
 
     def SekI(self):
+        """A wrapper for <_SekI>.
+        """
+        sek1 = self._SekI()
+        self.XINFO['SEKI'] = '✓' if sek1 else '-'
+        return sek1
+
+    def _SekI(self):
         """Perform general "pass" tests on grades:
             not more than two times grade "5" or one "6", including
             compensation possibilities.
@@ -352,48 +364,65 @@ class GradeManagerN(_GradeManager):
 
 
     def X_GS(self, rtype, pdata):
+        """A wrapper for <_X_GS>.
+        """
+        xgs = self._X_GS(pdata)
+        self.XINFO['GS'] = xgs
+        return xgs if rtype == 'Abgang' else ''
+
+    def _X_GS(self, pdata):
         """Determine qualification according to criteria for a
         "Gleichstellungsvermerk". Only a "Hauptschulabschluss" is
         possible.
         """
-        gs = ''
-        if rtype == 'Abgang':
-            if self.SekI():
-                ave = self.AVE()
-                if ave and ave <= Frac(4, 1):
-                    gs = 'HS'
-        return gs
+        if self.SekI():
+            ave = self.AVE()
+            if ave and ave <= Frac(4, 1):
+                return 'HS'
+        return ''
 
 
     def X_Q12(self, rtype, pdata):
+        """A wrapper for <_X_Q12>.
+        """
+        q12 = self._X_Q12(pdata)
+        self.XINFO['Q12'] = q12
+        return q12 if rtype == 'Abschluss' else ''
+
+    def _X_Q12(self, pdata):
         """Determine qualification at end of 12th year for a "Realschüler"
         or a "Hauptschüler".
         """
-        q = ''
-        if rtype == 'Abschluss':
-            stream = pdata['STREAM']
-            if self.SekI():
-                ave = self.AVE()
-                dem = self.DEM()
-                if ave and dem:
-                    tst = ave if ave > dem else dem
-                    if stream == 'RS':
-                        if tst <= Frac(3, 1):
-                            q = 'Erw'
-                        elif tst <= Frac(4, 1):
-                            q = 'RS'
-                    elif stream == 'HS' and tst <= Frac(4, 1):
-                        q = 'HS'
-        return q
+        stream = pdata['STREAM']
+        if self.SekI():
+            ave = self.AVE()
+            dem = self.DEM()
+            if ave and dem:
+                tst = ave if ave > dem else dem
+                if stream == 'RS':
+                    if tst <= Frac(3, 1):
+                        return 'Erw'
+                    elif tst <= Frac(4, 1):
+                        return 'RS'
+                elif stream == 'HS' and tst <= Frac(4, 1):
+                    return 'HS'
+        return ''
 
 
     def X_V(self, rtype, pdata):
+        """A wrapper for <_X_V>.
+        """
+        v = self._X_V(pdata)
+        self.XINFO['V'] = '✓' if v else '-'
+        return rtype == 'Zeugnis' and v
+
+    def _X_V(self, pdata):
         """For the "gymnasial" group, 11th class. Determine qualification
         for the 12th class. Return true/false.
         """
         klass = pdata['CLASS']
         if (klass.startswith('11') and pdata['STREAM'] == 'Gym'
-                and rtype == 'Zeugnis' and self.SekI()):
+                and self.SekI()):
             ave = self.AVE()
             if ave and ave <= Frac(3, 1):
                 return True
@@ -403,22 +432,31 @@ class GradeManagerN(_GradeManager):
 
 
 class AbiSubjects(list):
-    def __init__(self, schoolyear, pid):
+    FS2 = ('Fr', 'Ru', 'La')
+# Note that this assumes that the first foreign language is always
+# English ...
+    def __init__(self, schoolyear, pid, fhs = False):
         sids = DB(schoolyear).select1('ABI_SUBJECTS', PID = pid)
         if not sids:
             raise ValueError('Keine Abifächer')
         slist = sids['SUBJECTS'].split(',')
         if len(slist) != 8:
             raise ValueError('Abifächeranzahl ≠ 8')
+        if fhs:
+            for s in slist:
+                if s in self.FS2:
+                    slist.remove(s)
+            if len(slist) != 7:
+                raise ValueError('Fachabifächeranzahl ≠ 7')
         super().__init__(slist)
 
-    @staticmethod
-    def demafs(sid):
+    @classmethod
+    def demafs(cls, sid):
         """Check whether the given subject is Deutsch, Mathe or
         a Fremdsprache.
         """
         s = sid.split('.', 1)[0]
-        return s in ('De', 'Ma', 'En', 'Fr')
+        return s in ('De', 'Ma', 'En') or s in cls.FS2
 
 
 
@@ -471,13 +509,15 @@ class GradeManagerQ1(_GradeManager):
         return gint
 
 
-    def SekII(self, pdata):
+    def SekII(self, pdata, fhs = False):
         """Perform general "pass" tests on grades at end of class 12:
-            not more than two times points < 5 or one subject with 0
-            points, including compensation possibilities.
+        not more than two times points < 5 or one subject with 0
+        points, including compensation possibilities.
+        If <fhs> is true, the second language is not included in the
+        considerations.
         """
         try:
-            abis = AbiSubjects(self.schoolyear, pdata['PID'])
+            abis = AbiSubjects(self.schoolyear, pdata['PID'], fhs)
         except ValueError as e:
             REPORT.Error("ABI_SUBJECTS: %s (%s)" % (e, pdata.name()))
             return False
@@ -504,12 +544,12 @@ class GradeManagerQ1(_GradeManager):
             for s, g in ok:
                 if g >= 10 and (abis.demafs(s) or not abis.demafs(zerop)):
                     return True
-            c = False
+            c = 0
             for s, g in ok:
                 if g >= 8 and (abis.demafs(s) or not abis.demafs(zerop)):
-                    if c:
+                    if c > 0:
                         return True
-                    c = True
+                    c = 1
             return False
 
         if len(fives) < 2:
@@ -533,41 +573,34 @@ class GradeManagerQ1(_GradeManager):
         for sx, gx in ok:
             if sx == used:
                 continue
-            if g + gx >= 10 and (abis.demafs(sx) or not abis.demafs(sid)):
+            if g2 + gx >= 10 and (abis.demafs(sx) or not abis.demafs(sid)):
                 return True
         return False
 
 
-
-#TODO
-    def X_GS(self, rtype, pdata):
-        """Determine qualification according to criteria for a
-        "Gleichstellungsvermerk". The following levels are possible at
-        the end of the 12th class:
-            "Erweiterter Sek I", "Realschule", "Hauptschule".
-        Before the end of the 12th class only "Hauptschule" is possible,
-        but this is guaranteed by entry to the "Qualifikationsphase".
+    def X_V13(self, rtype, pdata):
+        """A wrapper for <_X_V13>.
         """
-        gs = ''
-        if rtype == 'Abgang':
-            if self.SekI():
-                ave = self.AVE()
-                if ave and ave <= Frac(4, 1):
-                    gs = 'HS'
-        return gs
+        v = self._X_V13(pdata)
+        self.XINFO['GS'] = v
+        self.XINFO['V'] = '✓' if v == 'Erw' else '-'
+        return v
 
-
-    def X_V(self, rtype, pdata):
+    def _X_V13(self, pdata):
         """For the "gymnasial" group, 12th class. Determine qualification
         for the 13th class.
         """
-        klass = pdata['CLASS']
-        if (klass.startswith('12') and pdata['STREAM'] == 'Gym'
-                and rtype == 'Zeugnis'):
+        if pdata['CLASS'] >= '13':
+            return 'Erw'
+        # Check for RS first to avoid multiple error messages from
+        # <SekII> (missing subject).
+        fhs = self.SekII(pdata, fhs = True)
+        if fhs:
+            # Check for "pass"
             if self.SekII(pdata):
-                return True
-            REPORT.Warn(_FAIL, pname = pdata.name())
-        return False
+                return 'Erw'
+        REPORT.Warn(_FAIL, pname = pdata.name())
+        return 'RS' if fhs else 'HS'
 
 
 

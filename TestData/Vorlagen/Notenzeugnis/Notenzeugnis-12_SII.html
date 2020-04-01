@@ -381,7 +381,7 @@
                 display: flex; justify-content: space-between;">
             <div style="width: 125mm;">
 <!-- Versetzung -->
-                {% if report_type == 'Zeugnis' and grades._V %}
+                {% if report_type == 'Zeugnis' and grades._V13 == 'Erw' %}
                 <p style="margin: 5mm 0 0 0; font-size: 11pt;">
                     <strong>Bemerkungen:</strong>
                 </p>
@@ -389,21 +389,21 @@
                     Durch Konferenzbeschluss vom {{todate(pupil.GDATE_D)}}
                     in die 13. Klasse versetzt.
                 </p>
-                {% elif report_type == 'Abgang' and grades._GS %}
+                {% elif report_type == 'Abgang' %}
 <!-- Abgang mit Gleichstellungsvermerk -->
                 <p style="margin: 5mm 0 0 0; font-size: 11pt;">
                     <strong>Gleichstellungsvermerk:</strong>
                 </p>
                 <p style="margin: 2mm 5mm; font-size: 11pt;">
-                    {% if grades._GS == 'Erw' %}
+                    {% if grades._V13 == 'Erw' %}
                     Dieses Zeugnis ist dem Erweiterten Sekundarabschluss I
                     gleichgestellt. Es vermittelt die gleiche Berechtigung
                     wie das Zeugnis über den Erweiterten Sekundarabschluss I.
-                    {% elif grades._GS == 'RS' %}
+                    {% elif grades._V13 == 'RS' %}
                     Dieses Zeugnis ist dem Sekundarabschluss I – Realschulabschluss
                     gleichgestellt. Es vermittelt die gleiche Berechtigung
                     wie das Zeugnis über den Sekundarabschluss I – Realschulabschluss.
-                    {% elif grades._GS == 'HS' %}
+                    {% elif grades._V13 == 'HS' %}
                     Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss
                     gleichgestellt. Es vermittelt die gleiche Berechtigung
                     wie das Zeugnis über den Sekundarabschluss I – Hauptschulabschluss.
