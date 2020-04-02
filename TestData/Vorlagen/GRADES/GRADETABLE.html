@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+{% set schoolname = "Freie Michaelschule" %}
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <title>Notentabelle</title>
+    <style>
+        @font-face {
+            font-family: ZeugsFont;
+            src: url(../fonts/DroidSans.ttf);
+            font-weight: normal;
+            font-style: normal;
+        }
+        body {
+            margin: 0;
+            font-family: ZeugsFont;
+            font-size: 12pt;
+        }
+        @page {
+            size: A4 landscape;
+            margin: 10mm 10mm 10mm 10mm;
+        }
+
+        h1 {
+            font-size: 18pt;
+            font-weight: normal;
+            width: inherit;
+            margin: 0;
+            text-align: center;
+        }
+
+        .underline {
+            border-bottom: 0.5pt solid;
+        }
+
+        table {
+            font-size: 11pt;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1pt solid black;
+            text-align: center;
+        }
+
+        th.rotate {
+          /* The transformation depends on this */
+          height: 12em;
+          white-space: nowrap;
+        }
+
+        th.rotate > div {
+          transform:
+            /* Magic Numbers */
+            translate(0em, 4em)
+            rotate(-90deg);
+          width: 3em;
+        }
+
+        .row-header {
+            text-align: left;
+            height: 2.5em;
+            padding-right: 3mm;
+        }
+
+        .spacer {
+            width: 0.5em;
+            background-color: #ccc;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2em;
+            /* position: fixed;
+            top: 10mm;
+            left: 0; */
+
+            width: 100%;
+            background-color: #eee;
+        }
+        header>div {
+            display: inline-block;
+            padding: 0.5em 1em;
+        }
+
+        td.stream {
+            /* font-size: 80%; */
+            padding: 0 0.2em;
+        }
+    </style>
+  </head>
+
+  <body>
+    <header><div>{{ schoolname }}</div>
+        <div>{{ date }}</div>
+    </header>
+
+    <table style="margin-top: 3em;">
+      <thead>
+        <tr>
+          <!-- First column headers not rotated -->
+            <th>Klasse {{ klass.name }}</th>
+            <th></th>
+          <!-- Following headers are rotated -->
+        {% for sid, sname in subjects %}
+            {% if not sid %}
+            <th class="spacer"></th>
+            {% else %}
+            <th class="rotate"><div><span>{{ sname }}</span></div></th>
+            {% endif %}
+        {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for pdata in pupils %}
+            <tr>
+                <th class="row-header">{{ pdata.name() }}</th>
+                <td class="stream">{{ pdata.STREAM }}</td>
+            {% set grades = pdata.grades %}
+            {% for sid, sname in subjects %}
+                {% if not sid %}
+                <td class="spacer"></td>
+                {% else %}
+                <td>{{ grades.get(sid) or '?' }}</td>
+                {% endif %}
+            {% endfor %}
+            </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  </body>
+</html>

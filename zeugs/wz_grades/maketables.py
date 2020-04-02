@@ -4,7 +4,7 @@
 """
 wz_grades/maketables.py
 
-Last updated:  2020-04-01
+Last updated:  2020-04-02
 
 Build result tables for the grade groups, including evaluation, etc.
 
@@ -54,6 +54,7 @@ from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
 from wz_compat.config import printSchoolYear, printStream
 from wz_compat.grade_classes import getGradeGroup
+from wz_compat.template import openTemplate
 from wz_grades.gradedata import (GradeReportData, CurrentTerm,
         getGradeData, updateGradeReport, getTermTypes)
 
@@ -109,20 +110,39 @@ def makeTable(schoolyear, term, ggroup):
 
         REPORT.Test("\n  XINFO: %s" % repr(gmanager.XINFO))
 
-        pdata.grades = gdata
+#        pdata.grades = gdata
+        pdata.grades = gmap
         plist.append(pdata)
-#TODO
-    return
 
-    ### Generate html for the reports
-    source = reportData.template.render(
-            report_type = rtype,
+
+#TODO
+    REPORT.Test("\n\nTEST AREA!!!\n#################\n")
+    slist = []
+    for g, sids in reportData.sgroup2sids.items():
+        if sids:
+            slist.append((None, None))
+            for sid in sids:
+                sname = reportData.sid2tlist[sid].subject
+                if len(sname) > 20:
+                    sname = sname[:16] + '...'
+                slist.append((sid, sname))
+
+# composite subject with different colouring?
+
+    # Get table template
+    template = openTemplate('GRADES/GRADETABLE.html')
+    ### Generate html for the table
+    source = template.render(
+#TODO
             SCHOOLYEAR = printSchoolYear(schoolyear),
-            todate = Dates.dateConv,
-            STREAM = printStream,
-            pupils = pmaplist,
-            klass = klass_streams
+            date = Dates.today(iso = False),
+            subjects = slist,
+            pupils = plist,
+            klass = ggroup
         )
+#TODO
+    return source
+
     # Convert to pdf
     if not plist:
         REPORT.Fail(_NOPUPILS)
@@ -138,8 +158,13 @@ def makeTable(schoolyear, term, ggroup):
 _year = 2016
 _term = '2'
 def test_01():
-    _ks = Klass('12.Gym')
+    _ks = Klass('11')
     pdfBytes = makeTable(_year, _term, _ks)
+
+#TODO: currently html as string?
+    fpath = os.path.join(Paths.getYearPath(_year), 'tmp', 'GRADES.html')
+    with open(fpath, 'w', encoding='utf-8') as fh:
+        fh.write(pdfBytes)
 #    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
 #    fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_ks, _term))
 #    with open(fpath, 'wb') as fh:

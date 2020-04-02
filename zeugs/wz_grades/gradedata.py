@@ -395,6 +395,7 @@ class GradeReportData:
             if self.sid2tlist[sid] != None:
                 # Report all subjects without a null entry
                 REPORT.Error(_UNGROUPED_SID, sid=sid, tfile=self.template.filename)
+        REPORT.Test("\n??? self.sgroup2sids: " + repr(self.sgroup2sids))
 
 
     def validGrades(self):
