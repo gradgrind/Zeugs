@@ -123,7 +123,7 @@
             {{ {'Erw': 'Erweiterter Sekundarabschluss I',
                 'RS': 'Sekundarabschluss I – Realschulabschluss',
                 'HS': 'Sekundarabschluss I – Hauptschulabschluss'
-               } [grades._Q12] }}
+               } [grades.GET('_Q12')] }}
             {% else %}
             Maßstab {{STREAM(pupil.STREAM)}}
             {% endif %}
@@ -246,55 +246,24 @@
         </div>
 
         <!-- Fächer-Tabelle (Noten der Hauptfächer) -->
+        {% set EMPTY = '––––––––––' %}
         <table class="subjects" style="margin-top: 5mm;">
+        {% for i in range(8) %}
             <tr>
-                <td class="sbj1">{{grades.S_1_N}}</td>
-                <td class="grade">{{grades.S_1}}</td>
-                <td class="sbj2">{{grades.S_2_N}}</td>
-                <td class="grade">{{grades.S_2}}</td>
+            {% set sg = grades.GET('S') %}
+            {% if sg %}{% set s, g = sg %}
+            {% else %}{% set s, g = EMPTY, EMPTY %}
+            {% endif %}
+                <td class="sbj1">{{ s }}</td>
+                <td class="grade">{{ g }}</td>
+            {% set sg = grades.GET('S') %}
+            {% if sg %}{% set s, g = sg %}
+            {% else %}{% set s, g = EMPTY, EMPTY %}
+            {% endif %}
+                <td class="sbj1">{{ s }}</td>
+                <td class="grade">{{ g }}</td>
             </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_3_N}}</td>
-                <td class="grade">{{grades.S_3}}</td>
-                <td class="sbj2">{{grades.S_4_N}}</td>
-                <td class="grade">{{grades.S_4}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_5_N}}</td>
-                <td class="grade">{{grades.S_5}}</td>
-                <td class="sbj2">{{grades.S_6_N}}</td>
-                <td class="grade">{{grades.S_6}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_7_N}}</td>
-                <td class="grade">{{grades.S_7}}</td>
-                <td class="sbj2">{{grades.S_8_N}}</td>
-                <td class="grade">{{grades.S_8}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_9_N}}</td>
-                <td class="grade">{{grades.S_9}}</td>
-                <td class="sbj2">{{grades.S_10_N}}</td>
-                <td class="grade">{{grades.S_10}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_11_N}}</td>
-                <td class="grade">{{grades.S_11}}</td>
-                <td class="sbj2">{{grades.S_12_N}}</td>
-                <td class="grade">{{grades.S_12}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_13_N}}</td>
-                <td class="grade">{{grades.S_13}}</td>
-                <td class="sbj2">{{grades.S_14_N}}</td>
-                <td class="grade">{{grades.S_14}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_15_N}}</td>
-                <td class="grade">{{grades.S_15}}</td>
-                <td class="sbj2">{{grades.S_16_N}}</td>
-                <td class="grade">{{grades.S_16}}</td>
-            </tr>
+        {% endfor %}
         </table>
     </div>
 
@@ -330,30 +299,22 @@
             <strong>Künstlerisch-Praktische Kurse:</strong>
         </p>
         <table class="subjects">
+        {% for i in range(4) %}
             <tr>
-                <td class="sbj1">{{grades.K_1_N}}</td>
-                <td class="grade">{{grades.K_1}}</td>
-                <td class="sbj2">{{grades.K_2_N}}</td>
-                <td class="grade">{{grades.K_2}}</td>
+            {% set sg = grades.GET('K') %}
+            {% if sg %}{% set s, g = sg %}
+            {% else %}{% set s, g = EMPTY, EMPTY %}
+            {% endif %}
+                <td class="sbj1">{{ s }}</td>
+                <td class="grade">{{ g }}</td>
+            {% set sg = grades.GET('K') %}
+            {% if sg %}{% set s, g = sg %}
+            {% else %}{% set s, g = EMPTY, EMPTY %}
+            {% endif %}
+                <td class="sbj1">{{ s }}</td>
+                <td class="grade">{{ g }}</td>
             </tr>
-            <tr>
-                <td class="sbj1">{{grades.K_3_N}}</td>
-                <td class="grade">{{grades.K_3}}</td>
-                <td class="sbj2">{{grades.K_4_N}}</td>
-                <td class="grade">{{grades.K_4}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.K_5_N}}</td>
-                <td class="grade">{{grades.K_5}}</td>
-                <td class="sbj2">{{grades.K_6_N}}</td>
-                <td class="grade">{{grades.K_6}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.K_7_N}}</td>
-                <td class="grade">{{grades.K_7}}</td>
-                <td class="sbj2">{{grades.K_8_N}}</td>
-                <td class="grade">{{grades.K_8}}</td>
-            </tr>
+        {% endfor %}
         </table>
 
         <!-- Bemerkungen, Gleichstellungsvermerke, usw. -->
@@ -367,32 +328,33 @@
             <p style="margin: 5mm 0 0 0; font-size: 11pt;">
                 <strong>Bemerkungen:</strong>
             </p>
-            {% if pupil.REMARKS %}
+            {% if pupil.remarks %}
             {% set remarks = True %}
-            {% for line in pupil.REMARKS.splitlines() %}
+            {% for line in pupil.remarks.splitlines() %}
             <p style="margin: 2mm 5mm; font-size: 11pt;">{{ line }}</p>
             {% endfor %}
             {% endif %}
             <!-- Versetzung -->
-            {% if report_type == 'Zeugnis' and grades._V %}
+            {% set GS = grades.GET('_GS') %}
+            {% if report_type == 'Zeugnis' and grades.GET('_V') %}
             {% set remarks = True %}
             <p style="margin: 2mm 5mm; font-size: 11pt;">
-                Durch Konferenzbeschluss vom {{todate(pupil.GDATE_D)}}
+                Durch Konferenzbeschluss vom {{todate(pupil.gdate_D)}}
                 in die Qualifikationsphase versetzt.
             </p>
-            {% elif report_type == 'Abgang' and grades._GS %}
+            {% elif report_type == 'Abgang' and GS %}
             <!-- Gleichstellungsvermerk -->
             <p style="margin: 2mm 5mm; font-size: 11pt;">
 <!-- Im Sek-I ist eigentlich nur 'HS' möglich -->
-                {% if grades._GS == 'Erw' %}
+                {% if GS == 'Erw' %}
                 Dieses Zeugnis ist dem Erweiterten Sekundarabschluss I
                 gleichgestellt. Es vermittelt die gleiche Berechtigung
                 wie das Zeugnis über den Erweiterten Sekundarabschluss I.
-                {% elif grades._GS == 'RS' %}
+                {% elif GS == 'RS' %}
                 Dieses Zeugnis ist dem Sekundarabschluss I – Realschulabschluss
                 gleichgestellt. Es vermittelt die gleiche Berechtigung
                 wie das Zeugnis über den Sekundarabschluss I – Realschulabschluss.
-                {% elif grades._GS == 'HS' %}
+                {% elif GS == 'HS' %}
                 Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss
                 gleichgestellt. Es vermittelt die gleiche Berechtigung
                 wie das Zeugnis über den Sekundarabschluss I – Hauptschulabschluss.
@@ -408,7 +370,7 @@
 
         <!-- Ort, Datum -->
         <p style="margin: 10mm 0 0 0">
-            Hannover, den {{todate(pupil.DATE_D)}}
+            Hannover, den {{todate(pupil.date_D)}}
         </p>
 
         <!-- Unterschriften -->

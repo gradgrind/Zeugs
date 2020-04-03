@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-03-31
+wz_grades/gradetable.py - last updated 2020-04-03
 
 Create grade tables for display and grade entry.
 
@@ -47,112 +47,6 @@ from wz_core.courses import CourseTables
 from wz_table.matrix import KlassMatrix
 from wz_compat.grade_classes import gradeGroups
 from .gradedata import getGradeData, CurrentTerm, grades2map
-
-
-def makeBasicGradeTable0(schoolyear, term, klass):
-    """Build a basic pupil/subject table containing the grades (initially
-    empty).
-    <term> is a string (the term number).
-    <klass> is <Klass> instance for a grade-report group appearing in the
-    list returned by <gradeGroups()>.
-    """
-    title = _TITLE0     # default, minimal title
-    # If using old data, a pupil's stream, and even class, may have changed!
-    try:
-        termdata = CurrentTerm(schoolyear, term)
-        gdate = termdata.dates()[str(klass)].GDATE_D
-        if gdate:
-#TODO: use a date 2 or 3 days earlier?
-            title = _TITLE.format(date = Dates.dateConv(gdate))
-    except CurrentTerm.NoTerm:
-        # Not the current term.
-        # Search the GRADES table for entries with TERM == <term> and
-        # matching class. Include those with a stream covered by <klass>.
-        plist = oldTablePupils(schoolyear, term, klass)
-    else:
-        plist = Pupils(schoolyear).classPupils(klass)
-        for pdata in plist:
-            gdata = getGradeData(schoolyear, pdata['PID'], term)
-            if gdata:
-                if (gdata['CLASS'] == klass.klass and
-                        gdata['STREAM'] == pdata['STREAM']):
-                    pdata.grades = gdata['GRADES']
-                    continue
-            pdata.grades = None
-
-    ### Determine table template
-    gtinfo = CONF.GRADES.TEMPLATE_INFO
-    t = klass.match_map(gtinfo.GRADE_TABLE)
-    if not t:
-        REPORT.Fail(_NO_TEMPLATE, ks = klass)
-    template = Paths.getUserPath('FILE_GRADE_TABLE_TEMPLATE').replace('*', t)
-    table = KlassMatrix(template)
-    table.setTitle(title)
-    table.setTitle2(_TITLE2.format(time = datetime.datetime.now().isoformat(
-                sep=' ', timespec='minutes')))
-    # "Translation" of info items:
-    kmap = CONF.TABLES.COURSE_PUPIL_FIELDNAMES
-    info = (
-        (kmap['SCHOOLYEAR'], str(schoolyear)),
-        (kmap['CLASS'], klass.klass),
-        (kmap['TERM'], term)
-    )
-    table.setInfo(info)
-
-    ### Get ordering information for subjects
-    subject_ordering = CONF.GRADES.ORDERING
-    grade_subjects = []
-    for subject_group in klass.match_map(subject_ordering.CLASSES).split():
-        grade_subjects += subject_ordering[subject_group]
-
-    ### Manage subjects
-    courses = CourseTables(schoolyear)
-    sid2tlist = courses.classSubjects(klass, filter_ = 'GRADE')
-#    print ("???1", list(sid2tlist))
-    # Go through the template columns and check if they are needed:
-    sidcol = []
-    col = 0
-    rowix = table.row0()    # index of header row
-    for sid in grade_subjects:
-        try:
-            tlist = sid2tlist[sid]
-        except KeyError:
-            continue
-        if tlist.COMPOSITE:
-            continue
-        sname = courses.subjectName(sid)
-        # Add subject
-        col = table.nextcol()
-        sidcol.append((sid, col))
-        table.write(rowix, col, sid)
-        table.write(rowix + 1, col, sname)
-    # Enforce minimum number of columns
-    while col < 18:
-        col = table.nextcol()
-        table.write(rowix, col, None)
-    # Delete excess columns
-    table.delEndCols(col + 1)
-
-    ### Add pupils
-    for pdata in plist:
-        row = table.nextrow()
-        pid = pdata['PID']
-        table.write(row, 0, pid)
-        table.write(row, 1, pdata.name())
-        table.write(row, 2, pdata['STREAM'])
-        if pdata.grades:
-            for sid, col in sidcol:
-                g = pdata.grades.get(sid)
-                if g:
-                    table.write(row, col, g)
-
-    # Delete excess rows
-    table.delEndRows(row + 1)
-
-    ### Save file
-    table.protectSheet()
-    return table.save()
-
 
 
 def makeBasicGradeTable(schoolyear, term, klass):

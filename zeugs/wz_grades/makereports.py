@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-03-30
+Last updated:  2020-04-03
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -49,6 +49,8 @@ _WRONG_RTYPE = "Zeugnistyp für {pname} ist {rtype} => kein Zeugnis"
 _WRONG_DATE = "Ausstellungsdatum ({date}) für {pname} weicht vom Standard ab"
 _WRONG_GDATE = "Konferenzdatum ({date}) für {pname} weicht vom Standard ab"
 _BAD_DATE_GROUP = "Gruppe {group} ist keine Zeugnisgruppe"
+_TOO_MANY_SUBJECTS = ("Zu wenig Platz für Fachgruppe {group} in Vorlage:"
+        "\n  {template}\n  {pname}: {sids}")
 
 
 import os
@@ -114,7 +116,7 @@ def makeReports(klass_streams, pids=None):
         plist = pall
     ### Get a tag mapping for the grade data of each pupil
     # <GradeReportData> manages the report template, etc.:
-    reportData = GradeReportData(schoolyear, klass_streams, rtype)
+    reportData = GradeReportData(schoolyear, klass_streams)
     pmaplist = []
     db = DB(schoolyear)
     for pdata in plist:
@@ -134,13 +136,13 @@ def makeReports(klass_streams, pids=None):
             REPORT.Warn(_WRONG_RTYPE, pname = pdata.name(),
                     rtype = gradedata['REPORT_TYPE'])
             continue
-        pdata.DATE_D = gradedata['DATE_D'] or DATE_D
-        pdata.GDATE_D = gradedata['GDATE_D'] or GDATE_D
+        pdata.date_D = gradedata['DATE_D'] or DATE_D
+        pdata.gdate_D = gradedata['GDATE_D'] or GDATE_D
         # Add the grades, etc., to the pupil data
         gmap = gradedata['GRADES']
-        pdata.grades = reportData.getTagmap(reportData.gradeManager(gmap),
-                pdata)
-        pdata.REMARKS = gradedata['REMARKS']
+        pdata.grades = reportData.gradeManager(gmap)
+        tagmap = reportData.getTagmap(pdata.grades, pdata, rtype)
+        pdata.remarks = gradedata['REMARKS']
         pmaplist.append(pdata)
 
     ### Generate html for the reports
@@ -152,6 +154,9 @@ def makeReports(klass_streams, pids=None):
             pupils = pmaplist,
             klass = klass_streams
         )
+
+#TODO: report excess subject/grade pairs – see below
+
     # Convert to pdf
     if not plist:
         REPORT.Fail(_NOPUPILS)
@@ -194,13 +199,14 @@ def makeOneSheet(schoolyear, pdata, term):
                 pdata.GDATE_D = dates.GDATE_D
         if not rtype:
             rtype = getTermTypes(klass, curterm.TERM)[0]
-    reportData = GradeReportData(schoolyear, klass, rtype)
+    reportData = GradeReportData(schoolyear, klass)
     # Build a grade mapping for the tags of the template.
     # Use the class and stream from the grade data
     pdata['CLASS'] = gradedata['CLASS']
     pdata['STREAM'] = gradedata['STREAM']
-    pdata.grades = reportData.getTagmap(reportData.gradeManager(gmap), pdata)
-    pdata.REMARKS = gradedata['REMARKS']
+    pdata.grades = reportData.gradeManager(gmap)
+    tagmap = reportData.getTagmap(pdata.grades, pdata, rtype)
+    pdata.remarks = gradedata['REMARKS']
 
     ### Generate html for the reports
     source = reportData.template.render(
@@ -211,6 +217,17 @@ def makeOneSheet(schoolyear, pdata, term):
             pupils = [pdata],
             klass = klass
         )
+
+#TODO:
+    for group in tagmap:
+        if pdata.grades.GET(group):
+            REPORT.Fail(_TOO_MANY_SUBJECTS, group = group,
+                    pname = pdata.name(), sids = repr(sidlist),
+                    template = self.template.filename)
+
+
+
+
     # Convert to pdf
     html = HTML(string=source,
             base_url=os.path.dirname(reportData.template.filename))
@@ -221,6 +238,7 @@ def makeOneSheet(schoolyear, pdata, term):
 
 
 ##################### Test functions
+#TODO: check these!
 _year = 2016
 _term = '1'
 def test_01():
@@ -238,15 +256,16 @@ def test_01():
         REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 
 def test_02():
-    _klass_stream = Klass('13')
-    pdfBytes = makeReports (_year, _term, _klass_stream)
-    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-    fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _term))
+    _ks = Klass('10')
+    pdfBytes = makeReports (_ks)
+    fpath = Paths.getYearPath(_year, 'FILE_GRADE_REPORT',
+            make = -1).replace('*', str(_ks).replace('.', '-')) + '.pdf'
     with open(fpath, 'wb') as fh:
         fh.write(pdfBytes)
 
 def test_03():
-    _klass_stream = Klass('12.RS')
+    return
+    _klass_stream = Klass('12.HS-RS')
     pdfBytes = makeReports (_year, _term, _klass_stream)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
     fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _term))
@@ -254,6 +273,7 @@ def test_03():
         fh.write(pdfBytes)
 
 def test_04():
+    return
     _klass_stream = Klass('12.Gym')
     pdfBytes = makeReports (_year, _term, _klass_stream)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
@@ -262,6 +282,7 @@ def test_04():
         fh.write(pdfBytes)
 
 def test_05():
+    return
     _klass_stream = Klass('11')
     pdfBytes = makeReports (_year, _term, _klass_stream)
     folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
@@ -271,6 +292,7 @@ def test_05():
 
 
 def test_06():
+    return
 #TODO: Perhaps if _GS is set, the type should be overriden?
     _klass = Klass('12')
     _pid = '200407'
@@ -286,6 +308,7 @@ def test_06():
     REPORT.Test(" --> %s" % fpath)
 
 def test_07():
+    return
     # Reports for second term
     _term = '2'
     for _ks in '11', '12.RS-HS-_', '12.Gym':

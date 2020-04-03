@@ -1,5 +1,5 @@
 ############## PATHS
-############## Version: 2020-03-21
+############## Version: 2020-04-03
 
 ### Hier wird das Layout des Datenordners definiert
 
@@ -46,7 +46,7 @@ DIR_FONTS =& *DIR_TEMPLATES
 FILE_SUBJECT_CHOICE_TEMPLATE =& *DIR_TEMPLATES
                               & Kurswahl
 
-         
+
 ###############################################################
 ## Textzeugnisse
 
@@ -181,7 +181,12 @@ FILE_GRADE_TABLE =& testfiles
 
 FILE_GRADE_INPUT =& testfiles
                   & new
-                  & Noten_*
+                  & Noten_{term}_*
+
+FILE_GRADE_REPORT =& testfiles
+                   & new
+                   & grade_reports
+                   & Zeugnis_*
 
 # Abitur course choices (12.Gym and 13)
 FILE_SUBJECT_CHOICE_TABLE =& testfiles

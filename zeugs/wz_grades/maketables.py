@@ -4,7 +4,7 @@
 """
 wz_grades/maketables.py
 
-Last updated:  2020-04-02
+Last updated:  2020-04-03
 
 Build result tables for the grade groups, including evaluation, etc.
 
@@ -56,7 +56,7 @@ from wz_compat.config import printSchoolYear, printStream
 from wz_compat.grade_classes import getGradeGroup
 from wz_compat.template import openTemplate
 from wz_grades.gradedata import (GradeReportData, CurrentTerm,
-        getGradeData, updateGradeReport, getTermTypes)
+        getGradeData, updateGradeReport)#, getTermTypes)
 
 
 #TODO
@@ -64,15 +64,15 @@ def makeTable(schoolyear, term, ggroup):
     """Build a result table for the given year, term and grade group.
     <ggroup> is a <Klass> instance.
     """
-    try:
-        rtype = getTermTypes(ggroup, term)[0]
-    except:
-        REPORT.Fail(_BAD_GROUP_TERM, group = ggroup, term = term)
+#    try:
+#        rtype = getTermTypes(ggroup, term)[0]
+#    except:
+#        REPORT.Fail(_BAD_GROUP_TERM, group = ggroup, term = term)
     pupils = Pupils(schoolyear)
 #?
     ### Get a tag mapping for the grade data of each pupil
     # <GradeReportData> manages the report template, etc.:
-    reportData = GradeReportData(schoolyear, ggroup, rtype)
+    reportData = GradeReportData(schoolyear, ggroup)
     plist = []
     db = DB(schoolyear)
     for pdata in pupils.classPupils(ggroup):
@@ -111,7 +111,7 @@ def makeTable(schoolyear, term, ggroup):
         REPORT.Test("\n  XINFO: %s" % repr(gmanager.XINFO))
 
 #        pdata.grades = gdata
-        pdata.grades = gmap
+        pdata.grades = gmanager
         plist.append(pdata)
 
 
@@ -135,6 +135,7 @@ def makeTable(schoolyear, term, ggroup):
     source = template.render(
 #TODO
             SCHOOLYEAR = printSchoolYear(schoolyear),
+            term = term,
             date = Dates.today(iso = False),
             subjects = slist,
             pupils = plist,

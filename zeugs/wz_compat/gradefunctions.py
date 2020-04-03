@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-01
+Last updated:  2020-04-03
 
 Calculations needed for grade handling.
 
@@ -98,7 +98,8 @@ class _GradeManager(dict):
     The grades in composite subjects can be calculated and made available
     (via the '.'-stripped sid) as an <int>.
     """
-    NO_ENTRY = '––––––––––' # for "empty" slots in the report template
+#TODO: This is probably in the template itself (remove here):
+#    NO_ENTRY = '––––––––––' # for "empty" slots in the report template
     ZPAD = 1    # set to 2 to force leading zero (e.g. '6' -> '06')
 
     def __init__(self, schoolyear, sid2tlist, grademap):
@@ -194,6 +195,28 @@ class _GradeManager(dict):
                 self[sid] = _NO_AVERAGE
 
 
+    def SET(self, tagmap):
+        """<tagmap> should be a mapping of lists containing
+        (subject, grade) tuples: {subject-group -> [(s, g), ...]}.
+        This is for the exclusive use of the <GET> method.
+        """
+        self._tagmap = tagmap
+
+    def GET(self, g):
+        """If <g> is a subject-group, return the next entry in the
+        group's subject/grade list, removing that entry from the list.
+        If <g> begins with '_' it is an extra field: return the value
+        without removing anything.
+        """
+        try:
+            glist = self._tagmap[g]
+            if g[0] == '_':
+                return glist
+            return glist.pop(0)
+        except:
+            return None
+
+
 
 class GradeManagerN(_GradeManager):
     """Handle grades on the 1–6 scale, including '+' and '-'.
@@ -269,7 +292,7 @@ class GradeManagerN(_GradeManager):
         return gint
 
 
-#TODO: According to "Verordnung AVO-Sek_I, 2016", the averages should
+#NOTE: According to "Verordnung AVO-Sek_I, 2016", the averages should
 # be truncated, not rounded, but the deviations (2nd decimal place)
 # should be insignificant.
     def AVE(self):
@@ -363,36 +386,27 @@ class GradeManagerN(_GradeManager):
         return False
 
 
-    def X_GS(self, rtype, pdata):
-        """A wrapper for <_X_GS>.
-        """
-        xgs = self._X_GS(pdata)
-        self.XINFO['GS'] = xgs
-        return xgs if rtype == 'Abgang' else ''
-
-    def _X_GS(self, pdata):
+#NOTE: If I understand Verordnung "AVO_Sek-I" (2016) correctly, all
+# grades must be 4 or better.
+    def X_GS(self, pdata):
         """Determine qualification according to criteria for a
         "Gleichstellungsvermerk". Only a "Hauptschulabschluss" is
         possible.
         """
-        if self.SekI():
-            ave = self.AVE()
-            if ave and ave <= Frac(4, 1):
-                return 'HS'
-        return ''
+        xgs = 'HS'
+        for sid0, g in self.grades.items():
+            if self.grades in (5, 6):
+                xgs = ''
+                break
+        self.XINFO['GS'] = xgs
+        return xgs
 
 
-    def X_Q12(self, rtype, pdata):
-        """A wrapper for <_X_Q12>.
-        """
-        q12 = self._X_Q12(pdata)
-        self.XINFO['Q12'] = q12
-        return q12 if rtype == 'Abschluss' else ''
-
-    def _X_Q12(self, pdata):
+    def X_Q12(self, pdata):
         """Determine qualification at end of 12th year for a "Realschüler"
         or a "Hauptschüler".
         """
+        q12 = ''
         stream = pdata['STREAM']
         if self.SekI():
             ave = self.AVE()
@@ -401,33 +415,29 @@ class GradeManagerN(_GradeManager):
                 tst = ave if ave > dem else dem
                 if stream == 'RS':
                     if tst <= Frac(3, 1):
-                        return 'Erw'
+                        q12 = 'Erw'
                     elif tst <= Frac(4, 1):
-                        return 'RS'
+                        q12 = 'RS'
                 elif stream == 'HS' and tst <= Frac(4, 1):
-                    return 'HS'
-        return ''
+                    q12 = 'HS'
+        self.XINFO['Q12'] = q12
+        return q12
 
 
-    def X_V(self, rtype, pdata):
-        """A wrapper for <_X_V>.
-        """
-        v = self._X_V(pdata)
-        self.XINFO['V'] = '✓' if v else '-'
-        return rtype == 'Zeugnis' and v
-
-    def _X_V(self, pdata):
+    def X_V(self, pdata):
         """For the "gymnasial" group, 11th class. Determine qualification
-        for the 12th class. Return true/false.
+        for the 12th class. Return '✓' or ''.
         """
+        v = ''
         klass = pdata['CLASS']
         if (klass.startswith('11') and pdata['STREAM'] == 'Gym'
                 and self.SekI()):
             ave = self.AVE()
             if ave and ave <= Frac(3, 1):
-                return True
+                v = '✓'
             REPORT.Warn(_FAIL, pname = pdata.name())
-        return False
+        self.XINFO['V'] = v
+        return v
 
 
 
@@ -578,29 +588,27 @@ class GradeManagerQ1(_GradeManager):
         return False
 
 
-    def X_V13(self, rtype, pdata):
-        """A wrapper for <_X_V13>.
-        """
-        v = self._X_V13(pdata)
-        self.XINFO['GS'] = v
-        self.XINFO['V'] = '✓' if v == 'Erw' else '-'
-        return v
-
-    def _X_V13(self, pdata):
+    def X_V13(self, pdata):
         """For the "gymnasial" group, 12th class. Determine qualification
         for the 13th class.
         """
+        v = 'HS'
         if pdata['CLASS'] >= '13':
-            return 'Erw'
-        # Check for RS first to avoid multiple error messages from
-        # <SekII> (missing subject).
-        fhs = self.SekII(pdata, fhs = True)
-        if fhs:
-            # Check for "pass"
-            if self.SekII(pdata):
-                return 'Erw'
-        REPORT.Warn(_FAIL, pname = pdata.name())
-        return 'RS' if fhs else 'HS'
+            v = 'Erw'
+        else:
+            # Check for RS first to avoid multiple error messages from
+            # <SekII> (missing subject).
+            fhs = self.SekII(pdata, fhs = True)
+            if fhs:
+                # Check for "pass"
+                if self.SekII(pdata):
+                    v = 'Erw'
+                else:
+                    v = 'RS'
+            if v != 'Erw':
+                REPORT.Warn(_FAIL, pname = pdata.name())
+        self.XINFO['V13'] = v
+        return v
 
 
 

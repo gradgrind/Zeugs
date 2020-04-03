@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_single.py
 
-Last updated:  2020-03-31
+Last updated:  2020-04-03
 
 "Sub-module" of grades for single reports
 
@@ -242,6 +242,7 @@ def grades_pupil(pid, rtag):
         # Grade conference date only for some classes / terms
         pdata.GDATE = needGradeDate(rtag, klass)
 
+#TODO: Subjects grouped (using gdata.sgroup2sids)?
         # Add the grade fields to the form
         for sid, tlist in gdata.sid2tlist.items():
             # Only "taught" subjects

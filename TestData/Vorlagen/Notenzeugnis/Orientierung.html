@@ -129,79 +129,46 @@
         </div>
 
         <!-- Fächer-Tabelle (Noten der Hauptfächer) -->
+        {% set EMPTY = '––––––––––' %}
         <table class="subjects" style="margin-top: 5mm;">
+        {% for i in range(8) %}
             <tr>
-                <td class="sbj1">{{grades.S_1_N}}</td>
-                <td class="grade">{{grades.S_1}}</td>
-                <td class="sbj2">{{grades.S_2_N}}</td>
-                <td class="grade">{{grades.S_2}}</td>
+            {% set sg = grades.GET('S') %}
+            {% if sg %}{% set s, g = sg %}
+            {% else %}{% set s, g = EMPTY, EMPTY %}
+            {% endif %}
+                <td class="sbj1">{{ s }}</td>
+                <td class="grade">{{ g }}</td>
+            {% set sg = grades.GET('S') %}
+            {% if sg %}{% set s, g = sg %}
+            {% else %}{% set s, g = EMPTY, EMPTY %}
+            {% endif %}
+                <td class="sbj1">{{ s }}</td>
+                <td class="grade">{{ g }}</td>
             </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_3_N}}</td>
-                <td class="grade">{{grades.S_3}}</td>
-                <td class="sbj2">{{grades.S_4_N}}</td>
-                <td class="grade">{{grades.S_4}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_5_N}}</td>
-                <td class="grade">{{grades.S_5}}</td>
-                <td class="sbj2">{{grades.S_6_N}}</td>
-                <td class="grade">{{grades.S_6}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_7_N}}</td>
-                <td class="grade">{{grades.S_7}}</td>
-                <td class="sbj2">{{grades.S_8_N}}</td>
-                <td class="grade">{{grades.S_8}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_9_N}}</td>
-                <td class="grade">{{grades.S_9}}</td>
-                <td class="sbj2">{{grades.S_10_N}}</td>
-                <td class="grade">{{grades.S_10}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_11_N}}</td>
-                <td class="grade">{{grades.S_11}}</td>
-                <td class="sbj2">{{grades.S_12_N}}</td>
-                <td class="grade">{{grades.S_12}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_13_N}}</td>
-                <td class="grade">{{grades.S_13}}</td>
-                <td class="sbj2">{{grades.S_14_N}}</td>
-                <td class="grade">{{grades.S_14}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.S_15_N}}</td>
-                <td class="grade">{{grades.S_15}}</td>
-                <td class="sbj2">{{grades.S_16_N}}</td>
-                <td class="grade">{{grades.S_16}}</td>
-            </tr>
+        {% endfor %}
         </table>
 
         <p style="margin: 2mm 0 -2mm 0; font-size: 11pt;">
             <strong>Künstlerisch-Praktische Kurse:</strong>
         </p>
         <table class="subjects">
+        {% for i in range(3) %}
             <tr>
-                <td class="sbj1">{{grades.K_1_N}}</td>
-                <td class="grade">{{grades.K_1}}</td>
-                <td class="sbj2">{{grades.K_2_N}}</td>
-                <td class="grade">{{grades.K_2}}</td>
+            {% set sg = grades.GET('K') %}
+            {% if sg %}{% set s, g = sg %}
+            {% else %}{% set s, g = EMPTY, EMPTY %}
+            {% endif %}
+                <td class="sbj1">{{ s }}</td>
+                <td class="grade">{{ g }}</td>
+            {% set sg = grades.GET('K') %}
+            {% if sg %}{% set s, g = sg %}
+            {% else %}{% set s, g = EMPTY, EMPTY %}
+            {% endif %}
+                <td class="sbj1">{{ s }}</td>
+                <td class="grade">{{ g }}</td>
             </tr>
-            <tr>
-                <td class="sbj1">{{grades.K_3_N}}</td>
-                <td class="grade">{{grades.K_3}}</td>
-                <td class="sbj2">{{grades.K_4_N}}</td>
-                <td class="grade">{{grades.K_4}}</td>
-            </tr>
-            <tr>
-                <td class="sbj1">{{grades.K_5_N}}</td>
-                <td class="grade">{{grades.K_5}}</td>
-                <td class="sbj2">{{grades.K_6_N}}</td>
-                <td class="grade">{{grades.K_6}}</td>
-            </tr>
+        {% endfor %}
         </table>
 
         <p style="margin-top: 2mm; font-size: 11pt;">
@@ -213,7 +180,7 @@
                 display: flex; justify-content: space-between;">
             <!-- Ort, Datum -->
             <p style="margin: 0; font-size: 11pt;">
-                Hannover, den {{todate(pupil.DATE_D)}}
+                Hannover, den {{todate(pupil.date_D)}}
             </p>
 
             <!-- Unterschrift -->

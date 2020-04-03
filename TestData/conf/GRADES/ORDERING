@@ -1,9 +1,22 @@
 ############## GRADES/ORDERING
-############## Version: 2020-03-08
+############## Version: 2020-04-03
 
 CLASSES =& 13*: E G
          & 12.Gym: A B C D X
          & *: S K
+
+# "Bewertungsfelder" für Zeugnisse und Ergebnistabellen
+# Kennzeichen, die mit '*' beginnen, sind nur für die Ergebnistabellen
+EXTRA =& 13*:
+       & 12.Gym: V13
+       & 12.*: *AVE *DEM Q12 GS
+       & 11.Gym:  *AVE V GS
+       & 11*: *AVE *DEM GS
+       & 10*: *AVE *DEM GS
+
+###########################################
+# Die Einträge unten geben die Fächer in den
+# einzelnen Fachgruppen an.
 
 ### Abitur (12. Kl.)
 A =& De
@@ -11,7 +24,7 @@ A =& De
    & Fr
    & _Ku
    & Mu
-   
+
 B =& Ges
    & Ek
    & Geo
@@ -22,7 +35,7 @@ C =& Ma
    & Bio
    & Ch
    & Ph
-   
+
 D =& Sp
    & Eu_
 
@@ -38,7 +51,7 @@ E =& De.e
    & En.e
    & Ges.e
    & Bio.e
-   
+
 # gA
 G =& Ma.g
    & En.m
@@ -65,7 +78,7 @@ S =& De
    & Ph
    & AWT
    & Sp
-   
+
 # Künstlerisch-praktisch
 K =& Eu_
    & Bb_k

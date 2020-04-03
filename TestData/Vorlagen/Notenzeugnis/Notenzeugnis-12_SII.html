@@ -210,7 +210,7 @@
                         hat den 12. Jahrgang der Qualifikationsphase vom
                         {{todate(pupil.QUALI_D)}}
                         bis zum
-                        {{todate(pupil.DATE_D)}}
+                        {{todate(pupil.date_D)}}
                         besucht.
                     </span>
                 </div>
@@ -257,6 +257,7 @@
         <center style="font-size: 133%; margin: 10mm 0 0 0;">Leistungen</center>
 
         <!-- Fächer-Tabelle (Punkte) -->
+        {% set EMPTY = '––––––––––' %}
         <div class="doubletable">
             <table class="subjects">
                 <tr>
@@ -268,52 +269,32 @@
                         A – sprachlich-künstlerisches Aufgabenfeld
                     </td>
                 </tr>
+            {% for i in range(5) %}
+                {% set sg = grades.GET('A') %}
+                {% if sg %}{% set s, g = sg %}
+                {% else %}{% set s, g = EMPTY, EMPTY %}
+                {% endif %}
                 <tr>
-                    <td class="fach">{{grades.A_1_N}}</td>
-                    <td class="punkte">{{grades.A_1}}</td>
+                    <td class="fach">{{ s }}</td>
+                    <td class="punkte">{{ g }}</td>
                 </tr>
-                <tr>
-                    <td class="fach">{{grades.A_2_N}}</td>
-                    <td class="punkte">{{grades.A_2}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.A_3_N}}</td>
-                    <td class="punkte">{{grades.A_3}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.A_4_N}}</td>
-                    <td class="punkte">{{grades.A_4}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.A_5_N}}</td>
-                    <td class="punkte">{{grades.A_5}}</td>
-                </tr>
+            {% endfor %}
 
                 <tr>
                     <td colspan="2" class="title2">
                         C – mathematisch-naturwissenschaftlich-technisches Aufgabenfeld
                     </td>
                 </tr>
+            {% for i in range(5) %}
+                {% set sg = grades.GET('C') %}
+                {% if sg %}{% set s, g = sg %}
+                {% else %}{% set s, g = EMPTY, EMPTY %}
+                {% endif %}
                 <tr>
-                    <td class="fach">{{grades.C_1_N}}</td>
-                    <td class="punkte">{{grades.C_1}}</td>
+                    <td class="fach">{{ s }}</td>
+                    <td class="punkte">{{ g }}</td>
                 </tr>
-                <tr>
-                    <td class="fach">{{grades.C_2_N}}</td>
-                    <td class="punkte">{{grades.C_2}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.C_3_N}}</td>
-                    <td class="punkte">{{grades.C_3}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.C_4_N}}</td>
-                    <td class="punkte">{{grades.C_4}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.C_5_N}}</td>
-                    <td class="punkte">{{grades.C_5}}</td>
-                </tr>
+            {% endfor %}
             </table>
 
             <table class="subjects">
@@ -326,67 +307,48 @@
                         B – gesellschaftswissenschaftliches Aufgabenfeld
                     </td>
                 </tr>
+            {% for i in range(5) %}
+                {% set sg = grades.GET('B') %}
+                {% if sg %}{% set s, g = sg %}
+                {% else %}{% set s, g = EMPTY, EMPTY %}
+                {% endif %}
                 <tr>
-                    <td class="fach">{{grades.B_1_N}}</td>
-                    <td class="punkte">{{grades.B_1}}</td>
+                    <td class="fach">{{ s }}</td>
+                    <td class="punkte">{{ g }}</td>
                 </tr>
-                <tr>
-                    <td class="fach">{{grades.B_2_N}}</td>
-                    <td class="punkte">{{grades.B_2}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.B_3_N}}</td>
-                    <td class="punkte">{{grades.B_3}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.B_4_N}}</td>
-                    <td class="punkte">{{grades.B_4}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.B_5_N}}</td>
-                    <td class="punkte">{{grades.B_5}}</td>
-                </tr>
+            {% endfor %}
 
                 <tr>
                     <td colspan="2" class="title2">
                         ohne Zuordnung
                     </td>
                 </tr>
+            {% for i in range(5) %}
+                {% set sg = grades.GET('D') %}
+                {% if sg %}{% set s, g = sg %}
+                {% else %}{% set s, g = EMPTY, EMPTY %}
+                {% endif %}
                 <tr>
-                    <td class="fach">{{grades.D_1_N}}</td>
-                    <td class="punkte">{{grades.D_1}}</td>
+                    <td class="fach">{{ s }}</td>
+                    <td class="punkte">{{ g }}</td>
                 </tr>
-                <tr>
-                    <td class="fach">{{grades.D_2_N}}</td>
-                    <td class="punkte">{{grades.D_2}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.D_3_N}}</td>
-                    <td class="punkte">{{grades.D_3}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.D_4_N}}</td>
-                    <td class="punkte">{{grades.D_4}}</td>
-                </tr>
-                <tr>
-                    <td class="fach">{{grades.D_5_N}}</td>
-                    <td class="punkte">{{grades.D_5}}</td>
-                </tr>
+            {% endfor %}
             </table>
-<!-- Hidden grades: {{X_1}}{{X_2}}{{X_3}}{{X_4}}{{X_5}}{{X_6}} -->
+<!-- Hidden grades: {{ NOSHOW_X }} -->
         </div>
 
         <!-- Bemerkungen, Gleichstellungsvermerke, usw. -->
+        {% set V13 = grades.GET('_V13') %}
         <div style="height: 30mm; margin: 5mm 0 0 0;
                 display: flex; justify-content: space-between;">
             <div style="width: 125mm;">
 <!-- Versetzung -->
-                {% if report_type == 'Zeugnis' and grades._V13 == 'Erw' %}
+                {% if report_type == 'Zeugnis' and V13 == 'Erw' %}
                 <p style="margin: 5mm 0 0 0; font-size: 11pt;">
                     <strong>Bemerkungen:</strong>
                 </p>
                 <p style="margin: 2mm 5mm; font-size: 11pt;">
-                    Durch Konferenzbeschluss vom {{todate(pupil.GDATE_D)}}
+                    Durch Konferenzbeschluss vom {{todate(pupil.gdate_D)}}
                     in die 13. Klasse versetzt.
                 </p>
                 {% elif report_type == 'Abgang' %}
@@ -395,15 +357,15 @@
                     <strong>Gleichstellungsvermerk:</strong>
                 </p>
                 <p style="margin: 2mm 5mm; font-size: 11pt;">
-                    {% if grades._V13 == 'Erw' %}
+                    {% if V13 == 'Erw' %}
                     Dieses Zeugnis ist dem Erweiterten Sekundarabschluss I
                     gleichgestellt. Es vermittelt die gleiche Berechtigung
                     wie das Zeugnis über den Erweiterten Sekundarabschluss I.
-                    {% elif grades._V13 == 'RS' %}
+                    {% elif V13 == 'RS' %}
                     Dieses Zeugnis ist dem Sekundarabschluss I – Realschulabschluss
                     gleichgestellt. Es vermittelt die gleiche Berechtigung
                     wie das Zeugnis über den Sekundarabschluss I – Realschulabschluss.
-                    {% elif grades._V13 == 'HS' %}
+                    {% elif V13 == 'HS' %}
                     Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss
                     gleichgestellt. Es vermittelt die gleiche Berechtigung
                     wie das Zeugnis über den Sekundarabschluss I – Hauptschulabschluss.
@@ -425,7 +387,7 @@
 
         <!-- Ort, Datum -->
         <p style="margin: 5mm 0 0 0">
-            Hannover, den {{todate(pupil.DATE_D)}}
+            Hannover, den {{todate(pupil.date_D)}}
         </p>
 
         <!-- Unterschriften -->
