@@ -216,6 +216,16 @@ class _GradeManager(dict):
         except:
             return None
 
+    def NOSHOW(self, g):
+        """Indicate that no (further) subjects in the given group will
+        be called for and, especially, that this is no error, any
+        remaining subjects are to be silently ignored.
+        Return the current contents.
+        """
+        glist = self._tagmap[g]
+        self._tagmap[g] = []
+        return glist
+
 
 
 class GradeManagerN(_GradeManager):

@@ -205,7 +205,6 @@
                 <!-- Nur für Jahresendzeugnisse -->
                 <div style="display: flex; align-items: flex-start;
                         width: 150mm; margin: 8mm 0 0 0;">
-<!-- TODO: Are the date variables correct? -->
                     <span style="">
                         hat den 12. Jahrgang der Qualifikationsphase vom
                         {{todate(pupil.QUALI_D)}}
@@ -334,7 +333,7 @@
                 </tr>
             {% endfor %}
             </table>
-<!-- Hidden grades: {{ NOSHOW_X }} -->
+<!-- Hidden grades: {{ grades.NOSHOW('X') }} -->
         </div>
 
         <!-- Bemerkungen, Gleichstellungsvermerke, usw. -->
@@ -342,7 +341,7 @@
         <div style="height: 30mm; margin: 5mm 0 0 0;
                 display: flex; justify-content: space-between;">
             <div style="width: 125mm;">
-<!-- Versetzung -->
+            <!-- Versetzung -->
                 {% if report_type == 'Zeugnis' and V13 == 'Erw' %}
                 <p style="margin: 5mm 0 0 0; font-size: 11pt;">
                     <strong>Bemerkungen:</strong>

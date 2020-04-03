@@ -114,6 +114,8 @@ def makeReports(klass_streams, pids=None):
                     ks=klass_streams)
     else:
         plist = pall
+    if not plist:
+        REPORT.Fail(_NOPUPILS)
     ### Get a tag mapping for the grade data of each pupil
     # <GradeReportData> manages the report template, etc.:
     reportData = GradeReportData(schoolyear, klass_streams)
@@ -141,7 +143,7 @@ def makeReports(klass_streams, pids=None):
         # Add the grades, etc., to the pupil data
         gmap = gradedata['GRADES']
         pdata.grades = reportData.gradeManager(gmap)
-        tagmap = reportData.getTagmap(pdata.grades, pdata, rtype)
+        reportData.getTagmap(pdata.grades, pdata, rtype)
         pdata.remarks = gradedata['REMARKS']
         pmaplist.append(pdata)
 
@@ -155,11 +157,25 @@ def makeReports(klass_streams, pids=None):
             klass = klass_streams
         )
 
-#TODO: report excess subject/grade pairs – see below
+    # Report excess subject/grade pairs
+    ok = True
+    for pdata in pmaplist:
+        for group in reportData.sgroup2sids:
+            sidlist = []
+            while True:
+                s = pdata.grades.GET(group)
+                if not s:
+                    break
+                sidlist.append(s[0])
+            if sidlist:
+                ok = False
+                REPORT.Error(_TOO_MANY_SUBJECTS, group = group,
+                        pname = pdata.name(), sids = repr(sidlist),
+                        template = reportData.template.filename)
+    if not ok:
+        return None
 
     # Convert to pdf
-    if not plist:
-        REPORT.Fail(_NOPUPILS)
     html = HTML(string=source,
             base_url=os.path.dirname(reportData.template.filename))
     pdfBytes = html.write_pdf(font_config=FontConfiguration())
@@ -185,18 +201,18 @@ def makeOneSheet(schoolyear, pdata, term):
         curterm = CurrentTerm(schoolyear, term)
     except CurrentTerm.NoTerm:
         curterm = None
-    pdata.DATE_D = gradedata['DATE_D']
-    pdata.GDATE_D = gradedata['GDATE_D']
+    pdata.date_D = gradedata['DATE_D']
+    pdata.gdate_D = gradedata['GDATE_D']
     rtype = gradedata['REPORT_TYPE']
     if curterm:
         ggroup = str(getGradeGroup(term, klass))
         dates = curterm.dates().get(ggroup)
-        if not pdata.DATE_D:
+        if not pdata.date_D:
             if dates:
-                pdata.DATE_D = dates.DATE_D
-        if not pdata.GDATE_D:
+                pdata.date_D = dates.DATE_D
+        if not pdata.gdate_D:
             if dates:
-                pdata.GDATE_D = dates.GDATE_D
+                pdata.gdate_D = dates.GDATE_D
         if not rtype:
             rtype = getTermTypes(klass, curterm.TERM)[0]
     reportData = GradeReportData(schoolyear, klass)
@@ -205,7 +221,7 @@ def makeOneSheet(schoolyear, pdata, term):
     pdata['CLASS'] = gradedata['CLASS']
     pdata['STREAM'] = gradedata['STREAM']
     pdata.grades = reportData.gradeManager(gmap)
-    tagmap = reportData.getTagmap(pdata.grades, pdata, rtype)
+    reportData.getTagmap(pdata.grades, pdata, rtype)
     pdata.remarks = gradedata['REMARKS']
 
     ### Generate html for the reports
@@ -218,15 +234,22 @@ def makeOneSheet(schoolyear, pdata, term):
             klass = klass
         )
 
-#TODO:
-    for group in tagmap:
-        if pdata.grades.GET(group):
-            REPORT.Fail(_TOO_MANY_SUBJECTS, group = group,
+    # Report excess subject/grade pairs
+    ok = True
+    for group in reportData.sgroup2sids:
+        sidlist = []
+        while True:
+            s = pdata.grades.GET(group)
+            if not s:
+                break
+            sidlist.append(s[0])
+        if sidlist:
+            ok = False
+            REPORT.Error(_TOO_MANY_SUBJECTS, group = group,
                     pname = pdata.name(), sids = repr(sidlist),
-                    template = self.template.filename)
-
-
-
+                    template = reportData.template.filename)
+    if not ok:
+        return None
 
     # Convert to pdf
     html = HTML(string=source,
@@ -240,7 +263,6 @@ def makeOneSheet(schoolyear, pdata, term):
 ##################### Test functions
 #TODO: check these!
 _year = 2016
-_term = '1'
 def test_01():
     from wz_compat.template import openTemplate, getTemplateTags, pupilFields
     from glob import glob
@@ -256,65 +278,46 @@ def test_01():
         REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 
 def test_02():
-    _ks = Klass('10')
-    pdfBytes = makeReports (_ks)
-    fpath = Paths.getYearPath(_year, 'FILE_GRADE_REPORT',
-            make = -1).replace('*', str(_ks).replace('.', '-')) + '.pdf'
-    with open(fpath, 'wb') as fh:
-        fh.write(pdfBytes)
+#TODO: remove return
+    return
+
+    for k in ('13', '12.Gym', '12.HS-RS', '11.Gym', '11.HS-RS', '10'):
+        REPORT.Test("\n  Reports for class %s\n" % k)
+        _ks = Klass(k)
+        try:
+            pdfBytes = makeReports (_ks)
+        except:
+            continue
+        if pdfBytes:
+            fpath = Paths.getYearPath(_year, 'FILE_GRADE_REPORT', make = -1
+                    ).replace('*', str(_ks).replace('.', '-')) + '.pdf'
+            with open(fpath, 'wb') as fh:
+                fh.write(pdfBytes)
 
 def test_03():
-    return
-    _klass_stream = Klass('12.HS-RS')
-    pdfBytes = makeReports (_year, _term, _klass_stream)
-    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-    fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _term))
-    with open(fpath, 'wb') as fh:
-        fh.write(pdfBytes)
+    _term = '1'
+    _pids = ('200407', '200853')
+    pupils = Pupils(_year)
+    for _pid in _pids:
+        pdata = pupils.pupil(_pid)
+        pdfBytes = makeOneSheet(_year, pdata, _term)
+        if pdfBytes:
+            ptag = pdata['PSORT'].replace(' ', '_')
+            fpath = Paths.getYearPath(_year, 'FILE_GRADE_REPORT', make = -1
+                    ).replace('*', ptag + '.pdf')
+            with open(fpath, 'wb') as fh:
+                fh.write(pdfBytes)
 
 def test_04():
-    return
-    _klass_stream = Klass('12.Gym')
-    pdfBytes = makeReports (_year, _term, _klass_stream)
-    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-    fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _term))
-    with open(fpath, 'wb') as fh:
-        fh.write(pdfBytes)
-
-def test_05():
-    return
-    _klass_stream = Klass('11')
-    pdfBytes = makeReports (_year, _term, _klass_stream)
-    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-    fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _term))
-    with open(fpath, 'wb') as fh:
-        fh.write(pdfBytes)
-
-
-def test_06():
-    return
-#TODO: Perhaps if _GS is set, the type should be overriden?
-    _klass = Klass('12')
-    _pid = '200407'
-    pupils = Pupils(_year)
-    pall = pupils.classPupils(_klass) # list of data for all pupils
-    pdata = pall.pidmap[_pid]
-    pdfBytes = makeOneSheet(_year, pdata, _term, 'Abgang')
-    folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-    ptag = pdata['PSORT'].replace(' ', '_')
-    fpath = os.path.join (folder, 'test_%s_Abgang.pdf' % ptag)
-    with open(fpath, 'wb') as fh:
-        fh.write(pdfBytes)
-    REPORT.Test(" --> %s" % fpath)
-
-def test_07():
-    return
-    # Reports for second term
     _term = '2'
-    for _ks in '11', '12.RS-HS-_', '12.Gym':
-        _klass_stream = Klass(_ks)
-        pdfBytes = makeReports (_year, _term, _klass_stream)
-        folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-        fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_klass_stream, _term))
-        with open(fpath, 'wb') as fh:
-            fh.write(pdfBytes)
+    _pids = ('201052', '200408')
+    pupils = Pupils(_year)
+    for _pid in _pids:
+        pdata = pupils.pupil(_pid)
+        pdfBytes = makeOneSheet(_year, pdata, _term)
+        if pdfBytes:
+            ptag = pdata['PSORT'].replace(' ', '_')
+            fpath = Paths.getYearPath(_year, 'FILE_GRADE_REPORT', make = -1
+                    ).replace('*', ptag + '.pdf')
+            with open(fpath, 'wb') as fh:
+                fh.write(pdfBytes)
