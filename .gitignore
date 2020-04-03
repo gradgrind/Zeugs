@@ -1,9 +1,9 @@
-__pycache__
-tmp
-testfiles/new
-todo
 venv
-logs
-flask_session
+**/__pycache__
+**/tmp
+**/testfiles/new
+**/todo
+**/logs
+**/flask_session
 
 zeugs_data
