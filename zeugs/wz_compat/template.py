@@ -4,7 +4,7 @@
 """
 wz_compat/template.py
 
-Last updated:  2020-03-15
+Last updated:  2020-04-04
 
 Functions for template handling.
 
@@ -28,7 +28,7 @@ Copyright 2019-2020 Michael Towers
 """
 
 # Messages
-_NO_TEMPLATE = "Vorlage nicht gefunden: {fname}"
+_NO_TEMPLATE = "Vorlage nicht gefunden oder fehlerhaft: {fname}"
 
 
 import os, re

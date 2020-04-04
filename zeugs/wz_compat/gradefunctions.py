@@ -203,15 +203,12 @@ class _GradeManager(dict):
         self._tagmap = tagmap
 
     def GET(self, g):
-        """If <g> is a subject-group, return the next entry in the
-        group's subject/grade list, removing that entry from the list.
-        If <g> begins with '_' it is an extra field: return the value
-        without removing anything.
+        """<g> is a subject-group.
+        Return the next entry in the group's subject/grade list,
+        removing that entry from the list.
         """
         try:
             glist = self._tagmap[g]
-            if g[0] == '_':
-                return glist
             return glist.pop(0)
         except:
             return None
@@ -445,9 +442,15 @@ class GradeManagerN(_GradeManager):
             ave = self.AVE()
             if ave and ave <= Frac(3, 1):
                 v = '✓'
-            REPORT.Warn(_FAIL, pname = pdata.name())
         self.XINFO['V'] = v
         return v
+
+
+    def reportFail(self, term, rtype, pdata):
+        if rtype == 'Zeugnis':
+            if term == '2':
+                if not self.XINFO['V']:
+                    REPORT.Warn(_FAIL, pname = pdata.name())
 
 
 
@@ -615,10 +618,19 @@ class GradeManagerQ1(_GradeManager):
                     v = 'Erw'
                 else:
                     v = 'RS'
-            if v != 'Erw':
-                REPORT.Warn(_FAIL, pname = pdata.name())
         self.XINFO['V13'] = v
         return v
+
+
+    def reportFail(self, term, rtype, pdata):
+        if term == '2':
+            if rtype == 'Zeugnis':
+                if self.XINFO['V13'] != 'Erw':
+                    REPORT.Warn(_FAIL, pname = pdata.name())
+        else:
+            # This is a hack to ensure that 'Erw' and 'RS' are only
+            # possible at the end of year 12!
+            self.XINFO['V13'] = 'HS'
 
 
 

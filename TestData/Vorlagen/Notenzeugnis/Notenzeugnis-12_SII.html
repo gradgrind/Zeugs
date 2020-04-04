@@ -119,14 +119,13 @@
     {% set report_title = {
             'Zeugnis': 'Zeugnis',
             'Abgang': 'Abgangszeugnis',
-            'Abschluss': 'Abschlusszeugnis',
             'Halbjahr': 'Zeugnis',
-            'Zwischen': 'Zwischenzeugnis'
         }[report_type]
     %}
     {% set qphase = "Qualifikationsphase 12. Klasse" %}
     {% set halbjahr = '1. Halbjahr' if report_type == 'Halbjahr'
-            else '1. und 2. Halbjahr' %}
+            else '1. und 2. Halbjahr' if report_type == 'Zeugnis'
+            else '' %}
 <!-- Repeat for each pupil in list -->
     {% for pupil in pupils %}
     {% set grades = pupil.grades %}
@@ -201,8 +200,8 @@
                 </div>
             </div>
 
-            {% if report_type == 'Zeugnis' %}
-                <!-- Nur für Jahresendzeugnisse -->
+            {% if report_type in ('Zeugnis', 'Abgang') %}
+                <!-- Nur für Jahresendzeugnisse und Abgangszeugnisse -->
                 <div style="display: flex; align-items: flex-start;
                         width: 150mm; margin: 8mm 0 0 0;">
                     <span style="">
@@ -337,7 +336,7 @@
         </div>
 
         <!-- Bemerkungen, Gleichstellungsvermerke, usw. -->
-        {% set V13 = grades.GET('_V13') %}
+        {% set V13 = grades.XINFO['V13'] %}
         <div style="height: 30mm; margin: 5mm 0 0 0;
                 display: flex; justify-content: space-between;">
             <div style="width: 125mm;">

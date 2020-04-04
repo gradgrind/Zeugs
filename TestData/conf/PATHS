@@ -1,5 +1,5 @@
 ############## PATHS
-############## Version: 2020-04-03
+############## Version: 2020-04-04
 
 ### Hier wird das Layout des Datenordners definiert
 
@@ -179,12 +179,13 @@ FILE_GRADE_TABLE =& testfiles
                   & Noten_{term}
                   & Noten_*
 
-FILE_GRADE_INPUT =& testfiles
-                  & new
-                  & Noten_{term}_*
+# Grade input tables (TEMPORARY)
+FILE_GRADE_INPUT =& tmp
+                  & Noten_{term}
+                  & Noten_*
 
-FILE_GRADE_REPORT =& testfiles
-                   & new
+# Grade reports (TEMPORARY)
+FILE_GRADE_REPORT =& tmp
                    & grade_reports
                    & Zeugnis_*
 

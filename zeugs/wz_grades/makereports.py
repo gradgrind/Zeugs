@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-04-03
+Last updated:  2020-04-04
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -144,6 +144,7 @@ def makeReports(klass_streams, pids=None):
         gmap = gradedata['GRADES']
         pdata.grades = reportData.gradeManager(gmap)
         reportData.getTagmap(pdata.grades, pdata, rtype)
+        pdata.grades.reportFail(termn, rtype, pdata)
         pdata.remarks = gradedata['REMARKS']
         pmaplist.append(pdata)
 
@@ -222,6 +223,7 @@ def makeOneSheet(schoolyear, pdata, term):
     pdata['STREAM'] = gradedata['STREAM']
     pdata.grades = reportData.gradeManager(gmap)
     reportData.getTagmap(pdata.grades, pdata, rtype)
+    pdata.grades.reportFail(term, rtype, pdata)
     pdata.remarks = gradedata['REMARKS']
 
     ### Generate html for the reports
@@ -278,9 +280,6 @@ def test_01():
         REPORT.Test("Pupil fields: %s" % repr(pupilFields(tags)))
 
 def test_02():
-#TODO: remove return
-    return
-
     for k in ('13', '12.Gym', '12.HS-RS', '11.Gym', '11.HS-RS', '10'):
         REPORT.Test("\n  Reports for class %s\n" % k)
         _ks = Klass(k)
@@ -296,7 +295,7 @@ def test_02():
 
 def test_03():
     _term = '1'
-    _pids = ('200407', '200853')
+    _pids = ('200407', '200853', '200651')
     pupils = Pupils(_year)
     for _pid in _pids:
         pdata = pupils.pupil(_pid)

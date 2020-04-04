@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-04-03
+Last updated:  2020-04-04
 
 Handle the data for grade reports.
 
@@ -387,15 +387,6 @@ class GradeReportData:
         except TemplateError:
             REPORT.Fail(_NO_TEMPLATE, ks = self.klassdata, rtype = rtype)
 
-        # Get all things from the template that might be subject tags ...
-        alltags = []
-        for tag in getTemplateTags(self.template):
-            try:
-                _, tag = tag.split('.')
-            except:
-                continue
-            alltags.append(tag)
-        #REPORT.Test("\nALLTAGS: %s" % repr(alltags))
         # Copy the grade mapping, because it will be modified to keep
         # track of unused grade entries:
         gmap = dict(grades)     # this accepts a variety of input types
@@ -421,6 +412,7 @@ class GradeReportData:
                     REPORT.Bug("Bad grade for {pname} in {sid}: {g}",
                             pname = pdata.name(), sid = sid, g = g)
                 sglist.append((sname, g1))
+        grades.SET(tagmap)
 
         # Report unused grade entries
         unused = ["%s: %s" % (sid, g) for sid, g in gmap.items()
@@ -436,8 +428,7 @@ class GradeReportData:
                 method = getattr(grades, 'X_' + x)
             except:
                 REPORT.Bug("No xfield-handler for %s" % x)
-            tagmap['_' + x] = method(pdata)
-        grades.SET(tagmap)
+            method(pdata)
         return tagmap
 
 

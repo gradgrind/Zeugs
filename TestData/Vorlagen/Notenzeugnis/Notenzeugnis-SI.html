@@ -123,7 +123,7 @@
             {{ {'Erw': 'Erweiterter Sekundarabschluss I',
                 'RS': 'Sekundarabschluss I – Realschulabschluss',
                 'HS': 'Sekundarabschluss I – Hauptschulabschluss'
-               } [grades.GET('_Q12')] }}
+               } [grades.XINFO['Q12']] }}
             {% else %}
             Maßstab {{STREAM(pupil.STREAM)}}
             {% endif %}
@@ -335,8 +335,8 @@
             {% endfor %}
             {% endif %}
             <!-- Versetzung -->
-            {% set GS = grades.GET('_GS') %}
-            {% if report_type == 'Zeugnis' and grades.GET('_V') %}
+            {% set GS = grades.XINFO['GS'] %}
+            {% if report_type == 'Zeugnis' and grades.XINFO['V'] %}
             {% set remarks = True %}
             <p style="margin: 2mm 5mm; font-size: 11pt;">
                 Durch Konferenzbeschluss vom {{todate(pupil.gdate_D)}}
