@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2020-03-04
+Last updated:  2020-04-04
 
 Handler for the basic course info.
 
@@ -60,23 +60,10 @@ the following methods:
         is available.
     <classSubjects (klass)>
         returns an ordered mapping for the class:
-            {sid -> subject info}
+            {sid -> <TeacherList> instance}
         Only subjects with an entry for that class will be included.
     <subjectName (sid)>
         returns the full name of the subject.
-    <filterGrades (klass)>
-        returns an ordered mapping {sid -> [tid, ...]} for
-        the given class, only those subjects relevant for grade reports.
-    <filterText (klass)>
-        returns an ordered mapping {sid -> [tid, ...]} for
-        the given class, only those subjects relevant for text reports.
-    <teacherMatrix (klass)>
-        returns a mapping {pid -> {sid -> tid}} for "real" subjects
-        taken by the pupils.
-    <optoutMatrix (klass)>
-        generates (or regenerates) a table (spreadsheet files) for
-        specifiying opt-outs of optional courses and choosing teachers
-        for subjects with teaching groups.
 """
 
 # Special subject information
@@ -84,47 +71,25 @@ _NOTTEXT = '$'
 _NOTGRADE = '*'
 _NOREPORT = '#'
 
-_OPTOUT = '---'
-_INVALID = '-----'
-
-
-_MATRIXTITLE = 'Fachbelegung (Fach+Schüler -> Lehrer oder "nicht gewählt")'
-
 # Messages
-_COURSEMATRIX = ("Fach-Schüler-Belegungsmatrix erstellt für Klasse {klass}:\n"
-            "  {path}")
-_NOPUPILS = "Keine Schüler in Klasse {klass}"
-_UNKNOWN_STREAM = "In Fachtabelle, unbekannte Maßstabsgruppe: {stream} in {entry}"
-_INVALID_STREAM = "In Fachtabelle, ungültige Angabe der Maßstabsgruppen: {entry}"
-_INVALID_TEACHER = "In Fachtabelle, ungültige Angabe der Lehrer: {entry}"
-_EMPTY_COMPOSITE = "In Fachtabelle, Sammelfach fehlt: {entry}"
-_EMPTY_TEACHER = "In Fachtabelle, kein Lehrer für Fach {sid} in Klasse {klass}"
-#_TEXT_GRADE_CONFLICT = "Fach {sid}, Klasse {klass}: ungültiger Eintrag: {entry}"
-_BAD_COMPOSITE = "Klasse {klass}, Fach '{sid}': ungültiges Sammelfach '{c}'"
-_NO_COMPOSITE = "Klasse {klass} hat kein Sammelfach '{sid}'"
-_NO_COMPONENTS = "Sammelfach {composite}, Klasse {klass} hat keine Komponenten"
-_BAD_TEACHER = ("Klasse {klass}: Unerwarteter Lehrer ({tid}) für"
-        " Schüler {pid} im Fach {sid}")
-_NO_TEACHER = "Klasse {klass}: Kein Lehrer für Schüler {pid} im Fach {sid}"
-_TEACHER_CLASH = ("Klasse {klass}, Wahltabelle: Lehrer für Schüler {pid}"
-        " im Fach {sid} überflüssig")
+_INVALID_KLASS = "Ungültige Klassenbezeichnung: {klass}"
 
 
-from collections import OrderedDict, UserList
+from collections import OrderedDict
 
 from .configuration import Paths
-from .pupils import Pupils, Klass
+from .pupils import Klass
 from .teachers import TeacherData
 # To read subject table:
 from wz_table.dbtable import readDBTable
-# To (re)write class-course matrix
-from wz_table.formattedmatrix import FormattedMatrix
 
 
 class TeacherList(list):
     """A list of teacher-ids.
     There are also flag attributes to indicate whether the list is
     relevant for particular report types: <TEXT> and <GRADE>.
+    The attribute <COMPOSITE> is for grade reports only, it contains
+    the composite-key if the grade is a "composite".
     """
     def __init__(self, commasep, teacherData, rowflag):
         """Convert a comma-separated string into a list.
@@ -166,9 +131,10 @@ class CourseTables:
         The flags may also be prepended to the teacher lists for individual
         classes – in case the handling of the subject varies from class
         to class.
-        Two mappings are built:
-        <self._names>: {sid -> subject name}
-        <self._classses>: {class -> {[ordered] sid -> <TeacherList> instance}
+        The following mappings are built:
+            <self._names>: {sid -> subject name}
+            <self._component>: {sid -> composite-key OR <None>}
+            <self._classses>: {class -> {[ordered] sid -> <TeacherList> instance}
         In the latter there are only entries for non-empty cells (the
         teacher list may, however, be empty).
         """
@@ -188,8 +154,15 @@ class CourseTables:
         # Read the subject rows
         self._classes = {}
         self._names = {}
+        self._component = {}
         for row in data:
             sid = row [0]
+            try:
+                s, tag = sid.rsplit('_', 1)
+                if s:
+                    self._component[sid] = tag or 'null'
+            except ValueError:
+                self._component[sid] = None
             self._names [sid] = row [1]
             flag = row [2]
             # Add to affected classes ({[ordered] sid -> teacher list})
@@ -221,6 +194,7 @@ class CourseTables:
         The result also has the school-class as attribute <klass>.
         """
         sidmap = OrderedDict()
+        sidmap.component = self._component
         sidmap.klass = klass.klass
         for sid, tlist in self._classes[klass.klass].items():
             if filter_ and not getattr(tlist, filter_):

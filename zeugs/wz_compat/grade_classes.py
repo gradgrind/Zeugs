@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-03-31
+Last updated:  2020-04-04
 
 For which school-classes and streams are grade reports possible?
 
@@ -158,13 +158,9 @@ def choiceTable(schoolyear, klass):
     # Go through the template columns and check if they are needed:
     sid2col = {}        # map sid -> column index
     for sid in sid2tlist:
-        try:
-            s, tag = sid.rsplit('_', 1)
-            if s:
-                # Don't include "components" of "composite" subjects
-                continue
-        except ValueError:
-            pass
+        if sid2tlist.component[sid]:
+            # Don't include "components" of "composite" subjects
+            continue
         sname = courses.subjectName(sid)
         # Add subject
         col = table.nextcol()

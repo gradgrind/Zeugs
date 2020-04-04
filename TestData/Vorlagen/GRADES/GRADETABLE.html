@@ -29,17 +29,13 @@
             text-align: center;
         }
 
-        .underline {
-            border-bottom: 0.5pt solid;
-        }
-
         table {
-            font-size: 11pt;
+            font-size: 90%;
             border-collapse: collapse;
         }
 
         th, td {
-            border: 1pt solid black;
+            border: 0.1em solid black;
             text-align: center;
         }
 
@@ -52,9 +48,9 @@
         th.rotate > div {
           transform:
             /* Magic Numbers */
-            translate(0em, 4em)
+            translate(0em, 5em)
             rotate(-90deg);
-          width: 3em;
+          width: 2em;
         }
 
         .row-header {
@@ -88,6 +84,23 @@
             /* font-size: 80%; */
             padding: 0 0.2em;
         }
+
+        .component_null {
+            background-color: #fdd;
+        }
+
+        .component_k {
+            background-color: #ffff80;
+        }
+
+        .composite_k {
+            color: #00e;
+            background-color: #ffff80;
+        }
+
+        .extra {
+            background-color: #afa;
+        }
     </style>
   </head>
 
@@ -104,11 +117,14 @@
             <th>Klasse {{ klass.name }}</th>
             <th></th>
           <!-- Following headers are rotated -->
-        {% for sid, sname in subjects %}
+        {% for sid, sname, ckcss in subjects %}
             {% if not sid %}
             <th class="spacer"></th>
             {% else %}
-            <th class="rotate"><div><span>{{ sname }}</span></div></th>
+            <th class="rotate {{ ckcss if ckcss else ''}}">
+                <div><span>{{ sname }}</span>
+                </div>
+            </th>
             {% endif %}
         {% endfor %}
         </tr>
@@ -119,11 +135,13 @@
                 <th class="row-header">{{ pdata.name() }}</th>
                 <td class="stream">{{ pdata.STREAM }}</td>
             {% set grades = pdata.grades %}
-            {% for sid, sname in subjects %}
+            {% for sid, sname, ckcss in subjects %}
                 {% if not sid %}
                 <td class="spacer"></td>
                 {% else %}
-                <td>{{ grades.get(sid) or '?' }}</td>
+                <td class="{{ ckcss if ckcss else ''}}">
+                    {{ grades.get(sid) or grades.XINFO.get(sid) or '?' }}
+                </td>
                 {% endif %}
             {% endfor %}
             </tr>

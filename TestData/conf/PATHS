@@ -189,6 +189,12 @@ FILE_GRADE_REPORT =& tmp
                    & grade_reports
                    & Zeugnis_*
 
+# Grade display tables (TEMPORARY)
+FILE_GRADE_RESULTS =& tmp
+                    & result_tables_{term}
+                    & Ergebnisse_*
+
+
 # Abitur course choices (12.Gym and 13)
 FILE_SUBJECT_CHOICE_TABLE =& testfiles
                            & Kurswahl

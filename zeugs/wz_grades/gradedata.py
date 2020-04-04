@@ -362,6 +362,10 @@ class GradeReportData:
         return self._GradeManager.VALIDGRADES
 
 
+    def XNAMES(self):
+        return self._GradeManager.XNAMES
+
+
     def gradeManager(self, grades):
         return self._GradeManager(self.schoolyear, self.sid2tlist, grades)
 

@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-03
+Last updated:  2020-04-04
 
 Calculations needed for grade handling.
 
@@ -98,8 +98,6 @@ class _GradeManager(dict):
     The grades in composite subjects can be calculated and made available
     (via the '.'-stripped sid) as an <int>.
     """
-#TODO: This is probably in the template itself (remove here):
-#    NO_ENTRY = '––––––––––' # for "empty" slots in the report template
     ZPAD = 1    # set to 2 to force leading zero (e.g. '6' -> '06')
 
     def __init__(self, schoolyear, sid2tlist, grademap):
@@ -156,10 +154,7 @@ class _GradeManager(dict):
             if g0:
                 REPORT.Fail(_MULTIPLE_SUBJECT, sid=sid0)
             # Differentiate between "normal" and "component" subjects
-            try:
-                _, tag = sid0.split('_', 1)
-            except ValueError:
-                tag = None
+            tag = sid2tlist.component[sid]
             gint = self.gradeFilter(sid, g)
             if gint != None:
                 self.sid0_sid[sid0] = sid
@@ -258,6 +253,13 @@ class GradeManagerN(_GradeManager):
                 '*', 'nt', 't', 'nb', #'ne',
                 _UNCHOSEN
     )
+    XNAMES = {
+            'AVE': 'Φ Alle Fächer',
+            'DEM': 'Φ De-En-Ma',
+            'GS': 'Gleichstellungsvermerk',
+            'V': 'Versetzung (Quali)',
+            'Q12': 'Abschluss 12. Kl.'
+    }
 
 
     def printGrade(self, g):
@@ -495,6 +497,10 @@ class GradeManagerQ1(_GradeManager):
                 '*', 'nt', 't', 'nb', #'ne',
                 _UNCHOSEN
     )
+    XNAMES = {
+            'V13': 'Versetzung (13. Kl.)'
+    }
+
 
 
     def printGrade(self, g):
