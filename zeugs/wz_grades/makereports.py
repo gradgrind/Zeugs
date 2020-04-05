@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-04-04
+Last updated:  2020-04-05
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -114,8 +114,6 @@ def makeReports(klass_streams, pids=None):
                     ks=klass_streams)
     else:
         plist = pall
-    if not plist:
-        REPORT.Fail(_NOPUPILS)
     ### Get a tag mapping for the grade data of each pupil
     # <GradeReportData> manages the report template, etc.:
     reportData = GradeReportData(schoolyear, klass_streams)
@@ -142,12 +140,16 @@ def makeReports(klass_streams, pids=None):
         pdata.gdate_D = gradedata['GDATE_D'] or GDATE_D
         # Add the grades, etc., to the pupil data
         gmap = gradedata['GRADES']
-        pdata.grades = reportData.gradeManager(gmap)
-        reportData.getTagmap(pdata.grades, pdata, rtype)
-        pdata.grades.reportFail(termn, rtype, pdata)
-        pdata.remarks = gradedata['REMARKS']
-        pmaplist.append(pdata)
+        gmanager = reportData.gradeManager(gmap)
+        reportData.getTagmap(gmanager, pdata, rtype)
+        if gmanager.reportFail(termn, rtype, pdata):
+            # true -> include report
+            pdata.grades = gmanager
+            pdata.remarks = gradedata['REMARKS']
+            pmaplist.append(pdata)
 
+    if not pmaplist:
+        REPORT.Fail(_NOPUPILS)
     ### Generate html for the reports
     source = reportData.template.render(
             report_type = rtype,
@@ -221,9 +223,11 @@ def makeOneSheet(schoolyear, pdata, term):
     # Use the class and stream from the grade data
     pdata['CLASS'] = gradedata['CLASS']
     pdata['STREAM'] = gradedata['STREAM']
-    pdata.grades = reportData.gradeManager(gmap)
-    reportData.getTagmap(pdata.grades, pdata, rtype)
-    pdata.grades.reportFail(term, rtype, pdata)
+    gmanager = reportData.gradeManager(gmap)
+    reportData.getTagmap(gmanager, pdata, rtype)
+    if not gmanager.reportFail(term, rtype, pdata):
+        return None
+    pdata.grades = gmanager
     pdata.remarks = gradedata['REMARKS']
 
     ### Generate html for the reports
@@ -263,8 +267,8 @@ def makeOneSheet(schoolyear, pdata, term):
 
 
 ##################### Test functions
-#TODO: check these!
 _year = 2016
+
 def test_01():
     from wz_compat.template import openTemplate, getTemplateTags, pupilFields
     from glob import glob
@@ -284,8 +288,8 @@ def test_02():
         REPORT.Test("\n  Reports for class %s\n" % k)
         _ks = Klass(k)
         try:
-            pdfBytes = makeReports (_ks)
-        except:
+            pdfBytes = makeReports(_ks)
+        except REPORT.RuntimeFail:
             continue
         if pdfBytes:
             fpath = Paths.getYearPath(_year, 'FILE_GRADE_REPORT', make = -1

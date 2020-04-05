@@ -36,7 +36,8 @@ _MISSING_DEM = "Keine Note in diesen Fächern: {sids}"
 _MISSING_SID = "Keine Note im Fach {sid}"
 _BADGRADE = "Ungültige Note im Fach {sid}: {grade}"
 _MISSING_ABI_GRADE = "{pname}: Note fehlt im Abiturfach {sid}"
-_FAIL = "{pname} wird nicht versetzt"
+_FAILV = "{pname} wird nicht versetzt"
+_FAILQ = "{pname} erlangt den Abschluss nicht"
 # ... for Abitur final reports
 _NO_GRADE = "Kein Ergebnis in %s"
 _NULL_ERROR = "0 Punkte in %s"
@@ -466,10 +467,15 @@ class GradeManagerN(_GradeManager):
 
     def reportFail(self, term, rtype, pdata):
         if rtype == 'Zeugnis':
-            if term == '2':
-                if not self.XINFO['V']:
-                    REPORT.Warn(_FAIL, pname = pdata.name())
-
+            if term == '2' and pdata['STREAM'] == 'Gym':
+                if self.XINFO['V'] == '-':
+                    REPORT.Warn(_FAILV, pname = pdata.name())
+            # include even if the pupil failed
+        elif rtype == 'Abschluss':
+            if self.XINFO['Q12'] == '-':
+                REPORT.Warn(_FAILQ, pname = pdata.name())
+                return False    # don't include
+        return True
 
 
 class AbiSubjects(list):
@@ -649,11 +655,12 @@ class GradeManagerQ1(_GradeManager):
         if term == '2':
             if rtype == 'Zeugnis':
                 if self.XINFO['V13'] != 'Erw':
-                    REPORT.Warn(_FAIL, pname = pdata.name())
+                    REPORT.Warn(_FAILV, pname = pdata.name())
         else:
             # This is a hack to ensure that 'Erw' and 'RS' are only
-            # possible at the end of year 12!
+            # possible at the END of year 12!
             self.XINFO['V13'] = 'HS'
+        return True
 
 
 
