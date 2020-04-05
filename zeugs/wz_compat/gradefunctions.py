@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-04
+Last updated:  2020-04-05
 
 Calculations needed for grade handling.
 
@@ -227,7 +227,8 @@ class GradeManagerN(_GradeManager):
      2) Average DEM
      3) Grades "5" and "6"
     """
-    _DEM = ('De', 'En', 'Ma')
+    _DEM = ('De', 'En', 'Ma')   # for RS-Abschluss only
+    _DMF = ('De', 'Ma', 'En', 'Fr', 'Ru', 'La') # for "Ausgleich" rules
     _GRADES = {
             '1': "sehr gut",
             '2': "gut",
@@ -303,18 +304,20 @@ class GradeManagerN(_GradeManager):
 
 #NOTE: According to "Verordnung AVO-Sek_I, 2016", the averages should
 # be truncated, not rounded, but the deviations (2nd decimal place)
-# should be insignificant.
+# should be insignificant anyway.
     def AVE(self):
         """Return the grade average in all subjects in <self.grades>.
         Round to two decimal places, or return <None> if there are
-        be no grades.
+        no grades.
         """
         asum, acount = 0, 0
         for sid, g in self.grades.items():
+#            REPORT.Test('??? %s: %s' % (sid, g))
             asum += g
             acount += 1
         avg = Frac(asum, acount) if acount else None
         self.XINFO['AVE'] = avg.truncate(2)
+#        REPORT.Test('??? ----> %s' % self.XINFO['AVE'])
         return avg
 
 
@@ -336,24 +339,17 @@ class GradeManagerN(_GradeManager):
 
 
     def SekI(self):
-        """A wrapper for <_SekI>.
-        """
-        sek1 = self._SekI()
-        self.XINFO['SEKI'] = '✓' if sek1 else '-'
-        return sek1
-
-    def _SekI(self):
         """Perform general "pass" tests on grades:
-            not more than two times grade "5" or one "6", including
-            compensation possibilities.
+        not more than two times grade "5" or one "6", including
+        compensation possibilities.
         """
 #WARNING: this doesn't handle differing numbers of lessons in the
-# compensating subjects, it only differentiates between DEM subjects
+# compensating subjects, it only differentiates between DMF subjects
 # and the others.
         def compensate(grade):
             for s, g in self.grades.items():
                 if g <= grade:
-                    if (sid not in self._DEM) or (s in self._DEM):
+                    if (sid not in self._DMF) or (s in self._DMF):
                         if s not in [csids]:
                             csids.append(s)
                             return True
@@ -381,9 +377,9 @@ class GradeManagerN(_GradeManager):
             return True
         if len(self.fives) > 2:
             return False
-        # Check DEM subjects first, as they are more difficult to compensate.
+        # Check DMF subjects first, as they are more difficult to compensate.
         sid = self.fives[0]
-        if sid in self._DEM:
+        if sid in self._DMF:
             if compensate(3):
                 sid = self.fives[1]
                 return compensate(3)
@@ -395,18 +391,20 @@ class GradeManagerN(_GradeManager):
         return False
 
 
-#NOTE: If I understand Verordnung "AVO_Sek-I" (2016) correctly, all
-# grades must be 4 or better.
+#NOTE: Concerning leaving before the end of year 12 the "Verordnung
+# AVO-Sek_I, 2016" is in some respects not 100% clear. I interpret it
+# thus: All grades must be 4 or better, but with the possibility for
+# compensation as implemented in the method <SekI>.
     def X_GS(self, pdata):
         """Determine qualification according to criteria for a
         "Gleichstellungsvermerk". Only a "Hauptschulabschluss" is
         possible.
         """
-        xgs = 'HS'
-        for sid0, g in self.grades.items():
-            if self.grades in (5, 6):
-                xgs = ''
-                break
+        xgs = ''
+        if self.SekI():
+            ave = self.AVE()
+            if ave and ave <= Frac(4, 1):
+                xgs = 'HS'
         self.XINFO['GS'] = xgs
         return xgs
 
@@ -432,16 +430,20 @@ class GradeManagerN(_GradeManager):
         self.XINFO['Q12'] = q12
         return q12
 
+#TODO: Actually there should also be a Q11, which is basically the same
+# as Q12 – including the final exams, but "Erw" is not possible
+# ("Verordnung AVO-Sek_I, 2016, §47 Abs 2").
+
 
     def X_V(self, pdata):
         """For the "gymnasial" group, 11th class. Determine qualification
         for the 12th class. Return '✓' or ''.
         """
         v = ''
+        ave = self.AVE()
         klass = pdata['CLASS']
         if (klass.startswith('11') and pdata['STREAM'] == 'Gym'
                 and self.SekI()):
-            ave = self.AVE()
             if ave and ave <= Frac(3, 1):
                 v = '✓'
         self.XINFO['V'] = v

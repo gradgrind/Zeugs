@@ -4,7 +4,7 @@
 """
 wz_grades/maketables.py
 
-Last updated:  2020-04-03
+Last updated:  2020-04-05
 
 Build result tables for the grade groups, including evaluation, etc.
 
@@ -25,11 +25,6 @@ Copyright 2020 Michael Towers
 
 =-LICENCE========================================
 """
-
-#TODO ...
-
-
-
 
 ## Messages
 _MADEKTABLE = "Ergebnistabelle für {ks} erstellt"
@@ -90,6 +85,8 @@ def makeTable(schoolyear, term, ggroup):
         if not gmap:
             REPORT.Warn(_NO_GRADES, pname = pdata.name())
             continue
+
+#        REPORT.Test("??? %s: %s" % (pdata.name(), repr(gmap)))
         gmanager = reportData.gradeManager(gmap)
         gmanager.addDerivedEntries()    # add "composite" subjects
         # Handle "extra" fields
@@ -101,17 +98,36 @@ def makeTable(schoolyear, term, ggroup):
             except:
                 REPORT.Bug("No xfield-handler for %s" % x)
             method(pdata)
-
 #        REPORT.Test("\n  XINFO: %s" % repr(gmanager.XINFO))
         pdata.grades = gmanager
         plist.append(pdata)
+
+    # Calculate width of table
+    sizes = {
+#            'fontsize': 12,     # pt
+            'borderwidth': 0.1, # em
+            'spacerwidth': 0.5, # em
+            'namewidth': 10,    # em
+            'cellwidth': 2.4,   # em
+            'scale': 80         # %
+    }
+    cellw = sizes['cellwidth'] + sizes['borderwidth']
+    spacerw = sizes['spacerwidth'] + sizes['borderwidth']
+    width = sizes['namewidth'] + sizes['borderwidth']*2 + cellw
 
     slist = []
     components = reportData.sid2tlist.component
     for g, sids in reportData.sgroup2sids.items():
         if sids:
             slist.append((None, None, None))
+            width += spacerw
             for sid in sids:
+                # Filter out columns with all '/'
+                for pdata in plist:
+                    if pdata.grades[sid] != '/':
+                        break
+                else:
+                    continue
                 tlist = reportData.sid2tlist[sid]
                 sname = tlist.subject
                 ckey = tlist.COMPOSITE
@@ -125,14 +141,23 @@ def makeTable(schoolyear, term, ggroup):
                     if ckey:
                         ckcss = 'component_' + ckey
                 slist.append((sid, trimName(sname), ckcss))
+                width += cellw
 
     xnames = reportData.XNAMES()
     if reportData.xfields:
         slist.append((None, None, None))
+        width += spacerw
     for x in reportData.xfields:
         if x[0] == '*':
             x = x[1:]
         slist.append((x, trimName(xnames[x]), 'extra'))
+        width += cellw
+
+    # Scaling (via table font) based on estimated width?
+    pagewidth = 842 - 2*28.35 # landscape - margins (height = 595)
+    # BODGE: the factor 0.95 is an experimental value
+    sizes['fontsize'] = str(pagewidth / width * 0.95)[:5]
+    REPORT.Test("$ SIZES: %s" % sizes)
 
     # Get table template
     template = openTemplate('GRADES/GRADETABLE.html')
@@ -144,10 +169,14 @@ def makeTable(schoolyear, term, ggroup):
             date = Dates.today(iso = False),
             subjects = slist,
             pupils = plist,
-            klass = ggroup
+            klass = ggroup,
+            sizes = sizes
         )
-#TODO
-#    return source
+
+#    Return source as html string
+#    fpath = os.path.join(Paths.getYearPath(schoolyear), 'tmp', 'GRADES.html')
+#    with open(fpath, 'w', encoding='utf-8') as fh:
+#        fh.write(source)
 
     # Convert to pdf
     if not plist:
@@ -166,12 +195,6 @@ _term = '2'
 def test_01():
     _ks = Klass('11.Gym')
     pdfBytes = makeTable(_year, _term, _ks)
-
-# Result as html string
-#    fpath = os.path.join(Paths.getYearPath(_year), 'tmp', 'GRADES.html')
-#    with open(fpath, 'w', encoding='utf-8') as fh:
-#        fh.write(pdfBytes)
-
     fpath = Paths.getYearPath(_year, 'FILE_GRADE_RESULTS',
             make = -1, term = _term).replace('*', '%s_%s' % (
                     _term, str(_ks).replace('.', '-'))) + '.pdf'
