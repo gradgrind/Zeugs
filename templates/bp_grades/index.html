@@ -8,17 +8,28 @@
 {% block title %}Startseite{% endblock %}
 
 {% block content %}
-    <h3>Zeugnisart</h3>
-    <p>Notenzeugnisse können für ganze Gruppen nur im „aktuellen“
+    <p>Notenzeugnisse können für ganze Gruppen nur zum „aktuellen“
     Halbjahr erstellt werden. Der Zeugnistyp ist für Gruppe und Halbjahr
-    voreingestellt, sodass Abweichungen nur als Einzelzeugnis erhältlich
-    sind.
+    voreingestellt.
     </p>
-    <p>
-    Für einzelne Schüler können Zeugnisse zu beliebigen Zeitpunkten
-    erstellt werden.
+    <p>Zu anderen Zeitpunkten, auch aus der Vergangenheit, oder für
+    abweichende Zeugnistypen (insbesondere für Abgänge) können nur
+    Einzelzeugnisse erstellt werden.
     </p>
-    <p>Wählen Sie hier die Art Zeugnis, die es zu erstellen gilt:
+
+    <h3>Notentabellen</h3>
+    <ul class="modules">
+        <li><a href="{{url_for('bp_grades.grade_tables')}}">
+            Notentabellen (für die Eingabe der Noten) erstellen
+        </a></li>
+        <li><a href="{{url_for('bp_grades.result_tables')}}">
+            Ergebnistabellen erstellen
+        </a></li>
+        <li><a href="{{url_for('bp_abitur.tests')}}">Abitur: Klausur-Ergebnisse</a></li>
+    </ul>
+
+    <h3>Zeugnisart</h3>
+    <p>Wählen Sie, welche Zeugnisse zu erstellen sind:
     </p>
     <ul class="modules">
         {% if term0 %}
@@ -32,6 +43,7 @@
         <li><a href="{{url_for('bp_grades.klasses')}}">Einzelzeugnisse</a></li>
         <li><a href="{{url_for('bp_abitur.klasses')}}">Abiturzeugnisse</a></li>
     </ul>
+
     <h3>Einstellungen</h3>
     <ul class="modules">
         <li><a href="{{url_for('bp_grades.grade_dates')}}">Notenkonferenz (Datum, usw.)</a></li>
@@ -42,12 +54,5 @@
             Halbjahr abschließen und wechseln
         </a></li>
     {% endif %}
-    </ul>
-    <h3>Weiteres</h3>
-    <ul class="modules">
-        <li><a href="{{url_for('bp_grades.grade_tables')}}">
-            Notentabellen erstellen
-        </a></li>
-        <li><a href="{{url_for('bp_abitur.tests')}}">Abitur: Klausur-Ergebnisse</a></li>
     </ul>
 {% endblock %}

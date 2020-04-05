@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_term.py
 
-Last updated:  2020-04-01
+Last updated:  2020-04-05
 
 "Sub-module" of grades for group term reports
 
@@ -114,6 +114,28 @@ def grade_tables(termn = None, ks = None):
                             termn = termn,
                             klasses = kdates,
                             dfile = dfile)
+
+
+@bp.route('/result_tables', methods=['GET'])
+@bp.route('/result_tables/<termn>', methods=['GET'])
+@bp.route('/result_tables/<termn>/<ks>', methods=['GET'])
+def result_tables(termn = None, ks = None):
+    """Generate grade result tables.
+    """
+    schoolyear = session['year']
+    try:
+        curterm = CurrentTerm(schoolyear)   # check year
+        term0 = curterm.TERM
+    except CurrentTerm.NoTerm:
+        term0 = None
+    if termn:
+        if termn not in CONF.MISC.TERMS:
+            abort(404)
+    else:
+        # Default to the current term
+        return redirect(url_for('bp_grades.result_tables',
+                termn = term0 or '1'))
+    return "TODO"
 
 
 @bp.route('/term', methods=['GET', 'POST'])

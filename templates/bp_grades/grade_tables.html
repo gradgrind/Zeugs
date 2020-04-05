@@ -23,12 +23,16 @@
     <hr />
 
     {% if termn == term0 %}
+    <p>Um eine Notentabelle einzulesen, siehe
+    <a href="{{ url_for('bp_grades.term') }}">diese Seite</a>.
+    </p>
+
     <h2>Konferenzdatum festlegen</h2>
     <p>Um Notentabellen für das „aktuelle“ Halbjahr zu erstellen, muss
     das Datum der Notenkonferenz angegeben werden. Das aktuelle Datum
     steht in Klammern hinter dem Klassennamen in der Liste unten.
     Dieses Datum kann man
-    <a href="{{url_for('bp_grades.grade_dates')}}">hier bearbeiten</a>.
+    <a href="{{ url_for('bp_grades.grade_dates') }}">hier bearbeiten</a>.
     </p>
     {% endif %}
 
@@ -43,13 +47,13 @@
                 <a class="pure-menu-link" href=
                 {% if termn == term0 %}
                     {% if date %}
-                    "{{url_for('bp_grades.grade_tables', termn=termn, ks=ks)}}"
+                    "{{ url_for('bp_grades.grade_tables', termn=termn, ks=ks) }}"
                     {% else %}
-                    "{{url_for('bp_grades.grade_dates')}}"
+                    "{{ url_for('bp_grades.grade_dates') }}"
                     {% endif %}>
                     Klasse/Gruppe {{ ks }} ( {{ date if date else '–––' }} )
                 {% else %}
-                    "{{url_for('bp_grades.grade_tables', termn=termn, ks=ks)}}">
+                    "{{ url_for('bp_grades.grade_tables', termn=termn, ks=ks) }}">
                     Klasse/Gruppe {{ ks }}
                 {% endif %}
                 </a>
