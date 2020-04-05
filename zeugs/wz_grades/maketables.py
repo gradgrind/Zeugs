@@ -34,12 +34,12 @@ _NO_GRADES = "Keine Noten für {pname}"
 _NOPUPILS = "Ergebnistabelle: keine Schüler"
 
 
-import os
+import os, datetime
 
-from weasyprint import HTML, CSS
+from weasyprint import HTML
 from weasyprint.fonts import FontConfiguration
 
-from wz_core.configuration import Paths, Dates
+from wz_core.configuration import Paths
 from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
 from wz_compat.config import printSchoolYear
@@ -50,7 +50,7 @@ from wz_grades.gradedata import GradeReportData, getGradeData
 def trimName(name):
     """Truncate excessively long (subject) names.
     """
-    return name[:16] + '...' if len(name) > 20 else name
+    return name[:21] + '...' if len(name) > 25 else name
 
 
 def makeTable(schoolyear, term, ggroup):
@@ -92,7 +92,7 @@ def makeTable(schoolyear, term, ggroup):
         # Handle "extra" fields
         for x in reportData.xfields:
             if x[0] == '*':
-                continue
+                x = x[1:]
             try:
                 method = getattr(gmanager, 'X_' + x)
             except:
@@ -102,14 +102,16 @@ def makeTable(schoolyear, term, ggroup):
         pdata.grades = gmanager
         plist.append(pdata)
 
+#Test with more lines:
+#    plist = plist + plist + plist + plist
+
     # Calculate width of table
     sizes = {
-#            'fontsize': 12,     # pt
+            'marginwidth': 28,  # pt
             'borderwidth': 0.1, # em
             'spacerwidth': 0.5, # em
             'namewidth': 10,    # em
             'cellwidth': 2.4,   # em
-            'scale': 80         # %
     }
     cellw = sizes['cellwidth'] + sizes['borderwidth']
     spacerw = sizes['spacerwidth'] + sizes['borderwidth']
@@ -153,27 +155,39 @@ def makeTable(schoolyear, term, ggroup):
         slist.append((x, trimName(xnames[x]), 'extra'))
         width += cellw
 
-    # Scaling (via table font) based on estimated width?
-    pagewidth = 842 - 2*28.35 # landscape - margins (height = 595)
-    # BODGE: the factor 0.95 is an experimental value
-    sizes['fontsize'] = str(pagewidth / width * 0.95)[:5]
-    REPORT.Test("$ SIZES: %s" % sizes)
+    # Scaling (via table font) based on estimated width
+    pagewidthL = 842 - 2*sizes['marginwidth']   # landscape
+    pagewidthP = 595 - 2*sizes['marginwidth']   # portrait
+    BODGE = 0.95    # this factor is an experimental value
+    fontsize = pagewidthP / width * BODGE
+    if fontsize < 10:
+        # Use "landscape"
+        fontsize = pagewidthL / width * BODGE
+        sizes['orientation'] = 'landscape'
+    else:
+        sizes['orientation'] = 'portrait'
+    if fontsize > 12:
+        fontsize = '12'
+    else:
+        fontsize = str(fontsize)[:5]
+    sizes['fontsize'] = fontsize
+#    REPORT.Test("$ SIZES: %s" % sizes)
 
     # Get table template
     template = openTemplate('GRADES/GRADETABLE.html')
+    now = datetime.datetime.now()
     ### Generate html for the table
     source = template.render(
             SCHOOLYEAR = printSchoolYear(schoolyear),
             term = term,
-#time with hms?
-            date = Dates.today(iso = False),
+            date = now.isoformat(timespec = 'minutes', sep = ' '),
             subjects = slist,
             pupils = plist,
             klass = ggroup,
             sizes = sizes
         )
 
-#    Return source as html string
+#    Source as html string
 #    fpath = os.path.join(Paths.getYearPath(schoolyear), 'tmp', 'GRADES.html')
 #    with open(fpath, 'w', encoding='utf-8') as fh:
 #        fh.write(source)
@@ -191,23 +205,25 @@ def makeTable(schoolyear, term, ggroup):
 
 ##################### Test functions
 _year = 2016
-_term = '2'
-def test_01():
-    _ks = Klass('11.Gym')
-    pdfBytes = makeTable(_year, _term, _ks)
-    fpath = Paths.getYearPath(_year, 'FILE_GRADE_RESULTS',
-            make = -1, term = _term).replace('*', '%s_%s' % (
-                    _term, str(_ks).replace('.', '-'))) + '.pdf'
-    with open(fpath, 'wb') as fh:
-        fh.write(pdfBytes)
 
-def test_02():
-    return
-    _term = '2'
-    for _ks0 in '11', '12.RS-HS-_', '12.Gym':
+def test_01():
+    _term = '1'
+    for _ks0 in '11.RS-HS-_', '11.Gym', '12.RS-HS-_', '12.Gym', '13':
         _ks = Klass(_ks0)
         pdfBytes = makeTable(_year, _term, _ks)
-        folder = Paths.getUserPath ('DIR_GRADE_REPORT_TEMPLATES')
-        fpath = os.path.join (folder, 'test_%s_%s.pdf' % (_ks, _term))
+        fpath = Paths.getYearPath(_year, 'FILE_GRADE_RESULTS',
+                make = -1, term = _term).replace('*', '%s_%s' % (
+                        _term, _ks0.replace('.', '-'))) + '.pdf'
+        with open(fpath, 'wb') as fh:
+            fh.write(pdfBytes)
+
+def test_02():
+    _term = '2'
+    for _ks0 in '10', '11.Gym', '11.RS-HS-_', '12.RS-HS-_', '12.Gym', '13':
+        _ks = Klass(_ks0)
+        pdfBytes = makeTable(_year, _term, _ks)
+        fpath = Paths.getYearPath(_year, 'FILE_GRADE_RESULTS',
+                make = -1, term = _term).replace('*', '%s_%s' % (
+                        _term, _ks0.replace('.', '-'))) + '.pdf'
         with open(fpath, 'wb') as fh:
             fh.write(pdfBytes)

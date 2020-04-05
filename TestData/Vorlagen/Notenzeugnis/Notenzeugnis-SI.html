@@ -336,13 +336,13 @@
             {% endif %}
             <!-- Versetzung -->
             {% set GS = grades.XINFO['GS'] %}
-            {% if report_type == 'Zeugnis' and grades.XINFO['V'] %}
+            {% if report_type == 'Zeugnis' and grades.XINFO['V'] != '-' %}
             {% set remarks = True %}
             <p style="margin: 2mm 5mm; font-size: 11pt;">
                 Durch Konferenzbeschluss vom {{todate(pupil.gdate_D)}}
                 in die Qualifikationsphase versetzt.
             </p>
-            {% elif report_type == 'Abgang' and GS %}
+            {% elif report_type == 'Abgang' and GS != '-' %}
             <!-- Gleichstellungsvermerk -->
             <p style="margin: 2mm 5mm; font-size: 11pt;">
 <!-- Im Sek-I ist eigentlich nur 'HS' möglich -->

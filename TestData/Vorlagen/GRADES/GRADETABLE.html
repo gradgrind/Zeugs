@@ -17,7 +17,7 @@
             font-size: 12pt;
         }
         @page {
-            size: A4 landscape;
+            size: A4 {{ sizes.orientation }};
             margin: 10mm 10mm 10mm 10mm;
         }
 
@@ -74,7 +74,7 @@
         }
 
         .component_null {
-            background-color: #fdd;
+            background-color: #ddf0ff;
         }
 
         .component_k {
@@ -88,6 +88,10 @@
 
         .extra {
             background-color: #afa;
+        }
+
+        .warn {
+            background-color: #ffa8a8;
         }
     </style>
   </head>
@@ -127,8 +131,9 @@
                 {% if not sid %}
                 <td class="spacer"></td>
                 {% else %}
-                <td class="{{ ckcss if ckcss else ''}}">
-                    {{ grades.get(sid) or grades.XINFO.get(sid) or '?' }}
+                {% set g = grades.get(sid) or grades.XINFO.get(sid) %}
+                <td class="{{ 'warn' if not g else ckcss if ckcss else ''}}">
+                    {{ g or '?' }}
                 </td>
                 {% endif %}
             {% endfor %}

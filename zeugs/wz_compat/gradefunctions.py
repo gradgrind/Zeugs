@@ -305,23 +305,28 @@ class GradeManagerN(_GradeManager):
 #NOTE: According to "Verordnung AVO-Sek_I, 2016", the averages should
 # be truncated, not rounded, but the deviations (2nd decimal place)
 # should be insignificant anyway.
-    def AVE(self):
+    def X_AVE(self, pdata = None):
         """Return the grade average in all subjects in <self.grades>.
         Round to two decimal places, or return <None> if there are
         no grades.
         """
+        try:
+            return self._AVE
+        except:
+            pass
         asum, acount = 0, 0
         for sid, g in self.grades.items():
 #            REPORT.Test('??? %s: %s' % (sid, g))
             asum += g
             acount += 1
         avg = Frac(asum, acount) if acount else None
+        self._AVE = avg
         self.XINFO['AVE'] = avg.truncate(2)
 #        REPORT.Test('??? ----> %s' % self.XINFO['AVE'])
         return avg
 
 
-    def DEM(self):
+    def X_DEM(self, pdata = None):
         """Return the grade average in the subjects De, En, Ma.
         Round to two decimal places, or return <None> if one or more
         grades are missing.
@@ -346,63 +351,71 @@ class GradeManagerN(_GradeManager):
 #WARNING: this doesn't handle differing numbers of lessons in the
 # compensating subjects, it only differentiates between DMF subjects
 # and the others.
-        def compensate(grade):
+        def compensate(sid, grade):
             for s, g in self.grades.items():
                 if g <= grade:
                     if (sid not in self._DMF) or (s in self._DMF):
-                        if s not in [csids]:
+                        if s not in csids:
                             csids.append(s)
                             return True
             return False
 
-        # Build lists of "fives" and "sixes".
-        self.fives = []
-        self.sixes = []
-        for sid0, g in self.grades.items():
-            if g == 5:
-                self.fives.append(sid0)
-            elif g == 6:
-                self.sixes.append(sid0)
+        def seki():
+            # Build lists of "fives" and "sixes".
+            self.fives = []
+            self.sixes = []
+            for sid0, g in self.grades.items():
+                if g == 5:
+                    self.fives.append(sid0)
+                elif g == 6:
+                    self.sixes.append(sid0)
 
-        csids = []      # used compensation subjects
-        if self.sixes:
-            if self.fives or len(self.sixes) > 1:
-                return False
-            sid = self.sixes[0]
-            if compensate(2):
+            if self.sixes:
+                if self.fives or len(self.sixes) > 1:
+                    return False
+                sid = self.sixes[0]
+                if compensate(sid, 2):
+                    return True
+                return compensate(sid, 3) and compensate(sid, 3)
+
+            if len(self.fives) < 2:
                 return True
-            return compensate(3) and compensate(3)
-
-        if len(self.fives) < 2:
-            return True
-        if len(self.fives) > 2:
-            return False
-        # Check DMF subjects first, as they are more difficult to compensate.
-        sid = self.fives[0]
-        if sid in self._DMF:
-            if compensate(3):
+            if len(self.fives) > 2:
+                return False
+            # Check DMF subjects first, as they are more difficult to compensate.
+            sid = self.fives[0]
+            if sid in self._DMF:
+                if compensate(sid, 3):
+                    sid = self.fives[1]
+                    return compensate(sid, 3)
+            else:
                 sid = self.fives[1]
-                return compensate(3)
-        else:
-            sid = self.fives[1]
-            if compensate(3):
-                sid = self.fives[0]
-                return compensate(3)
-        return False
+                if compensate(sid, 3):
+                    sid = self.fives[0]
+                    return compensate(sid, 3)
+            return False
+
+        try:
+            return self._SEKI
+        except:
+            pass
+        csids = []      # used compensation subjects
+        self._SEKI = seki()
+        return self._SEKI
 
 
 #NOTE: Concerning leaving before the end of year 12 the "Verordnung
 # AVO-Sek_I, 2016" is in some respects not 100% clear. I interpret it
 # thus: All grades must be 4 or better, but with the possibility for
 # compensation as implemented in the method <SekI>.
-    def X_GS(self, pdata):
+    def X_GS(self, pdata = None):
         """Determine qualification according to criteria for a
         "Gleichstellungsvermerk". Only a "Hauptschulabschluss" is
         possible.
         """
-        xgs = ''
+        xgs = '-'
         if self.SekI():
-            ave = self.AVE()
+            ave = self.X_AVE()
             if ave and ave <= Frac(4, 1):
                 xgs = 'HS'
         self.XINFO['GS'] = xgs
@@ -413,11 +426,11 @@ class GradeManagerN(_GradeManager):
         """Determine qualification at end of 12th year for a "Realschüler"
         or a "Hauptschüler".
         """
-        q12 = ''
+        q12 = '-'
         stream = pdata['STREAM']
         if self.SekI():
-            ave = self.AVE()
-            dem = self.DEM()
+            ave = self.X_AVE()
+            dem = self.X_DEM()
             if ave and dem:
                 tst = ave if ave > dem else dem
                 if stream == 'RS':
@@ -437,10 +450,10 @@ class GradeManagerN(_GradeManager):
 
     def X_V(self, pdata):
         """For the "gymnasial" group, 11th class. Determine qualification
-        for the 12th class. Return '✓' or ''.
+        for the 12th class. Return '✓' or '-'.
         """
-        v = ''
-        ave = self.AVE()
+        v = '-'
+        ave = self.X_AVE()
         klass = pdata['CLASS']
         if (klass.startswith('11') and pdata['STREAM'] == 'Gym'
                 and self.SekI()):
@@ -559,6 +572,7 @@ class GradeManagerQ1(_GradeManager):
             if g == None:
                 REPORT.Error(_MISSING_ABI_GRADE, pname = pdata.name(),
                         sid = sid)
+                self[sid] = None    # It might have been 'nt', '*', etc.
                 return False
             if g == 0:
                 if zerop:
