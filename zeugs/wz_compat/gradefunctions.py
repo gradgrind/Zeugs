@@ -432,14 +432,15 @@ class GradeManagerN(_GradeManager):
             ave = self.X_AVE()
             dem = self.X_DEM()
             if ave and dem:
-                tst = ave if ave > dem else dem
-                if stream == 'RS':
-                    if tst <= Frac(3, 1):
-                        q12 = 'Erw'
-                    elif tst <= Frac(4, 1):
-                        q12 = 'RS'
-                elif stream == 'HS' and tst <= Frac(4, 1):
-                    q12 = 'HS'
+                if ave <= Frac(4, 1):
+                    # This is necessary for all qualifications
+                    if stream == 'HS':
+                        q12 = 'HS'
+                    elif stream == 'RS':
+                        if ave <= Frac(3, 1) and dem <= Frac(3, 1):
+                            q12 = 'Erw'
+                        else:
+                            q12 = 'RS'
         self.XINFO['Q12'] = q12
         return q12
 
