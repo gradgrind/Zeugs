@@ -4,7 +4,7 @@
 """
 wz_grades/maketables.py
 
-Last updated:  2020-04-05
+Last updated:  2020-04-06
 
 Build result tables for the grade groups, including evaluation, etc.
 
@@ -27,7 +27,6 @@ Copyright 2020 Michael Towers
 """
 
 ## Messages
-_MADEKTABLE = "Ergebnistabelle für {ks} erstellt"
 _WRONG_CLASS = "{pname} hat die Klasse gewechselt"
 _WRONG_GROUP = "{pname} hat die Gruppe gewechselt"
 _NO_GRADES = "Keine Noten für {pname}"
@@ -198,7 +197,6 @@ def makeTable(schoolyear, term, ggroup):
     html = HTML(string=source,
             base_url=os.path.dirname(template.filename))
     pdfBytes = html.write_pdf(font_config = FontConfiguration())
-    REPORT.Info(_MADEKTABLE, ks = ggroup)
     return pdfBytes
 
 
@@ -216,6 +214,8 @@ def test_01():
                         _term, _ks0.replace('.', '-'))) + '.pdf'
         with open(fpath, 'wb') as fh:
             fh.write(pdfBytes)
+        REPORT.Info("Generated result table for %s" % _ks0)
+
 
 def test_02():
     _term = '2'
@@ -227,3 +227,4 @@ def test_02():
                         _term, _ks0.replace('.', '-'))) + '.pdf'
         with open(fpath, 'wb') as fh:
             fh.write(pdfBytes)
+        REPORT.Info("Generated result table for %s" % _ks0)

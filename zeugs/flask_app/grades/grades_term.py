@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_term.py
 
-Last updated:  2020-04-05
+Last updated:  2020-04-06
 
 "Sub-module" of grades for group term reports
 
@@ -42,6 +42,7 @@ from wz_core.pupils import Klass
 from wz_table.dbtable import readPSMatrix
 from wz_grades.gradedata import grades2db, db2grades, CurrentTerm, getTermTypes
 from wz_grades.makereports import makeReports
+from wz_grades.maketables import makeTable
 from wz_grades.gradetable import makeBasicGradeTable
 from wz_compat.grade_classes import gradeGroups, needGradeDate
 
@@ -135,7 +136,46 @@ def result_tables(termn = None, ks = None):
         # Default to the current term
         return redirect(url_for('bp_grades.result_tables',
                 termn = term0 or '1'))
-    return "TODO"
+
+    klasses = REPORT.wrap(gradeGroups, termn, suppressok = True)
+    if not klasses:
+        flash(_NO_CLASSES.format(term = termn), "Error")
+        return redirect(url_for('bp_grades.index'))
+
+    # File to download
+    try:
+        dfile = session.pop('result-table')
+    except:
+        dfile = None
+
+    if ks:
+        klass = Klass(ks)
+        # GET: Generate the table
+        if klass.inlist(klasses):
+            pdfBytes = REPORT.wrap(makeTable, schoolyear, termn, klass,
+                    suppressok = True)
+            if pdfBytes:
+                dfile = 'Ergebnisse-%d_%s_%s.pdf' % (schoolyear, termn,
+                        ks.replace('.', '-'))
+                session['filebytes'] = pdfBytes
+#WARNING: This is not part of the official flask API, it might change!
+                if not session.get("_flashes"):
+                    # There are no messages: send the file for downloading.
+                    return redirect(url_for('download', dfile = dfile))
+                # If there are messages, the template will show these
+                # and then make the file available for downloading.
+                session['result-table'] = dfile
+                return redirect(url_for('bp_grades.result_tables',
+                        termn = termn))
+        else:
+            abort(404)
+
+    return render_template(os.path.join(_BPNAME, 'result_tables.html'),
+                            heading = _HEADING,
+                            term0 = term0,
+                            termn = termn,
+                            klasses = klasses,
+                            dfile = dfile)
 
 
 @bp.route('/term', methods=['GET', 'POST'])
@@ -250,8 +290,7 @@ def reports(ks):
                 session['download'] = ('Notenzeugnis_%s.pdf'
                         % str(klass).replace('.', '-'))
                 session.pop('nextpage', None)
-                return redirect(url_for('bp_grades.term',
-                        termn = termn))
+                return redirect(url_for('bp_grades.term'))
         else:
             flash("** Keine Schüler ... **", "Warning")
 

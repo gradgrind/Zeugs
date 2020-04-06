@@ -60,20 +60,28 @@
             border-collapse: separate;
             border-spacing: 2mm 3mm;
         }
+        .subjects {
+            width: 170mm;
+            margin: 0 auto;
+            font-size: 11pt;
+            border-collapse: separate;
+            border-spacing: 2mm 3mm;
+        }
         .subjects td {
             height: 10mm;
             width: 33mm;
         }
-        .sbj1 {
-            padding: 0 3mm 0 0;
+        .subjects td.midspace {
+            width: 2mm;
         }
-        .sbj2 {
-            padding: 0 3mm 0 10mm;
+        .sbj1 {
+            padding: 0;
         }
         .grade {
             background-color: #eee;
             font-style: italic;
-            padding: 0 3mm;
+            padding: 0;
+            text-align: center;
         }
         .signbox {
             display: inline-block;
@@ -139,6 +147,7 @@
             {% endif %}
                 <td class="sbj1">{{ s }}</td>
                 <td class="grade">{{ g }}</td>
+                <td class="midspace"></td>
             {% set sg = grades.GET('S') %}
             {% if sg %}{% set s, g = sg %}
             {% else %}{% set s, g = EMPTY, EMPTY %}
@@ -161,6 +170,7 @@
             {% endif %}
                 <td class="sbj1">{{ s }}</td>
                 <td class="grade">{{ g }}</td>
+                <td class="midspace"></td>
             {% set sg = grades.GET('K') %}
             {% if sg %}{% set s, g = sg %}
             {% else %}{% set s, g = EMPTY, EMPTY %}
