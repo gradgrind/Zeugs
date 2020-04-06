@@ -41,8 +41,8 @@ from weasyprint.fonts import FontConfiguration
 from wz_core.configuration import Paths
 from wz_core.pupils import Pupils, Klass
 from wz_core.db import DB
+from wz_core.template import openTemplate
 from wz_compat.config import printSchoolYear
-from wz_compat.template import openTemplate
 from wz_grades.gradedata import GradeReportData, getGradeData
 
 

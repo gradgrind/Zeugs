@@ -4,7 +4,7 @@
 """
 flask_app/text_cover/text_cover.py
 
-Last updated:  2020-01-26
+Last updated:  2020-04-06
 
 Flask Blueprint for text report cover sheets
 
@@ -41,8 +41,8 @@ from types import SimpleNamespace
 from wz_core.configuration import Dates
 from wz_core.db import DB
 from wz_core.pupils import Pupils, Klass
+from wz_core.template import getTextTemplate, getTemplateTags, pupilFields
 from wz_compat.config import sortingName
-from wz_compat.template import getTextTemplate, getTemplateTags, pupilFields
 from wz_text.coversheet import makeSheets, makeOneSheet
 
 _HEADING = "Textzeugnis"

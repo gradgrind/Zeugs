@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/template.py
+wz_core/template.py
 
-Last updated:  2020-04-04
+Last updated:  2020-04-06
 
 Functions for template handling.
 
@@ -35,7 +35,7 @@ import os, re
 
 import jinja2
 
-from wz_core.configuration import Paths, Dates
+from .configuration import Paths, Dates
 
 class TemplateError(Exception):
     pass

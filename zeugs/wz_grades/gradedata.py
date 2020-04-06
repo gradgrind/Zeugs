@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-04-04
+Last updated:  2020-04-06
 
 Handle the data for grade reports.
 
@@ -60,7 +60,7 @@ from wz_core.configuration import Paths, Dates
 from wz_core.db import DB, UpdateError
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
-from wz_compat.template import getGradeTemplate, getTemplateTags, TemplateError
+from wz_core.template import getGradeTemplate, getTemplateTags, TemplateError
 from wz_compat.gradefunctions import Manager
 from wz_compat.grade_classes import gradeGroups
 from wz_table.dbtable import readPSMatrix

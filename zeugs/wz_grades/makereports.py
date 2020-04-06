@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-04-05
+Last updated:  2020-04-06
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -270,7 +270,7 @@ def makeOneSheet(schoolyear, pdata, term):
 _year = 2016
 
 def test_01():
-    from wz_compat.template import openTemplate, getTemplateTags, pupilFields
+    from wz_core.template import openTemplate, getTemplateTags, pupilFields
     from glob import glob
     fbase = Paths.getUserPath('DIR_TEMPLATES')
     fx = 'Notenzeugnis/*.html'
