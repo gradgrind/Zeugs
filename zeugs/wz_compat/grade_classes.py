@@ -38,6 +38,7 @@ _NOPUPILS = "Keine Schüler"
 _NSUBJECTS = "Für {pname} sind nicht genau 8 Fächer markiert"
 _ABI_CHOICES = "{pname} muss genau 8 Fächer für das Abitur wählen"
 _BAD_DATE_GROUP = "Ungültige Zeugnisgruppe: {group}"
+_STREAM NOT_IN_KLASS = "Gruppe {stream} ist nicht möglich in Klasse {klass}"
 
 
 from wz_core.db import DB
@@ -46,6 +47,39 @@ from wz_core.pupils import Klass, Pupils
 from wz_core.courses import CourseTables
 from wz_table.dbtable import readPSMatrix
 from wz_table.matrix import KlassMatrix
+
+
+def klass2streams(class_, stream = None):
+    """If stream <s> not supplied, return a list of permissible streams
+    for the given school-class.
+    If <s> is supplied, return a list of streams which can be switched
+    to from the given one, with the same grade scale.
+    The sense of this latter function is a bit questionable, as a stream
+    switch presumably means a different assessment is necessary ...
+    """
+    # Check <k> is valid.
+    try:
+        klass = Klass(k)
+        if klass.streams:
+            raise ValueError
+        if klass.klass < "01" or klass.klass >= "14":
+            raise ValueError
+    except:
+        REPORT.Fail(_INVALID_KLASS, klass = class_)
+    streams = {}
+    for s, tags in CONF.GRADES.STREAMS.items():
+        tag = klass.match_map(tags)
+        if tag:
+            streams[s] = [] if tag == '-' else tag.split()
+    if not streams:
+        REPORT.Fail(_INVALID_KLASS, klass = class_)
+    if stream:
+        try:
+            return streams[stream]
+        except:
+            REPORT.Fail(_STREAM NOT_IN_KLASS, klass = class_,
+                    stream = stream)
+    return sorted(streams)
 
 
 def gradeGroups(term):

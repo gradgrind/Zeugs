@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_term.py
 
-Last updated:  2020-04-06
+Last updated:  2020-04-08
 
 "Sub-module" of grades for group term reports
 
@@ -40,7 +40,8 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wz_core.configuration import Dates
 from wz_core.pupils import Klass
 from wz_table.dbtable import readPSMatrix
-from wz_grades.gradedata import grades2db, db2grades, CurrentTerm, getTermTypes
+from wz_grades.gradedata import (grades2db, getPupilList, CurrentTerm,
+        getTermTypes)
 from wz_grades.makereports import makeReports
 from wz_grades.maketables import makeTable
 from wz_grades.gradetable import makeBasicGradeTable
@@ -295,7 +296,7 @@ def reports(ks):
             flash("** Keine Schüler ... **", "Warning")
 
     # GET
-    pdlist = REPORT.wrap(db2grades, schoolyear, termn, klass, rtype,
+    pdlist = REPORT.wrap(getPupilList, schoolyear, termn, klass, rtype,
             suppressok = True)
     MIN_D, MAX_D = Dates.checkschoolyear(schoolyear)
     return render_template(os.path.join(_BPNAME, 'reports.html'),

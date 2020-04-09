@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 
 """
-flask_app/grades/grade_edit.py
+flask_app/grades/user_grades.py
 
-Last updated:  2020-02-29
+Last updated:  2020-04-06
 
-Flask Blueprint for editing grades (single teacher / subject)
+Flask Blueprint for handling user acces to grades, especially for
+entering/editing grades.
 
 =+LICENCE=============================
-Copyright 2019-2020 Michael Towers
+Copyright 2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -65,7 +66,7 @@ from wz_compat.gradefunctions import gradeCalc
 
 
 # Set up Blueprint
-_BPNAME = 'bp_grade_edit'
+_BPNAME = 'bp_user_grades'
 bp = Blueprint(_BPNAME,             # internal name of the Blueprint
         __name__)                   # allows the current package to be found
 
@@ -76,16 +77,28 @@ def index():
                             heading=_HEADING)
 
 
-@bp.route('/editgrades/<termn>/<ks>/<sid>', methods=['GET', 'POST'])
-def editgrades(termn, ks, sid):
+@bp.route('/editgrades/<ks>/<sid>', methods=['GET', 'POST'])
+def editgrades(ks, sid):
     """View: edit the grades for a class/group in a particular subject.
+    Only the "current" term is available – and then only until the
+    grades for the group in question are locked.
     Respect editing permissions for the user.
     """
     schoolyear = session['year']
+    try:
+        curterm = CurrentTerm(schoolyear)   # check year
+        term = curterm.TERM
+    except CurrentTerm.NoTerm:
+        abort(404)
+#TODO: For a normal user, the year should be automatically correct.
+# An admin user could, however, change the year ... How to deal with that?
+
+#TODO
+
     tid = session['user_id']
     klass_stream = Klass(ks)
     courses = CourseTables(schoolyear)
-    sid2tlist = courses.classSubjects(klass_stream, 'GRADE', keep=True)
+    sid2tlist = courses.classSubjects(klass_stream, 'GRADE')
     tlist0 = sid2tlist.get(sid)
     if not tlist0:
         abort(404)
@@ -95,12 +108,14 @@ def editgrades(termn, ks, sid):
     elif 'u' in perms and tid in tlist0:
         admin = False
     else:
-        flash("{tid} unterrichtet nicht {sid} in {ks}".format(tid = tid,
-                sid = sid, ks = ks), "Error")
-#TODO
-        # go to subject choice page?
+        flash("Sie ({tid}) unterrichten nicht {sid} in {ks}".format(
+                tid = tid, sid = sid, ks = ks), "Error")
+        return redirect(url_for('bp_user_grades.index'))
 
-# or just abort?
+
+#TODO
+
+
     # Get pupil/grade list: [(pid, pname, {subject -> grade}), ...]
     pglist = db2grades(schoolyear, termn, klass_stream)
 

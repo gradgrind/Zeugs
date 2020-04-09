@@ -1,9 +1,9 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_table/dbtable.py
 
-Last updated:  2020-02-07
+Last updated:  2020-04-08
 
 Read and write a database-like table using a spreadsheet file (xlsx).
 Each file has fields and rows, like a relational db, but there may also
@@ -196,6 +196,12 @@ def makeDBTable (filepath, title, fields, values, kvpairs=None):
     sheet.save (filepath)
 
 
+class GradeDict(dict):
+    """A mapping for grades, {sid -> grade}, with the possibility of
+    setting additional attributes, e.g. <stream>.
+    """
+    pass
+
 
 _SUBJECTSCOL = 3    # first column (0-based index) with subject-tag
 def readPSMatrix(filepath):
@@ -221,11 +227,11 @@ def readPSMatrix(filepath):
     # Read the pupil rows
     for row in table:
         pid = row[0]
-        # The pupil's name and stream are for display info only, they are
-        # not included in the result.
+        # The pupil's name is for display info only and not included in
+        # the result.
         #pname = row[1]
-        #stream = row[2]
-        values = {}
+        values = GradeDict()
+        values.stream = row[2]
         pupils[pid] = values
         for sid, col in sids.items():
             val = row[col]

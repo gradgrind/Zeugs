@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_single.py
 
-Last updated:  2020-04-03
+Last updated:  2020-04-08
 
 "Sub-module" of grades for single reports
 
@@ -47,7 +47,7 @@ from wz_core.db import DB
 from wz_grades.gradedata import (CurrentTerm, getTermTypes,
         getGradeData, GradeReportData, singleGrades2db)
 from wz_grades.makereports import makeOneSheet
-from wz_compat.grade_classes import needGradeDate, getGradeGroup
+from wz_compat.grade_classes import needGradeDate, getGradeGroup, klass2streams
 
 
 ########### Views for single reports ###########
@@ -101,6 +101,7 @@ def pupils(klass):
     )
 
 
+
 @bp.route('/pupil/<pid>', methods=['GET'])
 def pupil(pid):
     """Select report type and [edit-existing vs. new] for single report.
@@ -114,7 +115,9 @@ def pupil(pid):
     pdata = Pupils(schoolyear).pupil(pid)
     # Get existing grade entries for the pupil
     dates, _terms = [], {}
-    for row in DB(schoolyear).select('GRADES', PID = pid):
+    with DBT(schoolyear) as db:
+        rows = db.select('GRADES', PID = pid)
+    for row in rows:
         t = row['TERM']
         rtype = row['REPORT_TYPE']
         gklass = Klass.fromKandS(row['CLASS'], row['STREAM'])
@@ -157,6 +160,7 @@ def pupil(pid):
     # Ensure that there are fields for each valid term
     terms = []
     for t in CONF.MISC.TERMS:
+#TODO: Maybe only existing GRADES entries, current term and new X?
         rtype = _terms.get(t)
         if rtype:
             terms.append((t, rtype))
@@ -233,7 +237,7 @@ def grades_pupil(pid, rtag):
 
         # Dates ...
         if pdata.TERM0 == rtag:
-            # Need the containing group, not the pupil/grade group!
+            # Need the containing grade-group, not the pupil/grade group!
             ggroup = str(getGradeGroup(rtag, klass))
             dates = curterm.dates().get(ggroup)
             if dates:
@@ -305,5 +309,5 @@ def grades_pupil(pid, rtag):
             subjects = subjects,
             pdata = pdata,
             termn = rtag if rtag in CONF.MISC.TERMS else None,
-            klass = gdata.klassdata
+            astreams = klass2streams(pdata.GKLASS.klass, pdata.GKLASS.stream)
     )

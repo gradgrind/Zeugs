@@ -3,14 +3,15 @@
 """
 wz_table/formattedmatrix.py
 
-Last updated:  2019-10-14
+Last updated:  2020-04-08
 
 Handles creation of spreadsheet tables having "subjects" as columns and
 pupils as rows.
 
+NOT USED AT PRESENT, BUT IT MIGHT BE USEFUL?
 
 =+LICENCE=============================
-Copyright 2018-2019 Michael Towers
+Copyright 2018-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -36,6 +37,8 @@ from .spreadsheet_make import NewSpreadsheet, TableStyle
 from .dbtable import readDBTable, digestDBTable
 
 
+COLOUR_INVALID = '888888'
+COLOUR_SPACER = '777777'
 
 class FormattedMatrix:
     def __init__ (self, schoolyear, filetag, klass=None, **kargs):
@@ -141,9 +144,9 @@ class FormattedMatrix:
         h1Style = TableStyle (font = font, size = fsize, align = 'l')
         # For entries with no choice:
         invalidStyle = TableStyle (font = font, size = fsize,
-                align = 'c', background = CONF.COLOURS.INVALID)
+                align = 'c', background = COLOUR_INVALID)
         padStyle = TableStyle (border = 0,
-                background = CONF.COLOURS.SPACER)
+                background = COLOUR_SPACER)
         # This one is for entry fields, allowing editing. It can also be
         # used as a base for alternative entry styles (see <newEntryStyle>).
         entryStyle = self.newEntryStyle ()

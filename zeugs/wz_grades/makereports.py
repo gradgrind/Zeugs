@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-04-06
+Last updated:  2020-04-08
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -64,7 +64,7 @@ from wz_core.db import DB
 from wz_compat.config import printSchoolYear, printStream
 from wz_compat.grade_classes import getGradeGroup
 from wz_grades.gradedata import (GradeReportData, CurrentTerm,
-        getGradeData, updateGradeReport, getTermTypes)
+        getGradeData, getTermTypes)
 
 
 def makeReports(klass_streams, pids=None):

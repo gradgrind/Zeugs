@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-03-25
+wz_core/pupils.py - last updated 2020-04-08
 
 Database access for reading pupil data.
 
@@ -22,12 +22,18 @@ Copyright 2019-2020 Michael Towers
    limitations under the License.
 """
 
+_UNKNOWN_PID = "Schüler „{pid]“ ist nicht bekannt"
+
+
 from fnmatch import fnmatchcase
 from collections import OrderedDict, UserList
 
-from .db import DB
+from .db import DBT
 
 
+#TODO: Especially with the "optional" stream suffices and the multiple
+# stream possibilities this is rather more complicated than I like.
+# Perhaps it can be simplified in some gratifying way?
 class Klass:
     """An object representing a school-class, or one or more streams
     within a school-class.
@@ -117,9 +123,10 @@ class Klass:
     def klassStreams (self, schoolyear):
         """Return a sorted list of stream names for this school-class.
         """
-        return sorted([s or '_'
-                for s in DB(schoolyear).selectDistinct('PUPILS', 'STREAM',
-                        CLASS=self.klass)])
+        with DBT(schoolyear) as db:
+            return sorted([s or '_'
+                    for s in db.selectDistinct('PUPILS', 'STREAM',
+                            CLASS = self.klass)])
 
 
     def containsStream(self, stream):
@@ -173,7 +180,7 @@ class PupilData(list):
         """Return a field name mapping:
             {[ordered] internal field name -> external (localized) fieldname}
         """
-        return DB.pupilFields()
+        return DBT.pupilFields()
 
     @classmethod
     def fields(cls):
@@ -230,37 +237,42 @@ class Pupils:
         return cls(schoolyear).pupil(pid).name()
 
 
-    def __init__ (self, schoolyear):
+    def __init__(self, schoolyear):
         self.schoolyear = schoolyear
-        self.db = DB (schoolyear)
-        PupilData.fields ()
+        self.db = DBT(schoolyear)
+        PupilData.fields()
 
     def classes(self, stream = None):
         """Return a sorted list of klass names. If <stream> is supplied,
         only classes will be return with entries in that stream.
         """
-        if stream:
-            return sorted (self.db.selectDistinct ('PUPILS', 'CLASS',
-                    STREAM = stream))
-        return sorted (self.db.selectDistinct ('PUPILS', 'CLASS'))
+        with self.db:
+            if stream:
+                return sorted(self.db.selectDistinct('PUPILS', 'CLASS',
+                        STREAM = stream))
+            return sorted(self.db.selectDistinct('PUPILS', 'CLASS'))
 
     def streams(self, klass):
-        return sorted (self.db.selectDistinct ('PUPILS', 'STREAM',
+        with self.db:
+            return sorted(self.db.selectDistinct('PUPILS', 'STREAM',
                     CLASS = klass))
 
     def pupil(self, pid):
         """Return a <PupilData> named tuple for the given pupil-id.
         """
-        pdata = self.db.select1('PUPILS', PID=pid)
+        with self.db:
+            pdata = self.db.select1('PUPILS', PID = pid)
         if pdata:
             return PupilData(pdata)
-        return None
+        REPORT.Fail(_UNKNOWN_PID, pid = pid)
+
 
 #    def pid2klass(self):
 #        """Return a mapping {pid -> school-class} for all pids.
 #        """
 #        return {pdata['PID']: pdata['CLASS']
 #                for pdata in self.db.getTable('PUPILS')}
+
 
     def classPupils (self, klass, date=None):
         """Read the pupil data for the given school-class (possibly with
@@ -274,7 +286,8 @@ class Pupils:
         To enable indexing on pupil-id, the result has an extra
         attribute, <pidmap>: {pid-> <PupilData> instance}
         """
-        fetched = self.db.select('PUPILS', CLASS=klass.klass)
+        with self.db:
+            fetched = self.db.select('PUPILS', CLASS = klass.klass)
         rows = UserList()
         rows.pidmap = {}
         slist = klass.streams

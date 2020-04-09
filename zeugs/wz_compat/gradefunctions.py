@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-05
+Last updated:  2020-04-08
 
 Calculations needed for grade handling.
 
@@ -27,6 +27,7 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
+STREAMS = ('Gym', 'RS', 'HS')
 _UNCHOSEN = '/'
 _NO_AVERAGE = '*'
 

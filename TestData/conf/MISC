@@ -1,7 +1,11 @@
 ############## MISC
-############## Version: 2020-01-21
+############## Version: 2020-04-08
 
 ### Einstellungen, die nicht woanders gehören.
+
+# Format der Datumsfelder in Zeugnissen. Angabe in der Form, die die
+# Python-Funktion <datetime.datetime.strftime> benötigt
+DATEFORMAT = %d.%m.%Y
 
 # Der erste Monat des Schuljahres (1 - 12 für Jan. - Dez.)
 SCHOOLYEAR_MONTH_1 = 8

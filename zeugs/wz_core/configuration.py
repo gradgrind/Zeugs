@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2020-03-26
+Last updated:  2020-04-08
 
 Configuration items and the handler for the configuration files.
 
@@ -380,9 +380,14 @@ class Paths:
         a database file exists for each year.
         """
         path = cls.getYearPath('*', 'FILE_SQLITE')
-        return sorted([int(re.search(r'_(\d{4})\.', f).group(1))
-                for f in glob.glob(path)],
-                reverse=True)
+        years = []
+        for f in glob.glob(path):
+            try:
+                years.append(int(re.search(r'_(\d{4})\.', f).group(1)))
+            except:
+                pass
+        years.sort(reverse=True)
+        return years
 
 
     @classmethod
@@ -452,7 +457,7 @@ class Dates:
         """Convert a date string from the program format (e.g. "2016-12-06") to
         the format used for output (e.g. "06.12.2016"), set in the configuration file.
         """
-        dformat = CONF.FORMATTING.DATEFORMAT
+        dformat = CONF.MISC.DATEFORMAT
         try:
             d = datetime.datetime.strptime (date, "%Y-%m-%d")
             return d.strftime (dformat)

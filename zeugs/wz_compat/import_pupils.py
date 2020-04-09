@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-02-23
+wz_compat/import_pupils.py - last updated 2020-04-08
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -191,7 +191,7 @@ def readRawPupils(schoolyear, filepath, startdate):
     from the given file (ods or xlsx, the file ending can be omitted).
     The names of date fields are expected to end with '_D'. Values are
     accepted in isoformat (YYYY-MM-DD, or %Y-%m-%d for <datetime>) or
-    in the format specified for output, config value FORMATTING.DATEFORMAT.
+    in the format specified for output, config value MISC.DATEFORMAT.
     If a pupil left the school before the beginning of the school year
     (<startdate>, in iso-format) (s)he will be excluded from the list
     built here.
@@ -239,7 +239,7 @@ def readRawPupils(schoolyear, filepath, startdate):
     ### Read the row data
     ntuples = {}
     RawPupilData.setup(fields)
-    dateformat = CONF.FORMATTING.DATEFORMAT
+    dateformat = CONF.MISC.DATEFORMAT
     for row in table:
         rowdata = []
         for col in colmap:

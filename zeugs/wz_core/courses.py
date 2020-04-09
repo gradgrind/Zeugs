@@ -1,10 +1,10 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_core/courses.py
 
-Last updated:  2020-04-04
+Last updated:  2020-04-08
 
 Handler for the basic course info.
 
@@ -153,6 +153,7 @@ class CourseTables:
                     REPORT.Fail(_INVALID_KLASS, klass=f)
         # Read the subject rows
         self._classes = {}
+        self._teachers = {}
         self._names = {}
         self._component = {}
         for row in data:
@@ -171,10 +172,18 @@ class CourseTables:
                 val = row [col]
                 if val:
                     tlist = TeacherList(val, self.teacherData, flag)
+                    # class -> sid -> tlist
                     try:
                         self._classes [klass] [sid] = tlist
                     except:
                         self._classes [klass] = OrderedDict ([(sid, tlist)])
+                    # tid -> class -> sidlist
+                    for tid in tlist:
+                        try:
+                            k2s = self._teachers[tid][klass].append(sid)
+                        except:
+                            self._teachers[tid] = {klass: [sid]}
+
 
 
     def classes (self):
@@ -205,6 +214,26 @@ class CourseTables:
             # Include subject name (may have extension with '|')
             tlist.subject = self.subjectName(sid)
         return sidmap
+
+
+    def teachersSubjects(self, tid, filter_ = None):
+        """Return the subject-data for the given teacher as a mapping:
+            {school-class -> [sid, ...]}
+        <filter_> can be 'GRADE' or 'TEXT', optionally, to restrict the
+        entries to those relevant for the given report type.
+        """
+        kmap = {}
+        for k, sidlist in self._teachers[tid]:
+            sids = []
+            # The filter is on the <TeacherList> items!
+            sid2tlist = self._classes [klass]
+            for sid in sidlist:
+                if filter_ and not getattr(sid2tlist[sid], filter_):
+                    continue
+                sids.append(sid)
+            if sids:
+                kmap[k] = sids
+        return kmap
 
 
     def subjectName (self, sid):

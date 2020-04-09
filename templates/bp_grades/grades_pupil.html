@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% set uplink = url_for('bp_grades.pupils', klass=klass.klass) %}
-{% set uplink_help = "Klasse " + klass.klass %}
+{% set uplink = url_for('bp_grades.pupils', klass=pdata['CLASS']) %}
+{% set uplink_help = "Klasse " + pdata['CLASS'] %}
 
 {% block title %}Einzelschüler{% endblock %}
 
 {% block content %}
-    <h3>Noten für {{ pdata.name() }}, Klasse {{ klass }}</h3>
+    <h3>Noten für {{ pdata.name() }}, Klasse {{ pdata.GKLASS.klass }}</h3>
     <p>Die Noten für das Zeugnis am angezeigten Datum können hier
     bearbeitet werden. Auch die Pflichtzeugnisse (zum Halbjahr) können
     bearbeitet werden, dies könnte aber dazu führen, dass das Zeugnis
@@ -24,6 +24,24 @@
     {% set currentterm = termn and pdata.TERM0 == termn %}
     <form class="pure-form pure-form-aligned widelabel" method="POST">
         {{ form.csrf_token }}
+
+        <fieldset>
+            Maßstab pdata.GKLASS.stream streams
+            <div class="pure-control-group">
+                <label for="STREAM">Maßstab</label>
+                <select id="STREAM" name="STREAM"
+                        {% if not astreams %}disabled{% endif %}>
+                    <option selected>
+                        pdata.GKLASS.stream
+                    </option>
+                {% for s in astreams %}
+                    <option>
+                        {{ s }}
+                    </option>
+                {% endfor %}
+                </select>
+            </div>
+        </fieldset>
 
         <fieldset>
         {% if termn %}

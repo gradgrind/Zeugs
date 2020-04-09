@@ -1,10 +1,10 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_core/db.py
 
-Last updated:  2020-03-21
+Last updated:  2020-04-08
 
 This module handles access to an sqlite database.
 
@@ -33,6 +33,7 @@ _DBMULTIPLERECORDS  = ("Es wurde mehr als ein passender Datensatz gefunden:\n"
                     " – Kriterien: {select}")
 _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
                     " da sie schon existiert")
+_NODB = "Keine Daten für Schuljahr {year}"
 
 ### Field names for the grade table.
 # Note that the stream should be recorded as this can change in the
@@ -43,111 +44,141 @@ _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
 # entry (date of issue) to identify the report.
 #TODO: perhaps it should be possible to delete entries, or at least mark
 # them as superseded.
+
 GRADE_FIELDS = ('CLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
-        'GRADES', 'REMARKS', 'DATE_D', 'GDATE_D')
+        'REMARKS', 'DATE_D', 'GDATE_D')
 GRADE_UNIQUE = [('PID', 'TERM'), ('PID', 'DATE_D')]
+
+GRADE_LOG_FIELDS = (('KEYTAG', 'INTEGER'), 'SID', 'GRADE',
+        'USER', 'TIMESTAMP')
+
 ABI_SUBJECTS_FIELDS = ('PID', 'SUBJECTS')
 ABI_SUBJECTS_UNIQUE = ['PID']
 
 import os, sqlite3
-#from collections import OrderedDict #, namedtuple
 
-from .configuration import Paths
-
-
-class DB0:
-    def __init__ (self, filepath, flag=None):
-        if os.path.isfile (filepath):
-            if flag == 'RECREATE':
-                # An existing file must be removed
-                os.remove (filepath)
-            elif flag == 'MUSTCREATE':
-                raise RuntimeError ("db-file exists already")
-        else:
-            if flag == None:
-                REPORT.Fail (_DBFILENOTFOUND, path=filepath)
-            if flag == 'NOREPORT':
-                raise RuntimeError ("db-file not found")
-            # Otherwise, the file may be created
-            dbdir = os.path.dirname (filepath)
-            if not os.path.isdir (dbdir):
-                os.makedirs (dbdir)
-
-        self.filepath = filepath
-        self._dbcon = sqlite3.connect (filepath)
-        self._dbcon.row_factory = sqlite3.Row
-#        self._dbcon.row_factory = namedtuple_factory
-        self._checkDB ()
+from .configuration import Paths, Dates
 
 
-    def close (self):
-        self._dbcon.close ()
-        self._dbcon = None
+class DBT:
+    """Database access with the possibility of some transaction
+    management. The instances should be used as context managers, using
+    "with".
+    """
+    @staticmethod
+    def getMasterPath():
+        return Paths.getUserFolder('ZEUGS.sqlite')
 
-
-    def _checkDB (self):
-        """Check that all necessary tables are present.
-        """
-        if not self.tableExists('INFO'):
-            self.makeTable2('INFO', ('K', 'V'), index=['K'])
-        if not self.tableExists('GRADES'):
-            self.makeTable2('GRADES', GRADE_FIELDS, index=GRADE_UNIQUE)
-        if not self.tableExists('PUPILS'):
-            # Use (CLASS, PSORT) as primary key, with additional index
-            # on PID. This makes quite a small db (without rowid).
-            self.makeTable2('PUPILS', self.pupilFields(),
-                    pk = ('CLASS', 'PSORT'), index = ('PID',))
-        if not self.tableExists('ABI_SUBJECTS'):
-            self.makeTable2('ABI_SUBJECTS', ABI_SUBJECTS_FIELDS,
-                    index=ABI_SUBJECTS_UNIQUE)
-#TODO ...?
-
+    @staticmethod
+    def getYearPath(schoolyear):
+        return Paths.getYearPath(schoolyear, 'FILE_SQLITE')
 
     @staticmethod
     def pupilFields():
         return CONF.TABLES.PUPILS_FIELDNAMES
 
 
-    def makeTable (self, name, fields, data=None):
-        """Create the named table with the given fields and data.
-        All fields are text (strings).
-        <fields> is a list of field names.
-        <data> is a list of rows. Each row is a list of values (strings)
-        corresponding to the field names.
+    def __init__(self, schoolyear = None, mustexist = True,
+            exclusive = False):
+        """If no school-year is supplied, use the "master" database.
+        For year-databases only: if <mustexist> is true (default),
+        a critical error will be reported if the database doesn't exist.
+        Otherwise it will be created.
+        If <exclusive> is true, "with" opens an "exclusive" transaction.
         """
-        ccreate = 'CREATE TABLE {} ({})'
-        cfields = ['{} TEXT'.format (key) for key in fields]
+        self.exclusive = exclusive
+        if schoolyear:
+            # The database for a school-year
+            self.filepath = self.getYearPath(schoolyear)
+            self.schoolyear = schoolyear
+            dbexists = os.path.isfile(self.filepath)
+            self._dbcon = sqlite3.connect(self.filepath,
+                    isolation_level = None)
+            self._dbcon.row_factory = sqlite3.Row
+            if not dbexists:
+                if mustexist:
+                    REPORT.Fail (_DBFILENOTFOUND, path=filepath)
+                self._init()
 
-        with self._dbcon as con:
-            cmd = ccreate.format (name, ",".join (cfields))
-            cur = con.execute (cmd)
-            if data:
-                cur.executemany ('INSERT INTO {} ({})\n  VALUES ({})'.format (
-                            name,
-                            ', '.join (fields),
-                            ', '.join (['?']*len (fields))),
-                        data)
+        else:
+            # The "master" database for the application.
+            self.filepath = self.getMasterPath()
+            dbexists = os.path.isfile(self.filepath)
+            self._dbcon = sqlite3.connect (self.filepath)
+            self._dbcon.row_factory = sqlite3.Row
+            if not dbexists:
+                with self:
+                    self.makeTable('INFO', ('K', 'V'), index=['K'])
+            try:
+                with self:
+                    self.schoolyear = int(self.getInfo('_SCHOOLYEAR'))
+            except:
+                # Choose the latest year
+                try:
+                    y = Paths.getYears()[0]
+                except:
+                    # Create a database for the current year
+                    y = Dates.getschoolyear()
+                    DBT(y, mustexist = False)
+                with self:
+                    self.setInfo('_SCHOOLYEAR', str(y))
+                self.schoolyear = y
 
 
-    def makeTable2 (self, name, fields, data=None, pk=None, index=None, force=False):
-        """Create the named table with the given fields and data.
+    ########### Make the objects usable as context managers ###########
+    def __enter__(self):
+        self._cursor = self._dbcon.cursor()
+        cmd = "BEGIN EXCLUSIVE" if self.exclusive else "BEGIN"
+        self._cursor.execute(cmd)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            self._dbcon.rollback()
+        else:
+            self._dbcon.commit()
+        self._cursor.close()
+    ###################################################################
+
+
+    def tableExists (self, table):
+        cmd = 'PRAGMA table_info({})'.format(table)
+        self._cursor.execute(cmd)
+        return self._cursor.fetchone() != None
+
+
+    def _init(self):
+        """Initialise a new database. Using the existence tests allows
+        for reinitialising individual tables.
+        """
+        with self:
+            if not self.tableExists('INFO'):
+                self.makeTable('INFO', ('K', 'V'), index = ['K'])
+            if not self.tableExists('GRADES'):
+                self.makeTable('GRADES', GRADE_FIELDS, pk = 'KEYTAG',
+                        index = GRADE_UNIQUE)
+            if not self.tableExists('GRADE_LOG'):
+                self.makeTable('GRADE_LOG', GRADE_LOG_FIELDS)
+            # Make indexes for (CLASS, PSORT) and PID. One might
+            # consider using WITHOUT ROWID.
+            if not self.tableExists('PUPILS'):
+                self.makeTable('PUPILS', self.pupilFields(),
+                        index = ('PID', ('CLASS', 'PSORT')))
+            if not self.tableExists('ABI_SUBJECTS'):
+                self.makeTable('ABI_SUBJECTS', ABI_SUBJECTS_FIELDS,
+                        index = ABI_SUBJECTS_UNIQUE)
+
+
+    def makeTable(self, name, fields, pk = None, index = None):
+        """Create the named table with the given fields.
         <fields> is a list of field names or (name, type) pairs. The
         default type is TEXT.
-        <data> is a list of rows. Each row is a list of values
-        corresponding to the field names.
-        <pk> is the optional primary key. If none is provided, the hidden
-        'rowid' field will be generated. If there is a primary key, the
-        table will be created 'WITHOUT ROWID'.
+        <pk> is the optional primary key name (alias for 'rowid').
+        Insertions will not include this field.
         <index> is a list of columns – or a list of lists of columns – for
         which unique indexes are to be built.
-        If <force> is true, an existing table will be overwritten and its
-        indexes will be dropped.
-        The indexes are return as a list (one for each index) of lists
-        (one entry for each field).
         """
-        ccreate = "CREATE TABLE {name} ({fields}{pk}){withoutrowid}"
-        cfields = []
-
+        ccreate = "CREATE TABLE {name} ({fields})"
         indexes = []
         ixlist = []
         if index:
@@ -159,6 +190,9 @@ class DB0:
                     ixlist.append (ix)
                     for _ix in ix:
                         indexes.append (_ix)
+        cfields = []
+        if pk:
+            cfields.append("%s INTEGER PRIMARY KEY" % pk)
         fieldList = []
         for key in fields:
             if type (key) == str:
@@ -166,91 +200,33 @@ class DB0:
             else:
                 key, ctype = key
             fieldList.append (key)
-            if index and key in indexes:
+            if index and (key in indexes):
                 cfields.append ("{name} {ctype} NOT NULL".format (
                         name=key, ctype=ctype))
             else:
                 cfields.append ("{name} {ctype}".format (
                         name=key, ctype=ctype))
-
         if self.tableExists (name):
-            if force:
-                self.deleteTable (name)
-            else:
-                REPORT.Fail (_TABLEEXISTS, name=name)
-
-        if pk:
-            primarykey = ', PRIMARY KEY ({})'.format (
-                    pk if type (pk) == str
-                    else ','.join (pk))
-            norowid = ' WITHOUT ROWID'
-        else:
-            primarykey = ''
-            norowid = ''
-        with self._dbcon as con:
-            cmd = ccreate.format (name=name, fields=','.join (cfields),
-                    pk=primarykey, withoutrowid=norowid)
-#            print ("CREATE:", cmd)
-            cur = con.execute (cmd)
-            if data:
-                cur.executemany ('INSERT INTO {} ({})\n  VALUES ({})'.format (
-                            name,
-                            ', '.join (fieldList),
-                            ', '.join (['?']*len (fieldList))),
-                        data)
+            REPORT.Fail (_TABLEEXISTS, name=name)
+        cmd = ccreate.format(name=name, fields=','.join (cfields))
+        self._cursor.execute(cmd)
         if ixlist:
-            self.makeIndexes (name, ixlist)
-        return ixlist
-
-
-    def makeIndexes (self, table, ixlist):
-        """Create one or more unique indexes on the given table.
-        <ixlist> is a list of lists. Each unique index has a list of fields.
-        """
-        with self._dbcon as con:
+            # Create one or more unique indexes on the given table.
+            # <ixlist> is a list of lists. Each unique index has a
+            # list of fields.
             n = 0
             for ix in ixlist:
                 n += 1
                 cindex = ('CREATE UNIQUE INDEX idx_{name}_{n}'
                         ' ON {name} ({x})').format (
                                 n = n,
-                                name = table,
+                                name = name,
                                 x = ','.join (ix))
-#                print ("INDEX:", cindex)
-                con.execute (cindex)
+                self._cursor.execute (cindex)
 
 
-    def getTable (self, table):
-        with self._dbcon as con:
-            cur = con.cursor ()
-            cur.execute ('SELECT * FROM {}'.format (table))
-            # Remember fields of last table read:
-            self.fields = [description [0] for description in cur.description]
-            return cur.fetchall ()
-
-
-    def selectDistinct (self, table, column, **criteria):
-        """Select distinct values from a single column.
-        The <criteria> may be of the form FIELDNAME=value.
-        """
-        with self._dbcon as con:
-            cur = con.cursor ()
-            clist = []
-            vlist = []
-            for c, v in criteria.items ():
-                clist.append (c + '=?')
-                vlist.append (v)
-            if clist:
-                cmd = 'SELECT DISTINCT {} FROM {} WHERE {}'.format (
-                        column, table, ' AND '.join (clist))
-                cur.execute (cmd, vlist)
-            else:
-                cmd = "SELECT DISTINCT {} FROM {}".format (column, table)
-                cur.execute (cmd)
-            return [row [column] for row in cur.fetchall ()]
-
-
-    def select (self, table, order=None, reverse=False, **criteria):
+    def select(self, table,
+            order = None, reverse = False, limit = None, **criteria):
         """Select all fields of the given table.
         The results may may ordered by specifying a field or list of
         fields to <order>. Set <reverse> to true to order descending.
@@ -258,230 +234,84 @@ class DB0:
         However passing a tuple/list of the form (operator, value)
         for the value parameter is also possible.
         """
-        with self._dbcon as con:
-            cur = con.cursor ()
-            clist = []
-            vlist = []
-            for c, v in criteria.items ():
-                if isinstance(v, (list, tuple)):
-                    op, v = v
-                else:
-                    op = '='
-                clist.append ('%s %s ?' % (c, op))
-                vlist.append (v)
-            cmd = 'SELECT * FROM {} WHERE {}'.format (table,
-                    ' AND '.join (clist))
-            if order:
-                if isinstance(order, str):
-                    cmd += ' ORDER BY ' + order
-                else:
-                    cmd += ' ORDER BY ' + (', '.join (order))
-                if reverse:
-                    cmd += ' DESC'
-            cur.execute (cmd, vlist)
-            return cur.fetchall ()
+        clist = []
+        vlist = []
+        for c, v in criteria.items():
+            if isinstance(v, (list, tuple)):
+                op, v = v
+            else:
+                op = '='
+            clist.append('%s %s ?' % (c, op))
+            vlist.append(v)
+        if clist:
+            cmd = 'SELECT * FROM {} WHERE {}'.format(table,
+                    ' AND '.join(clist))
+        else:
+            cmd = 'SELECT * FROM {}'.format(table)
+        if order:
+            if isinstance(order, str):
+                cmd += ' ORDER BY ' + order
+            else:
+                cmd += ' ORDER BY ' + (', '.join (order))
+            if reverse:
+                cmd += ' DESC'
+            if limit:
+                cmd += ' LIMIT %d' % limit
+        self._cursor.execute(cmd, vlist)
+        return self._cursor.fetchall()
 
 
-    def select1 (self, table, **criteria):
+    def select1(self, table, **criteria):
         """Special select function for cases where at most 1 matching
-        record is permitted.
+        record is permitted. No fancy parameters.
         Return the record if found, else <None>.
         """
         records = self.select (table, **criteria)
-        if len (records) == 1:
-            return records [0]
-        elif len (records) == 0:
+        if len(records) == 1:
+            return records[0]
+        elif len(records) == 0:
             return None
-        REPORT.Fail (_DBMULTIPLERECORDS, path=self.filepath,
-                table=table, select=repr (criteria))
+        REPORT.Fail(_DBMULTIPLERECORDS, path = self.filepath,
+                table = table, select = repr (criteria))
 
 
-    def update (self, table, key, val, **criteria):
-        with self._dbcon as con:
-            cur = con.cursor ()
-            clist = []
-            vlist = [val]
-            for c, v in criteria.items ():
-                clist.append (c + '=?')
-                vlist.append (v)
-            cur.execute ('UPDATE {} SET {} = ? WHERE {}'.format (table, key,
-                    ' AND '.join (clist)), vlist)
-
-
-    def updateOrAdd (self, table, data, update_only=False, **criteria):
-        """If an entry matching the criteria exists, update it with the
-        given data (ignoring unsupplied fields).
-        If there is no matching entry, add it, leaving unsupplied fields
-        empty.
-        <data> is a mapping {field name -> new value}.
-        If <update_only> is true, check that an update occurred.
-        In order for this to work as desired, there must be at least one
-        constraint (e.g. UNIQUE) to ensure that the INSERT fails if the
-        UPDATE has succeeded.
+    def selectDistinct (self, table, column, **criteria):
+        """Select distinct values from a single column.
+        The <criteria> may be of the form FIELDNAME=value.
         """
-        with self._dbcon as con:
-            cur = con.cursor()
-            fields = []     # for INSERT
-            ufields = []    # for UPDATE
-            vlist = []
-            for f, v in data.items():
-                ufields.append(f + '=?')
-                fields.append(f)
-                vlist.append(v)
-            # For UPDATE: criteria
-            clist = []
-            cvlist = []
-            for c, v in criteria.items():
-                clist.append(c + '=?')
-                cvlist.append(v)
-            cur.execute('UPDATE {} SET {} WHERE {}'.format(table,
-                    ', '.join(ufields),
-                    ' AND '.join(clist)),
-                    vlist + cvlist)
-            if cur.rowcount > 1:
-                REPORT.Bug("More than one line updated in db, table {table}:\n"
-                        "  {criteria} -> {data}", table=table,
-                        criteria=repr(criteria),
-                        data=repr(data)
-                )
-            if update_only and cur.rowcount < 1:
-                raise UpdateError
-            cmd = 'INSERT OR IGNORE INTO {}({}) VALUES({})'.format(table,
-                            ','.join(fields),
-                            ','.join(['?']*len(fields)))
-            cur.execute(cmd, vlist)
-
-
-    def updateN (self, table, key, criteria, vals):
-        """Perform a set of updates on a table.
-        <table> is the name of the table.
-        <key> is the field to update.
-        <criteria> is a list of field names providing the indexing.
-        <vals> is a list of tuples/lists: (value, criterion1, criterion2, ...)
-        """
-        with self._dbcon as con:
-            cur = con.cursor ()
-            clist = ' AND '.join ([c + '=?' for c in criteria])
-            cmd = 'UPDATE {} SET {} = ? WHERE {}'.format (table, key, clist)
-            for rowvals in vals:
-                cur.execute (cmd, rowvals)
-
-
-    def renameTable (self, table, newName):
-        with self._dbcon as con:
-            cmd = 'ALTER TABLE {} RENAME TO {}'.format (table, newName)
-            con.execute (cmd)
-
-
-    def deleteTable (self, table):
-        with self._dbcon as con:
-            cur = con.cursor ()
-            cmd = 'DROP TABLE IF EXISTS {}'.format (table)
-            cur.execute (cmd)
-
-
-    def deleteIndexes (self, table):
-        """Delete all indexes on the given table.
-        Return a list of deleted index names.
-        """
-        indexes = []
-        with self._dbcon as con:
-            cur = con.cursor ()
-            cmd = "SELECT name FROM sqlite_master WHERE type == 'index'"
-            cur.execute (cmd)
-            for i in cur.fetchall ():
-                indexes.append (i [0])
-                cmd = 'DROP INDEX {}'.format (i [0])
-                cur.execute (cmd)
-        return indexes
-
-
-    def tableNames (self):
-        with self._dbcon as con:
-            cur = con.cursor ()
-            cmd = "SELECT name FROM sqlite_master WHERE type='table'"
-            cur.execute (cmd)
-#            return [row ['name'] for row in cur.fetchall ()]
-            return [row [0] for row in cur.fetchall ()]
-
-
-    def tableExists (self, table):
-        with self._dbcon as con:
-            cur = con.cursor ()
-            cmd = 'PRAGMA table_info({})'.format (table)
-            cur.execute (cmd)
-            return cur.fetchone () != None
-
-
-    def tableFields (self, table):
-        with self._dbcon as con:
-            cur = con.cursor ()
-            cmd = 'PRAGMA table_info({})'.format (table)
-            cur.execute (cmd)
-            cols = cur.fetchall ()
-        fields = []
-        for c in cols:
-#            if c ['pk'] == 0:
-#                fields.append (c ['name'])
-            n = c ['name']
-            if n [0] != '_':
-                fields.append (n)
-        return fields
+        clist = []
+        vlist = []
+        for c, v in criteria.items ():
+            clist.append (c + '=?')
+            vlist.append (v)
+        if clist:
+            cmd = 'SELECT DISTINCT {} FROM {} WHERE {}'.format (
+                    column, table, ' AND '.join (clist))
+            self._cursor.execute (cmd, vlist)
+        else:
+            cmd = "SELECT DISTINCT {} FROM {}".format (column, table)
+            self._cursor.execute (cmd)
+        return [row [column] for row in self._cursor.fetchall ()]
 
 
     def addEntry (self, table, data):
         """Add a row to the given table. <data> is a <dict> containing
         entries for the fields of the table. Fields for which <data> has
         no entry take on the default value (normally NULL).
+        Return the "rowid" (integer primary key) of the added row,
+        if this is available.
         """
-        with self._dbcon as con:
-            cur = con.cursor ()
-            fields = []
-            vlist = []
-            for f, v in data.items ():
-                fields.append (f)
-                vlist.append (v)
-            cmd = 'INSERT INTO {}({}) VALUES({})'.format (
-                            table,
-                            ','.join (fields),
-                            ','.join (['?']*len (fields)))
-            cur.execute (cmd, vlist)
-
-
-    def addRows(self, table, fields, data, clear=False):
-        """Add rows to the given table.
-        <data> is a list of rows. Each row is a list of values
-        corresponding to the field names provided in the list
-        <fields>. Should any table fields not be provided, these
-        will take on the default value (normally NULL).
-        If <clear> is true, all entries will be removed before adding
-        the new rows.
-        """
-        if clear:
-            with self._dbcon as con:
-                con.execute('DELETE FROM {}'.format(table))
-            with self._dbcon as con:
-                con.execute('VACUUM')
-        with self._dbcon as con:
-            cur = con.cursor ()
-            cur.executemany ('INSERT INTO {} ({})\n  VALUES ({})'.format (
+        fields = []
+        vlist = []
+        for f, v in data.items ():
+            fields.append (f)
+            vlist.append (v)
+        cmd = 'INSERT INTO {}({}) VALUES({})'.format (
                         table,
-                        ', '.join (fields),
-                        ', '.join (['?']*len (fields))),
-                    data)
-
-
-    def deleteEntry (self, table, **criteria):
-        with self._dbcon as con:
-            cur = con.cursor ()
-            clist = []
-            vlist = []
-            for c, v in criteria.items ():
-                clist.append (c + '=?')
-                vlist.append (v)
-            cmd = 'DELETE FROM {} WHERE {}'.format (table,
-                    ' AND '.join (clist))
-            cur.execute (cmd, vlist)
+                        ','.join (fields),
+                        ','.join (['?']*len (fields)))
+        self._cursor.execute (cmd, vlist)
+        return self._cursor.lastrowid
 
 
     def getInfo(self, key):
@@ -495,53 +325,9 @@ class DB0:
         """Update (or add) an entry in the INFO table (key -> value).
         The INFO table must have 'UNIQUE' K field.
         """
-        with self._dbcon as con:
-            cur = con.cursor()
-            cur.execute('UPDATE INFO SET V=? WHERE K=?', [value, key])
-            cur.execute('INSERT OR IGNORE INTO INFO(K, V) VALUES(?, ?)',
-                    [key, value])
-
-
-
-class DB(DB0):
-    """There are separate databases for each school-year. These are
-    accessed by passing the school-year as argument. If no year is
-    supplied, the "master" database for the application is loaded.
-    """
-    @staticmethod
-    def getPath(schoolyear):
-        return Paths.getYearPath(schoolyear, 'FILE_SQLITE')
-
-    def __init__(self, schoolyear = None, flag = None):
-        if schoolyear:
-            path = self.getPath(schoolyear)
-            super().__init__(path, flag)
-            self.schoolyear = schoolyear
-            return
-        # The "master" database for the application.
-        # No flags are recognised.
-        path = Paths.getUserFolder('ZEUGS.sqlite')
-        self.filepath = path
-        self._dbcon = sqlite3.connect (path)
-        self._dbcon.row_factory = sqlite3.Row
-        if not self.tableExists('INFO'):
-            self.makeTable2('INFO', ('K', 'V'), index=['K'])
-        try:
-            self.schoolyear = int(self.getInfo('_SCHOOLYEAR'))
-        except:
-            # Choose the latest year
-            try:
-                y = Paths.getYears()[0]
-            except:
-                y = Dates.getschoolyear()
-                DB(y, 'CREATE')
-            self.setInfo('_SCHOOLYEAR', str(y))
-            self.schoolyear = y
-
-
-
-class UpdateError(IndexError):
-    pass
+        self._cursor.execute('UPDATE INFO SET V=? WHERE K=?', [value, key])
+        self._cursor.execute('INSERT OR IGNORE INTO INFO(K, V) VALUES(?, ?)',
+                [key, value])
 
 
 
@@ -550,3 +336,9 @@ class UpdateError(IndexError):
 #    fields = [col [0] for col in cursor.description]
 #    Row = namedtuple ("Row", fields)
 #    return Row (*row)
+
+
+
+def test_01():
+    DBT()
+    DBT(2016, mustexist = False)
