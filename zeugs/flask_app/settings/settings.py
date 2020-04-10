@@ -4,7 +4,7 @@
 """
 flask_app/settings/settings.py
 
-Last updated:  2020-04-09
+Last updated:  2020-04-10
 
 Flask Blueprint for application settings.
 
@@ -41,8 +41,9 @@ import os, datetime
 
 from wz_core.configuration import Paths, Dates
 from wz_core.db import DBT
-from wz_table.dbtable import readPSMatrix
 from wz_core.pupils import Pupils, Klass
+from wz_table.dbtable import readPSMatrix
+from wz_compat.grade_classes import choices2db
 
 
 _HEADING = "Einstellungen"

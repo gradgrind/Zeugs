@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-04-09
+Last updated:  2020-04-10
 
 Handle the data for grade reports.
 
@@ -75,8 +75,6 @@ from wz_table.dbtable import readPSMatrix
 _INVALID = '/'      # Table entry for cells marked "invalid"
 
 
-#TODO: 1) user handling, 2) rebase on DBT
-
 
 def gradeInfo(schoolyear, term, pid):
     """Return the GRADES table entry for the given year/pupil/term, if
@@ -107,7 +105,7 @@ def getGradeData(schoolyear, pid, term, sid = None):
     If <sid> is supplied, there will be a 'GRADE' item, which is just
     the grade of the given subject.
     """
-    gmap = gradeInfo(schoolyear, pid, term)
+    gmap = gradeInfo(schoolyear, term, pid)
     if not gmap:
         return None
 
@@ -130,6 +128,23 @@ def setGrades(schoolyear, gmap):
     sid2tlist = CourseTables(schoolyear).classSubjects(klass, 'GRADE')
     gmap['GRADES'] = {sid: _readGradeSid(db, gkey, sid)
             for sid in sid2tlist}
+
+
+def getGrade(schoolyear, ginfo, sid):
+    """Fetch the grade for the given subject referenced by the given
+    grade-info item.
+    """
+    with DBT(schoolyear) as db:
+        # This might be faster with "fetchone" instead of "LIMIT",
+        # because of the "DESC" order.
+        records = db.select('GRADE_LOG',
+                order = 'TIMESTAMP', reverse = True, limit = 1,
+                KEYTAG = ginfo['KEYTAG'], SID = sid)
+    try:
+        return records[0]['GRADE']
+    except:
+        return None
+
 
 
 def _readGradeSid(db, gkey, sid, withuser = False):
@@ -181,7 +196,7 @@ def updateGrades(schoolyear, pdata, term, grades, user = None):
     # Only the KEYTAG field is needed (-> <gkey>).
     tdb = DBT(schoolyear, exclusive = True)
     with tdb:
-        ginfo = tdb.select1('GRADES', PID = pid, TERM = term)
+        ginfo = tdb.select1('GRADES', PID = pdata['PID'], TERM = term)
         if ginfo:
             gkey = ginfo['KEYTAG']
 #TODO: Check class and stream?
@@ -215,14 +230,15 @@ def updateGrades(schoolyear, pdata, term, grades, user = None):
         utest = False
     timestamp = datetime.datetime.now().isoformat(
             sep=' ', timespec='seconds')
-    for sid, g in grades.items():
-        # Null grades are ignored
-        if not g:
-            continue
-        with tdb:
+    new_entries = []
+    with tdb:
+        for sid, g in grades.items():
+            # Null grades are ignored
+            if not g:
+                continue
             if ginfo:
                 # Check that it is really a permissible change
-                records = db.select('GRADE_LOG', order = 'TIMESTAMP',
+                records = tdb.select('GRADE_LOG', order = 'TIMESTAMP',
                         reverse = True, limit = 1,
                         KEYTAG = gkey, sid = sid)
                 if records:
@@ -237,15 +253,13 @@ def updateGrades(schoolyear, pdata, term, grades, user = None):
                                 pname = pdata.name())
                         continue
             # Add a new grade entry
-            tdb.addEntry('GRADE_LOG', {
-                    'KEYTAG': gkey,
-                    'SID': sid,
-                    'GRADE': g,
-                    'USER': user,
-                    'TIMESTAMP': timestamp
-                }
-            )
+            new_entries.append((gkey, sid, g, user, timestamp))
 
+        if new_entries:
+            tdb.addRows('GRADE_LOG',
+                ('KEYTAG', 'SID', 'GRADE', 'USER', 'TIMESTAMP'),
+                new_entries
+            )
 
 
 def grades2db(gtable):
@@ -306,8 +320,8 @@ def grades2db(gtable):
             gradeManager = Manager(ks)(schoolyear, sid2tlist, grades)
             # Enter the grades
             updateGrades(schoolyear, pdata, term, grades)
-            REPORT.Info(_NEWGRADES, n=len(pdata_grades),
-                    klass = klass, year = schoolyear, term = term)
+        REPORT.Info(_NEWGRADES, n=len(pdata_grades),
+                klass = klass, year = schoolyear, term = term)
     else:
         REPORT.Warn(_NOPUPILS)
 
@@ -381,7 +395,8 @@ def getPupilList(schoolyear, term, klass, rtype):
     db = DBT(schoolyear)
     for pdata in pupils.classPupils(klass):
         pid = pdata['PID']
-        gdata = db.select1('GRADES', PID = pid, TERM = term)
+        with db:
+            gdata = db.select1('GRADES', PID = pid, TERM = term)
         ok = False
         if gdata:
             # Check class/stream match
@@ -720,6 +735,8 @@ class CurrentTerm():
 ##################### Test functions
 _testyear = 2016
 def test_01 ():
+###
+    return
     _term = '2'
     _pid = '200403'
     REPORT.Test("Reading basic grade data for pupil %s" % _pid)
@@ -746,8 +763,10 @@ def test_02():
     for klass in gradeGroups(_term):
         REPORT.Test("\n ++++ Class %s ++++" % klass)
         rtype = getTermTypes(klass, _term)[0]
-        for pid, pname, gmap in db2grades(_testyear, _term, klass, rtype):
-            REPORT.Test("GRADES for %s: %s" % (pname, repr(gmap)))
+        pupils = Pupils(_testyear)
+        for pdata in pupils.classPupils(klass):
+            gmap = getGradeData(_testyear, pdata['PID'], _term)
+            REPORT.Test("GRADES for %s: %s" % (pdata.name(), repr(gmap)))
 
 def test_03():
     from glob import glob
@@ -760,4 +779,4 @@ def test_03():
         try:
             grades2db(pgrades)
         except:
-            pass
+            REPORT.Error("*** grades2db failed ***")

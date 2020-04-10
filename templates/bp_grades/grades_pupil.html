@@ -26,13 +26,12 @@
         {{ form.csrf_token }}
 
         <fieldset>
-            Maßstab pdata.GKLASS.stream streams
             <div class="pure-control-group">
                 <label for="STREAM">Maßstab</label>
                 <select id="STREAM" name="STREAM"
                         {% if not astreams %}disabled{% endif %}>
                     <option selected>
-                        pdata.GKLASS.stream
+                        {{ pdata.GKLASS.stream }}
                     </option>
                 {% for s in astreams %}
                     <option>

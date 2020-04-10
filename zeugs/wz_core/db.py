@@ -47,7 +47,7 @@ _NODB = "Keine Daten für Schuljahr {year}"
 
 GRADE_FIELDS = ('CLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
         'REMARKS', 'DATE_D', 'GDATE_D')
-GRADE_UNIQUE = [('PID', 'TERM'), ('PID', 'DATE_D')]
+GRADE_UNIQUE = [('PID', 'TERM')]
 
 GRADE_LOG_FIELDS = (('KEYTAG', 'INTEGER'), 'SID', 'GRADE',
         'USER', 'TIMESTAMP')
@@ -314,6 +314,22 @@ class DBT:
         return self._cursor.lastrowid
 
 
+    def addRows(self, table, fields, data):
+        """Add rows to the given table.
+        <data> is a list of rows. Each row is a list of values
+        corresponding to the field names provided in the list
+        <fields>. Should any table fields not be provided, these
+        will take on the default value (normally NULL).
+        """
+        self._cursor.executemany(
+                'INSERT INTO {} ({})\n  VALUES ({})'.format (
+                        table,
+                        ', '.join (fields),
+                        ', '.join (['?']*len (fields))
+                ), data
+        )
+
+
     def getInfo(self, key):
         """Return a value from the INFO table (key -> value).
         """
@@ -381,22 +397,6 @@ class DBT:
         cmd = 'DELETE FROM {} WHERE {}'.format (table,
                 ' AND '.join (clist))
         self._cursor.execute (cmd, vlist)
-
-
-    def addRows(self, table, fields, data):
-        """Add rows to the given table.
-        <data> is a list of rows. Each row is a list of values
-        corresponding to the field names provided in the list
-        <fields>. Should any table fields not be provided, these
-        will take on the default value (normally NULL).
-        """
-        self._cursor.executemany(
-                'INSERT INTO {} ({})\n  VALUES ({})'.format (
-                        table,
-                        ', '.join (fields),
-                        ', '.join (['?']*len (fields))
-                ), data
-        )
 
 
     def clearTable(self, table):

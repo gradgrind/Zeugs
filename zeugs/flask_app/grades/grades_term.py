@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_term.py
 
-Last updated:  2020-04-08
+Last updated:  2020-04-09
 
 "Sub-module" of grades for group term reports
 
@@ -225,7 +225,6 @@ def term():
     if app.isPOST(form):
         # POST
         REPORT.wrap(readdata, form.upload.data)
-        ks = None
 
     return render_template(os.path.join(_BPNAME, 'term.html'),
                             heading = _HEADING,
@@ -298,6 +297,9 @@ def reports(ks):
     # GET
     pdlist = REPORT.wrap(getPupilList, schoolyear, termn, klass, rtype,
             suppressok = True)
+    if not pdlist:
+        # Shouldn't normally be possible, but in case there are bugs ...
+        return redirect(url_for('bp_grades.index'))
     MIN_D, MAX_D = Dates.checkschoolyear(schoolyear)
     return render_template(os.path.join(_BPNAME, 'reports.html'),
                             heading = _HEADING,

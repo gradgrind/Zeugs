@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-09
+Last updated:  2020-04-10
 
 Calculations needed for grade handling.
 
@@ -318,14 +318,14 @@ class GradeManagerN(_GradeManager):
             pass
         asum, acount = 0, 0
         for sid, g in self.grades.items():
-#            REPORT.Test('??? %s: %s' % (sid, g))
             asum += g
             acount += 1
-        avg = Frac(asum, acount) if acount else None
-        self._AVE = avg
-        self.XINFO['AVE'] = avg.truncate(2)
-#        REPORT.Test('??? ----> %s' % self.XINFO['AVE'])
-        return avg
+        if acount:
+            avg = Frac(asum, acount)
+            self._AVE = avg
+            self.XINFO['AVE'] = avg.truncate(2)
+            return avg
+        return None
 
 
     def X_DEM(self, pdata = None):
@@ -340,9 +340,11 @@ class GradeManagerN(_GradeManager):
             except:
                 REPORT.Error(_MISSING_SID, sid=sid)
                 ok = False
-        dem = Frac(asum, 3) if ok else None
-        self.XINFO['DEM'] = dem.truncate(2)
-        return dem
+        if ok:
+            dem = Frac(asum, 3)
+            self.XINFO['DEM'] = dem.truncate(2)
+            return dem
+        return None
 
 
     def SekI(self):
@@ -684,6 +686,8 @@ class AbiCalc:
 
 
     def __init__(self, sid_name, sid2grade):
+#        REPORT.Test("???name %s" % repr(sid_name))
+#        REPORT.Test("???grade %s" % repr(sid2grade))
         self.zgrades = {}
         i = 0
         for sid, sname in sid_name:

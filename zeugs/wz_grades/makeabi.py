@@ -3,7 +3,7 @@
 """
 wz_grades/makeabi.py
 
-Last updated:  2020-04-09
+Last updated:  2020-04-10
 
 Generate final grade reports for the Abitur.
 
@@ -47,7 +47,7 @@ from wz_core.pupils import Klass
 from wz_core.courses import CourseTables
 from wz_core.db import DBT
 from wz_core.template import openTemplate
-from wz_grades.gradedata import getGradeData
+from wz_grades.gradedata import getGradeData, singleGrades2db
 from wz_compat.gradefunctions import AbiCalc, GradeError
 
 

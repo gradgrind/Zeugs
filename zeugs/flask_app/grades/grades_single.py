@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_single.py
 
-Last updated:  2020-04-09
+Last updated:  2020-04-10
 
 "Sub-module" of grades for single reports
 
@@ -303,11 +303,13 @@ def grades_pupil(pid, rtag):
         return redirect(request.path)
 
     # GET
+    astreams = REPORT.wrap(klass2streams, pdata.GKLASS.klass,
+            pdata.GKLASS.stream, suppressok = True) or []
     return render_template(os.path.join(_BPNAME, 'grades_pupil.html'),
             form = form,
             heading = _HEADING,
             subjects = subjects,
             pdata = pdata,
             termn = rtag if rtag in CONF.MISC.TERMS else None,
-            astreams = klass2streams(pdata.GKLASS.klass, pdata.GKLASS.stream)
+            astreams = astreams
     )

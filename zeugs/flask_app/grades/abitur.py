@@ -4,7 +4,7 @@
 """
 flask_app/grades/abitur.py
 
-Last updated:  2020-03-31
+Last updated:  2020-04-10
 
 Flask Blueprint for abitur reports
 
@@ -31,12 +31,7 @@ _HEADING = "Abitur"     # page heading
 ABIYEAR = "13"          # Abitur only possible in this year
 
 # Messages
-_TOO_MANY_SUBJECTS = "zu viele Fächer (es müssen genau 8 sein): siehe Kurswahl-Tabelle"
-_NOT_G = "{i}. Fach: {sid}. Dieses muss gA + schriftlich (Endung '.g') sein."
-_NOT_E = "{i}. Fach: {sid}. Dieses muss eA (Endung '.e') sein."
-_NOT_M = "{i}. Fach: {sid}. Dieses muss mündlich (Endung '.m') sein."
 _NOT_ABI_YEAR = "{pname} (Klasse {klass}) ist nicht in einer Abiturklasse."
-_SUBJECT_CHOICE = "Unerwarte Abifächer: {sids}"
 
 
 #TODO: check imports ...
@@ -54,11 +49,12 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
-from wz_grades.gradedata import getGradeData
+from wz_grades.gradedata import gradeInfo, getGrade
 from wz_grades.gradetable import makeBasicGradeTable
 from wz_grades.makeabi import saveGrades, makeAbi
-from wz_compat.grade_classes import (choices2db, choiceTable, abi_sids,
-        abi_klausuren, abi_klausur_classes, abi_choice_classes)
+from wz_compat.grade_classes import (choices2db, choiceTable,
+        abi_sid_name, abi_klausuren,
+        abi_klausur_classes, abi_choice_classes)
 
 
 # Set up Blueprint
@@ -264,67 +260,45 @@ def grades(pid):
         if k < ABIYEAR:
             REPORT.Fail(_NOT_ABI_YEAR, klass=k, pname=pdata.name())
         klass = Klass(k)
-
-        courses = CourseTables(schoolyear)
-        sid2tlist = courses.classSubjects(klass, 'GRADE')
-        choices = abi_sids(schoolyear, pid)
-        i = 0
-        for sid in sid2tlist:
-            try:
-                choices.remove(sid)
-            except ValueError:
-                continue
-            i += 1
-            if i < 4:
-                # Check written subject, eA
-                if not sid.endswith (".e"):
-                    REPORT.Fail(_NOT_E, i = i, sid = sid)
-            elif i == 4:
-                # Check written subject, gA
-                if not sid.endswith (".g"):
-                    REPORT.Fail(_NOT_G, i = i, sid = sid)
-            elif i <= 8:
-                # Check oral subject
-                if not sid.endswith (".m"):
-                    REPORT.Fail(_NOT_M, i = i, sid = sid)
-            else:
-                REPORT.Fail(_TOO_MANY_SUBJECTS)
-            subjects.append((sid, sid2tlist[sid].subject))
-        if choices:
-            REPORT.Fail(_SUBJECT_CHOICE, sids = ', '.join(choices))
+        subjects = abi_sid_name(schoolyear, pdata)
 
         # Get any existing grades for this pupil: {sid -> grade}
         # If there is no grade data, use <{}> to satisfy the subsequent code.
-        grades = getGradeData(schoolyear, pid, 'A')
-        try:
-            sid2grade = grades['GRADES']
-            date = grades['TERM']
-        except:
-            sid2grade = {}
-            date = '?'
+        ginfo = gradeInfo(schoolyear, 'A', pid)
+        sid2grade = []
+        sid2xgrade = []
+        date = ginfo['DATE_D'] if ginfo else '?'
+        i = 0
+        for sid, sname in subjects:
+            sid2grade.append(getGrade(schoolyear, ginfo, sid)
+                    if ginfo else None)
+            if i < 4:
+                sid2xgrade.append(getGrade(schoolyear, ginfo, sid + 'N')
+                        if ginfo else None)
+            i += 1
+
+#TODO: without WTFORMS?
 
         # Add grade-select fields
         gchoices = [(g, g) for g in gradechoices]
         gchoicesM = [(g, g) for g in gradechoicesM]
         i = 0
         for sid, sname in subjects:
-            i += 1
-            grade = sid2grade.get(sid)
+            grade = sid2grade[i]
             if grade not in gradechoices:
                 grade = ''
             sfield = SelectField(sname, choices=gchoices, default=grade)
             setattr(_Form, sid, sfield)
-            if i <= 4:
+            if i < 4:
                 # Add (optional) oral exam
-                sn = sid + 'N'
-                grade = sid2grade.get(sn)
+                grade = sid2xgrade[i]
                 if grade not in gradechoicesM:
                     grade = '*'
                 sfield = SelectField("mdl.", choices = gchoicesM,
                         default = grade)
-                setattr(_Form, sn, sfield)
-
-        return pdata, klass, date
+                setattr(_Form, sid + 'N', sfield)
+            i += 1
+        return subjects, pdata, klass, date
 
     # Build grade lists. <gradechoicesM> is for the additional oral
     # exams for the first four subjects – these are optional so they
@@ -338,9 +312,8 @@ def grades(pid):
     gradechoicesM.append('*')
 
     schoolyear = session['year']
-    subjects = []
     try:
-        pdata, klass, date = REPORT.wrap(prepare, suppressok=True)
+        subjects, pdata, klass, date = REPORT.wrap(prepare, suppressok=True)
     except TypeError:
         # Return to caller
         return redirect(request.referrer)

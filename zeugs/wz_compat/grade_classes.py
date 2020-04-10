@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-04-09
+Last updated:  2020-04-10
 
 For which school-classes and streams are grade reports possible?
 
@@ -35,10 +35,14 @@ _MISSING_PUPIL = "Schüler {pname} ist nicht in der Kurswahltabelle"
 _UNKNOWN_PUPIL = "Unbekannter Schüler: {pid}"
 _NEWCHOICES = "[{year}] Kurswahl für Klasse {klass} aktualisiert."
 _NOPUPILS = "Keine Schüler"
-_NSUBJECTS = "Für {pname} sind nicht genau 8 Fächer markiert"
 _ABI_CHOICES = "{pname} muss genau 8 Fächer für das Abitur wählen"
 _BAD_DATE_GROUP = "Ungültige Zeugnisgruppe: {group}"
 _STREAM_NOT_IN_KLASS = "Gruppe {stream} ist nicht möglich in Klasse {klass}"
+_TOO_MANY_SUBJECTS = "zu viele Fächer (es müssen genau 8 sein): siehe Kurswahl-Tabelle"
+_NOT_G = "{i}. Fach: {sid}. Dieses muss gA + schriftlich (Endung '.g') sein."
+_NOT_E = "{i}. Fach: {sid}. Dieses muss eA (Endung '.e') sein."
+_NOT_M = "{i}. Fach: {sid}. Dieses muss mündlich (Endung '.m') sein."
+_SUBJECT_CHOICE = "Unerwarte Abifächer: {sids}"
 
 
 from wz_core.db import DBT
@@ -47,19 +51,20 @@ from wz_core.pupils import Klass, Pupils
 from wz_core.courses import CourseTables
 from wz_table.dbtable import readPSMatrix
 from wz_table.matrix import KlassMatrix
+from .gradefunctions import AbiSubjects
 
 
 def klass2streams(class_, stream = None):
-    """If stream <s> not supplied, return a list of permissible streams
+    """If <stream> is not supplied, return a list of permissible streams
     for the given school-class.
-    If <s> is supplied, return a list of streams which can be switched
+    If <stream> is supplied, return a list of streams which can be switched
     to from the given one, with the same grade scale.
     The sense of this latter function is a bit questionable, as a stream
     switch presumably means a different assessment is necessary ...
     """
-    # Check <k> is valid.
+    # Check <class_> is valid.
     try:
-        klass = Klass(k)
+        klass = Klass(class_)
         if klass.streams:
             raise ValueError
         if klass.klass < "01" or klass.klass >= "14":
@@ -140,18 +145,57 @@ def abi_klausuren():
     return ("T1", "T2", "T3")
 
 
-def abi_sids(schoolyear, pid, report = True):
+
+def abi_sid_name(schoolyear, pdata):
+    """Return a list of Abitur subjects for the given pupil:
+        [(sid, name), ... ].
+    """
+    pid = pdata['PID']
+    klass = pdata.getKlass(withStream = True)
     with DBT(schoolyear) as db:
         row = db.select1('ABI_SUBJECTS', PID = pid)
     try:
-        choices = row['SUBJECTS'].split(',')
-        if len(choices) == 8:
-            return choices
+        choices = AbiSubjects(schoolyear, pid)
     except:
-        pass
-    if report:
         REPORT.Fail(_ABI_CHOICES, pname = Pupils.pid2name(schoolyear, pid))
-    return None
+
+    subjects = []   # [(sid, subject name), ... ]
+    abisids = []    # This is a simple sid list, but including the 'N' tags.
+    courses = CourseTables(schoolyear)
+    sid2tlist = courses.classSubjects(klass, 'GRADE')
+    i = 0
+    for sid in sid2tlist:
+        try:
+            choices.remove(sid)
+        except ValueError:
+            continue
+        i += 1
+        if i < 4:
+            # Check written subject, eA
+            if sid.endswith (".e"):
+                abisids.append(sid)
+                abisids.append(sid + 'N')
+            else:
+                REPORT.Fail(_NOT_E, i = i, sid = sid)
+        elif i == 4:
+            # Check written subject, gA
+            if sid.endswith (".g"):
+                abisids.append(sid)
+                abisids.append(sid + 'N')
+            else:
+                REPORT.Fail(_NOT_G, i = i, sid = sid)
+        elif i <= 8:
+            # Check oral subject
+            if sid.endswith (".m"):
+                abisids.append(sid)
+            else:
+                REPORT.Fail(_NOT_M, i = i, sid = sid)
+        else:
+            REPORT.Bug("It should not be possible to have too many subjects here")
+        subjects.append((sid, sid2tlist[sid].subject))
+    if choices:
+        REPORT.Fail(_SUBJECT_CHOICE, sids = ', '.join(choices))
+    return subjects
 
 
 
@@ -213,7 +257,11 @@ def choiceTable(schoolyear, klass):
             continue
         pid = pdata['PID']
         pname = pdata.name()
-        choices = abi_sids(schoolyear, pid, report = False)
+        # Get a list of Abitur subjects
+        try:
+            choices = AbiSubjects(schoolyear, pid)
+        except:
+            pass
         row = table.nextrow()
         table.write(row, 0, pid)
         table.write(row, 1, pname)
@@ -284,7 +332,7 @@ def choices2db(schoolyear, filepath):
         for pid, smap in p2choices.items():
             slist = [sid for sid in table.sids if smap.get(sid)]
             if len(slist) != 8:
-                REPORT.Fail(_NSUBJECTS, pname = plist.pidmap[pid].name())
+                REPORT.Fail(_ABI_CHOICES, pname = plist.pidmap[pid].name())
             cstring = ','.join(slist)
             with db:
                 row = db.updateOrAdd('ABI_SUBJECTS',

@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-03-30
+Last updated:  2020-04-09
 
 The Flask application: zeugs front-end.
 
@@ -100,8 +100,8 @@ def isPOST(form):
         if form.validate():
             return True
         else:
-            for e in form.errors:
-                flash(e, "Error")
+            for e, val in form.errors.items():
+                flash("%s: %s" % (e, val), "Error")
             flash("Validation Error", "Fail")
     return False
 

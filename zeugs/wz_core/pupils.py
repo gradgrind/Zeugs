@@ -305,20 +305,26 @@ class Pupils:
         return rows
 
 
+##################### Test functions
+_year = 2016
 
 def test_01 ():
-    schoolyear = 2016
-    pdb = Pupils (schoolyear)
+    _year = 2016
+    pdb = Pupils (_year)
     REPORT.Test ("Classes: %s" % repr(pdb.classes ()))
 
 def test_02 ():
-    _year = 2016
-    _klass = '12'
-    REPORT.Test ("Streams: %s" % repr(Klass(_klass).klassStreams (_year)))
+    c = Klass('12')
+    REPORT.Test("Streams: %s" % repr(c.klassStreams (_year)))
+    REPORT.Test("\n -- Class %s" % c)
+    pdb = Pupils (_year)
+    cdata = pdb.classPupils (c)
+    for line in cdata:
+        REPORT.Test ("     " + repr (line))
+
 
 def test_03 ():
-    schoolyear = 2016
-    pdb = Pupils (schoolyear)
+    pdb = Pupils (_year)
     date = '2016-06-20'
     c = Klass('10')
     cdata = pdb.classPupils (c, date)
@@ -327,8 +333,7 @@ def test_03 ():
         REPORT.Test ("     " + repr (line))
 
 def test_04 ():
-    schoolyear = 2016
-    pdb = Pupils (schoolyear)
+    pdb = Pupils (_year)
 #    date = '2016-06-20'
     cs = Klass('10.RS')
     cdata = pdb.classPupils (cs)

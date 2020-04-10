@@ -3,7 +3,7 @@
 """
 wz_core/configuration.py
 
-Last updated:  2020-04-08
+Last updated:  2020-04-10
 
 Configuration items and the handler for the configuration files.
 
@@ -498,7 +498,7 @@ def test_2 ():
     REPORT.Test (Dates.dateConv ('2016-02-30'))
 
 def test_3 ():
-    path = 'DIR_GRADES_BASE'
+    path = 'FILE_GRADE_TABLE'
     REPORT.Test ("PATH %s:\n  %s" % (path, Paths.getYearPath (2016,
             path, term='1')))
 

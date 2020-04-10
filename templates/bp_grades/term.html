@@ -17,7 +17,8 @@
     <p>Die Tabelle kann für jede Klasse/Gruppe sein, das Halbjahr muss
     aber übereinstimmen. Das Format darf 'xlsx' oder 'ods' sein.
     </p>
-    <form class="pure-form pure-form-aligned" method="POST">
+    <form class="pure-form pure-form-aligned" method="POST"
+            enctype="multipart/form-data">
         {{ form.csrf_token }}
         <div class="uploaddiv">
             {{ form.upload.label }}{{ form.upload }}

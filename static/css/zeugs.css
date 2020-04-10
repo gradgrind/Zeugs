@@ -166,6 +166,10 @@ a.pure-menu-link:hover {
     height: 2.5em;
 }
 
+.pure-form select[disabled] {
+    color: #775858;
+}
+
 .widelabel .pure-control-group label {
     width: 15rem;
 }
