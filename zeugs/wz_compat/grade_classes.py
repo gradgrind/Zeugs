@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-04-04
+Last updated:  2020-04-09
 
 For which school-classes and streams are grade reports possible?
 
@@ -38,10 +38,10 @@ _NOPUPILS = "Keine Schüler"
 _NSUBJECTS = "Für {pname} sind nicht genau 8 Fächer markiert"
 _ABI_CHOICES = "{pname} muss genau 8 Fächer für das Abitur wählen"
 _BAD_DATE_GROUP = "Ungültige Zeugnisgruppe: {group}"
-_STREAM NOT_IN_KLASS = "Gruppe {stream} ist nicht möglich in Klasse {klass}"
+_STREAM_NOT_IN_KLASS = "Gruppe {stream} ist nicht möglich in Klasse {klass}"
 
 
-from wz_core.db import DB
+from wz_core.db import DBT
 from wz_core.configuration import Paths
 from wz_core.pupils import Klass, Pupils
 from wz_core.courses import CourseTables
@@ -77,7 +77,7 @@ def klass2streams(class_, stream = None):
         try:
             return streams[stream]
         except:
-            REPORT.Fail(_STREAM NOT_IN_KLASS, klass = class_,
+            REPORT.Fail(_STREAM_NOT_IN_KLASS, klass = class_,
                     stream = stream)
     return sorted(streams)
 
@@ -141,7 +141,8 @@ def abi_klausuren():
 
 
 def abi_sids(schoolyear, pid, report = True):
-    row = DB(schoolyear).select1('ABI_SUBJECTS', PID = pid)
+    with DBT(schoolyear) as db:
+        row = db.select1('ABI_SUBJECTS', PID = pid)
     try:
         choices = row['SUBJECTS'].split(',')
         if len(choices) == 8:
@@ -279,13 +280,14 @@ def choices2db(schoolyear, filepath):
     # subjects must be included.
     if p2choices:
         allsids = table.sids
-        db = DB(schoolyear)
+        db = DBT(schoolyear)
         for pid, smap in p2choices.items():
             slist = [sid for sid in table.sids if smap.get(sid)]
             if len(slist) != 8:
                 REPORT.Fail(_NSUBJECTS, pname = plist.pidmap[pid].name())
             cstring = ','.join(slist)
-            db.updateOrAdd('ABI_SUBJECTS',
+            with db:
+                row = db.updateOrAdd('ABI_SUBJECTS',
                     {   'PID': pid,
                         'SUBJECTS': cstring
                     },

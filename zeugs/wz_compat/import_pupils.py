@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-04-08
+wz_compat/import_pupils.py - last updated 2020-04-09
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -56,7 +56,7 @@ from collections import OrderedDict, UserDict
 from glob import glob
 
 from wz_core.configuration import Paths
-from wz_core.db import DB
+from wz_core.db import DBT
 # To read/write spreadsheet tables:
 from wz_table.dbtable import readDBTable, makeDBTable
 
@@ -67,7 +67,7 @@ def _getFieldmap():
     so that case insensitive comparisons can be made.
     """
     fmap = OrderedDict ()
-    for f, val in DB.pupilFields().items ():
+    for f, val in DBT.pupilFields().items ():
         fmap [f] = val.upper ()
     return fmap
 
@@ -331,8 +331,10 @@ class DeltaRaw:
         self.schoolyear = schoolyear
         self.fields = rawdata.fields    # fields to compare
         self.delta = []                 # the list of changes
-        db = DB(schoolyear, flag = 'CANCREATE')
-        oldpdata = {pdata['PID']: pdata for pdata in db.getTable('PUPILS')}
+        db = DBT(schoolyear, mustexist = False)
+        with db:
+            rows = db.getTable('PUPILS')
+        oldpdata = {pdata['PID']: pdata for pdata in rows}
         for k, plistR in rawdata.items():
             for pdataR in plistR:
                 pid = pdataR['PID']
@@ -378,15 +380,18 @@ class DeltaRaw:
                 a.append(pdata)
             else:
                 REPORT.Bug(_BADOP, op = op)
-        db = DB(self.schoolyear)
-        for pid in d:
-            db.deleteEntry('PUPILS', PID = pid)
-        for pid, f, val in c:
-            db.update('PUPILS', f, val, PID = pid)
+        db = DBT(self.schoolyear)
+        with db:
+            for pid in d:
+                db.deleteEntry('PUPILS', PID = pid)
+        with db:
+            for pid, f, val in c:
+                db.updateOrAdd('PUPILS', {f: val},
+                        update_only = True, PID = pid)
         if a:
-            db.addRows('PUPILS', self.fields, a)
+            with db:
+                db.addRows('PUPILS', self.fields, a)
         return lines
-
 
 
 ###########?????
@@ -431,12 +436,10 @@ def importPupils(schoolyear, filepath):
             classes [klass] = 1
 
     # Create the database table PUPILS from the loaded pupil data.
-    db = DB (schoolyear, flag='CANCREATE')
-    # Use (CLASS, PSORT) as primary key, with additional index on PID.
-    # This makes quite a small db (without rowid).
-    db.makeTable2 ('PUPILS', fields, data=rows,
-            force=True,
-            pk=('CLASS', 'PSORT'), index=('PID',))
+    with DBT(schoolyear, mustexist = False) as db:
+#TODO: add pupil data
+        raise TODO
+        db.addRows('PUPILS', fields, rows) # ???
 
     return classes
 
@@ -451,9 +454,11 @@ def exportPupils (schoolyear, filepath):
     if not os.path.isdir (folder):
         os.makedirs (folder)
 
-    db = DB (schoolyear)
+    db = DBT(schoolyear)
     classes = {}
-    for row in db.getTable ('PUPILS'):
+    with db:
+        rows = db.getTable ('PUPILS')
+    for row in rows:
         klass = row ['CLASS']
         try:
             classes [klass].append (row)

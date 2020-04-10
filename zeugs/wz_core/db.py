@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-04-08
+Last updated:  2020-04-09
 
 This module handles access to an sqlite database.
 
@@ -329,6 +329,87 @@ class DBT:
         self._cursor.execute('INSERT OR IGNORE INTO INFO(K, V) VALUES(?, ?)',
                 [key, value])
 
+
+    def updateOrAdd (self, table, data, update_only = False, **criteria):
+        """If an entry matching the criteria exists, update it with the
+        given data (ignoring unsupplied fields).
+        If there is no matching entry, add it, leaving unsupplied fields
+        empty.
+        <data> is a mapping {field name -> new value}.
+        If <update_only> is true, check that an update occurred.
+        In order for this to work as desired, there must be at least one
+        constraint (e.g. UNIQUE) to ensure that the INSERT fails if the
+        UPDATE has succeeded.
+        """
+        fields = []     # for INSERT
+        ufields = []    # for UPDATE
+        vlist = []
+        for f, v in data.items():
+            ufields.append(f + '=?')
+            fields.append(f)
+            vlist.append(v)
+        # For UPDATE: criteria
+        clist = []
+        cvlist = []
+        for c, v in criteria.items():
+            clist.append(c + '=?')
+            cvlist.append(v)
+        self._cursor.execute('UPDATE {} SET {} WHERE {}'.format(table,
+                ', '.join(ufields),
+                ' AND '.join(clist)),
+                vlist + cvlist)
+        if self._cursor.rowcount > 1:
+            REPORT.Bug("More than one line updated in db, table {table}:\n"
+                    "  {criteria} -> {data}", table=table,
+                    criteria=repr(criteria),
+                    data=repr(data)
+            )
+        if update_only and self._cursor.rowcount < 1:
+            raise UpdateError
+        cmd = 'INSERT OR IGNORE INTO {}({}) VALUES({})'.format(table,
+                        ','.join(fields),
+                        ','.join(['?']*len(fields)))
+        self._cursor.execute(cmd, vlist)
+
+
+    def deleteEntry (self, table, **criteria):
+        clist = []
+        vlist = []
+        for c, v in criteria.items ():
+            clist.append (c + '=?')
+            vlist.append (v)
+        cmd = 'DELETE FROM {} WHERE {}'.format (table,
+                ' AND '.join (clist))
+        self._cursor.execute (cmd, vlist)
+
+
+    def addRows(self, table, fields, data):
+        """Add rows to the given table.
+        <data> is a list of rows. Each row is a list of values
+        corresponding to the field names provided in the list
+        <fields>. Should any table fields not be provided, these
+        will take on the default value (normally NULL).
+        """
+        self._cursor.executemany(
+                'INSERT INTO {} ({})\n  VALUES ({})'.format (
+                        table,
+                        ', '.join (fields),
+                        ', '.join (['?']*len (fields))
+                ), data
+        )
+
+
+    def clearTable(self, table):
+        self._cursor.execute('DELETE FROM {}'.format(table))
+
+
+    def vacuum(self):
+        self._cursor.execute('VACUUM')
+
+
+
+class UpdateError(IndexError):
+    pass
 
 
 #def namedtuple_factory(cursor, row):

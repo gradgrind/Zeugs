@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/migrate.py - last updated 2020-02-16
+wz_compat/migrate.py - last updated 2020-04-09
 
 Use data from the database of a previous year to get a starting point
 for a new year.
@@ -30,7 +30,7 @@ _BADCLASSNAME = "Ungültiger Klassenname: {klass}"
 _PUPIL_LEFT = "Abgemeldeter Schüler in Klasse {klass}: {name}"
 
 
-from wz_core.db import DB
+from wz_core.db import DBT
 from wz_core.pupils import Pupils, PupilData, Klass
 
 ## First (official) day of school year
@@ -89,8 +89,13 @@ def migratePupils(schoolyear):
             rows.append(pdata)
 
     # Create the database table PUPILS from the loaded pupil data.
-    db = DB(schoolyear, flag='CANCREATE')
-    db.addRows('PUPILS', PupilData.fields(), rows, clear=True)
+    db = DBT(schoolyear, mustexist = False)
+    with db:
+        db.clearTable('PUPILS')
+    with db:
+        db.vacuum()
+    with db:
+        db.addRows('PUPILS', PupilData.fields(), rows)
     return db.filepath
 
 

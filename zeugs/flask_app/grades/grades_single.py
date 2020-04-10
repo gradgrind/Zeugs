@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_single.py
 
-Last updated:  2020-04-08
+Last updated:  2020-04-09
 
 "Sub-module" of grades for single reports
 
@@ -43,7 +43,7 @@ from flask_wtf import FlaskForm
 
 from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, Klass
-from wz_core.db import DB
+from wz_core.db import DBT
 from wz_grades.gradedata import (CurrentTerm, getTermTypes,
         getGradeData, GradeReportData, singleGrades2db)
 from wz_grades.makereports import makeOneSheet

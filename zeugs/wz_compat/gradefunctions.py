@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-08
+Last updated:  2020-04-09
 
 Calculations needed for grade handling.
 
@@ -53,7 +53,7 @@ _INVALID_GRADES = ("Ungültige Fächer/Noten für {pname}, erwartet:\n"
 
 from fractions import Fraction
 
-from wz_core.db import DB
+from wz_core.db import DBT
 
 
 class GradeError(Exception):
@@ -484,7 +484,8 @@ class AbiSubjects(list):
 # Note that this assumes that the first foreign language is always
 # English ...
     def __init__(self, schoolyear, pid, fhs = False):
-        sids = DB(schoolyear).select1('ABI_SUBJECTS', PID = pid)
+        with DBT(schoolyear) as db:
+            sids = db.select1('ABI_SUBJECTS', PID = pid)
         if not sids:
             raise ValueError('Keine Abifächer')
         slist = sids['SUBJECTS'].split(',')

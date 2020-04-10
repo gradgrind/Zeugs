@@ -4,7 +4,7 @@
 """
 flask_app/text/text.py
 
-Last updated:  2020-03-07
+Last updated:  2020-04-09
 
 Flask Blueprint for text reports
 
@@ -39,7 +39,7 @@ from wtforms.fields.html5 import DateField
 from wtforms.validators import InputRequired, Optional
 
 from wz_core.configuration import Dates
-from wz_core.db import DB
+from wz_core.db import DBT
 from wz_core.teachers import Users
 from wz_text.summary import tSheets, ksSheets
 
@@ -74,7 +74,7 @@ def closingdate():
 
     schoolyear = session['year']
     form = _Form()
-    db = DB(schoolyear)
+    db = DBT(schoolyear)
 
     if form.validate_on_submit():
         ok = True
@@ -84,13 +84,15 @@ def closingdate():
             d = tdate.isoformat()
             # check within school-year
             if Dates.checkschoolyear(schoolyear, d):
-                db.setInfo('TEXT_CURRENT', d)
+                with db:
+                    db.setInfo('TEXT_CURRENT', d)
                 flash("Textzeugnisse: Einsendeschluss gesetzt", "Info")
             else:
                 flash("Textzeugnisse: Einsendeschluss ungültig (Schuljahr)", "Error")
                 ok = False
         else:
-            db.setInfo('TEXT_CURRENT', None)
+            with db:
+                db.setInfo('TEXT_CURRENT', None)
             flash("Textzeugniseingabe gesperrt", "Info")
         if ok:
             return redirect(url_for('bp_text.index'))
@@ -99,7 +101,8 @@ def closingdate():
 
     # GET
     # Get current settings
-    textInfo = db.getInfo('TEXT_CURRENT')
+    with db:
+        textInfo = db.getInfo('TEXT_CURRENT')
     if textInfo:
         form.TEXT_CLOSING_D.data = datetime.date.fromisoformat(textInfo)
     return render_template(os.path.join(_BPNAME, 'closingdate.html'),

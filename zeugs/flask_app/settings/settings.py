@@ -4,7 +4,7 @@
 """
 flask_app/settings/settings.py
 
-Last updated:  2020-03-07
+Last updated:  2020-04-09
 
 Flask Blueprint for application settings.
 
@@ -40,7 +40,7 @@ from wtforms.validators import InputRequired, Optional
 import os, datetime
 
 from wz_core.configuration import Paths, Dates
-from wz_core.db import DB
+from wz_core.db import DBT
 from wz_table.dbtable import readPSMatrix
 from wz_core.pupils import Pupils, Klass
 
@@ -94,7 +94,7 @@ def calendar():
         END_D = DateField("Letzter Schultag", validators=[InputRequired()])
 
     schoolyear = session['year']
-    db = DB(schoolyear)
+    db = DBT(schoolyear)
     form = _Form()
     if form.validate_on_submit():
         # POST
@@ -118,17 +118,19 @@ def calendar():
             ok = False
             flash("Letzter Tag > 60 Tage vor Schuljahresende", "Error")
         if ok:
-            db.setInfo("CALENDAR_FIRST_DAY", START_D.isoformat())
-            db.setInfo("CALENDAR_LAST_DAY", END_D.isoformat())
+            with db:
+                db.setInfo("CALENDAR_FIRST_DAY", START_D.isoformat())
+                db.setInfo("CALENDAR_LAST_DAY", END_D.isoformat())
             nextpage = session.pop('nextpage', None)
             if nextpage:
                 return redirect(nextpage)
 
     # GET
-    START_D = db.getInfo("CALENDAR_FIRST_DAY")
-    if START_D:
-        form.START_D.data = datetime.date.fromisoformat(START_D)
-    END_D = db.getInfo("CALENDAR_LAST_DAY")
+    with db:
+        START_D = db.getInfo("CALENDAR_FIRST_DAY")
+        if START_D:
+            form.START_D.data = datetime.date.fromisoformat(START_D)
+        END_D = db.getInfo("CALENDAR_LAST_DAY")
     if END_D:
         form.END_D.data = datetime.date.fromisoformat(END_D)
     return render_template(os.path.join(_BPNAME, 'calendar.html'),

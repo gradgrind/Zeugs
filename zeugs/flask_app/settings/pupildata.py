@@ -4,7 +4,7 @@
 """
 flask_app/sttings/pupildata.py
 
-Last updated:  2020-03-07
+Last updated:  2020-04-08
 
 Flask Blueprint for updating pupil data.
 
@@ -46,7 +46,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 #from wz_core.configuration import Dates
 #from wz_core.pupils import Pupils, Klass
-from wz_core.db import DB
+from wz_core.db import DBT
 from wz_compat.import_pupils import readRawPupils, DeltaRaw, RawPupilData, _CHANGE
 
 
@@ -91,7 +91,8 @@ def upload():
 
     schoolyear = session['year']
     # Get date of first school day
-    startdate = DB(schoolyear).getInfo("CALENDAR_FIRST_DAY")
+    with DBT(schoolyear) as db:
+        startdate = db.getInfo("CALENDAR_FIRST_DAY")
     if not startdate:
         flash("Sie müssen den ersten Schultag setzen.")
         session['nextpage'] = url_for('bp_pupildata.upload')

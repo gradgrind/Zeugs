@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-04-08
+Last updated:  2020-04-09
 
 Handle the data for grade reports.
 
@@ -62,7 +62,7 @@ import os, datetime
 from collections import OrderedDict, namedtuple
 
 from wz_core.configuration import Paths, Dates
-from wz_core.db import DBT, UpdateError
+from wz_core.db import DBT
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_core.teachers import Users
@@ -116,12 +116,20 @@ def getGradeData(schoolyear, pid, term, sid = None):
     if sid:
         gmap['GRADE'] = _readGradeSid(db, gkey, sid)
         return gmap
+    else:
+        setGrades(schoolyear, gmap)
+    return gmap
+
+
+def setGrades(schoolyear, gmap):
     # Read all subjects
     klass = Klass.fromKandS(gmap['CLASS'], gmap['STREAM'])
+    # Read the grades
+    db = DBT(schoolyear)
+    gkey = gmap['KEYTAG']
     sid2tlist = CourseTables(schoolyear).classSubjects(klass, 'GRADE')
     gmap['GRADES'] = {sid: _readGradeSid(db, gkey, sid)
             for sid in sid2tlist}
-    return gmap
 
 
 def _readGradeSid(db, gkey, sid, withuser = False):
@@ -175,14 +183,11 @@ def updateGrades(schoolyear, pdata, term, grades, user = None):
     with tdb:
         ginfo = tdb.select1('GRADES', PID = pid, TERM = term)
         if ginfo:
-            # Convert the grade info to a <dict>
-            gmap = dict(ginfo)
-            gkey = gmap['KEYTAG']
+            gkey = ginfo['KEYTAG']
 #TODO: Check class and stream?
 # If current term, update entry? Else error?
 # OR assume that has been handled previously, just update if necessary?
         else:
-            gmap = None
             ### Create entry
 # If creating a new GRADES entry, the pupil data must be used.
 # But is this the right place for this? Should it rather raise an error?
@@ -198,13 +203,16 @@ def updateGrades(schoolyear, pdata, term, grades, user = None):
 
     ## Read existing grades of all subjects in <grades> and update if
     ## they have changed and the user is permitted.
-    perms = Users().permission(user)
-    if 's' in perms:
-        utest = False
-    elif 'u' in perms:
-        utest = True
+    if user:
+        perms = Users().permission(user)
+        if 's' in perms:
+            utest = False
+        elif 'u' in perms:
+            utest = True
+        else:
+            REPORT.Fail(_INVALID_USER, user = user)
     else:
-        REPORT.Fail(_INVALID_USER, user = user)
+        utest = False
     timestamp = datetime.datetime.now().isoformat(
             sep=' ', timespec='seconds')
     for sid, g in grades.items():
@@ -212,7 +220,7 @@ def updateGrades(schoolyear, pdata, term, grades, user = None):
         if not g:
             continue
         with tdb:
-            if gmap:
+            if ginfo:
                 # Check that it is really a permissible change
                 records = db.select('GRADE_LOG', order = 'TIMESTAMP',
                         reverse = True, limit = 1,
@@ -305,7 +313,6 @@ def grades2db(gtable):
 
 
 
-#TODO: new db scheme
 def singleGrades2db(schoolyear, pdata, rtag, date, gdate, grades):
     """Add or update GRADES table entry for a single pupil and date.
     <pdata> is an extended <PupilData> instance. It needs the following
@@ -321,13 +328,14 @@ def singleGrades2db(schoolyear, pdata, rtag, date, gdate, grades):
     <gdate> is for the GDATE_D field.
     <grades> is a mapping {sid -> grade}.
     """
-    raise TODO
-    db = DB(schoolyear)
+    db = DBT(schoolyear)
     pid = pdata['PID']
     if rtag == 'X':
         # Make new tag
         xmax = 0
-        for row in DB(schoolyear).select('GRADES', PID = pid):
+        with db:
+            rows = db.select('GRADES', PID = pid)
+        for row in rows:
             t = row['TERM']
             if t[0] == 'X':
                 try:
@@ -340,21 +348,22 @@ def singleGrades2db(schoolyear, pdata, rtag, date, gdate, grades):
         if xmax >= 99:
             REPORT.Fail(_TOO_MANY_REPORTS, pname = pdata.name())
         rtag = 'X%02d' % (xmax + 1)
-    gstring = map2grades(grades)
-    db.updateOrAdd('GRADES',
+    with db:
+        db.updateOrAdd('GRADES',
             {   'CLASS': pdata.GKLASS.klass,
                 'STREAM': pdata.GKLASS.stream,
                 'PID': pdata['PID'],
                 'TERM': rtag,
                 'REPORT_TYPE': pdata.RTYPE,
-                'GRADES': gstring,
                 'REMARKS': pdata.REMARKS,
                 'DATE_D': date,
                 'GDATE_D': gdate
             },
-            TERM=rtag,
-            PID=pid
+            TERM = rtag,
+            PID = pid
     )
+    # Add grades
+    updateGrades(schoolyear, pdata, rtag, grades)
 
 
 

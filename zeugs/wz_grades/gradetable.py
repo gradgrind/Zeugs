@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-04-03
+wz_grades/gradetable.py - last updated 2020-04-09
 
 Create grade tables for display and grade entry.
 
@@ -41,12 +41,12 @@ _NOT_CURRENT_TERM = "Nicht das aktuelle Halbjahr, die Noten werden erscheinen"
 import datetime
 
 from wz_core.configuration import Paths, Dates
-from wz_core.db import DB
+from wz_core.db import DBT
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_table.matrix import KlassMatrix
 from wz_compat.grade_classes import gradeGroups
-from .gradedata import getGradeData, CurrentTerm, grades2map
+from .gradedata import getGradeData, CurrentTerm, setGrades
 
 
 def makeBasicGradeTable(schoolyear, term, klass):
@@ -171,17 +171,21 @@ def makeBasicGradeTable(schoolyear, term, klass):
 
 
 def oldTablePupils(schoolyear, term, klass):
-    """Search within <klass.klass> for <term>, include those with
-    a stream covered by <klass>.
+    """Search the GRADES table for entries with CLASS <klass.klass>
+    and TERM <term>. Include those with a stream covered by <klass>.
     """
     plist = []
     pupils = Pupils(schoolyear)
-    for row in DB(schoolyear).select('GRADES',
-            CLASS = klass.klass, TERM = term):
+    with DBT(schoolyear) as db:
+        rows = db.select('GRADES', CLASS = klass.klass, TERM = term)
+    for row in rows:
         stream = row['STREAM']
         if klass.containsStream(stream):
             pdata = pupils.pupil(row['PID'])
-            pdata.grades = grades2map(row['GRADES'])
+            # Get the grades
+            gmap = dict(row)
+            setGrades(schoolyear, gmap)
+            pdata.grades = gmap['GRADES']
             # In case class or stream have changed:
             pdata['CLASS'] = klass.klass
             pdata['STREAM'] = stream

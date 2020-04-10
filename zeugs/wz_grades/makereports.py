@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-04-08
+Last updated:  2020-04-09
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -60,7 +60,6 @@ from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths, Dates
 from wz_core.pupils import Pupils, Klass
-from wz_core.db import DB
 from wz_compat.config import printSchoolYear, printStream
 from wz_compat.grade_classes import getGradeGroup
 from wz_grades.gradedata import (GradeReportData, CurrentTerm,
@@ -118,7 +117,6 @@ def makeReports(klass_streams, pids=None):
     # <GradeReportData> manages the report template, etc.:
     reportData = GradeReportData(schoolyear, klass_streams)
     pmaplist = []
-    db = DB(schoolyear)
     for pdata in plist:
         pid = pdata['PID']
         # Get grade map for pupil

@@ -3,7 +3,7 @@
 """
 wz_grades/makeabi.py
 
-Last updated:  2020-04-06
+Last updated:  2020-04-09
 
 Generate final grade reports for the Abitur.
 
@@ -45,9 +45,9 @@ from weasyprint.fonts import FontConfiguration
 from wz_core.configuration import Dates
 from wz_core.pupils import Klass
 from wz_core.courses import CourseTables
-from wz_core.db import DB
+from wz_core.db import DBT
 from wz_core.template import openTemplate
-from wz_grades.gradedata import map2grades, getGradeData
+from wz_grades.gradedata import getGradeData
 from wz_compat.gradefunctions import AbiCalc, GradeError
 
 
@@ -55,19 +55,12 @@ def saveGrades(schoolyear, pdata, grades, date):
     """The given grade mapping is saved to the GRADES table, with
     'A' in the TERM field and 'Abitur' in the REPORT_TYPE field.
     """
-    db = DB(schoolyear)
-    gstring = map2grades(grades)
-    klass = pdata.getKlass()
-    pid = pdata['PID']
-    term = 'A'
-    db.updateOrAdd('GRADES',
-            {   'CLASS': klass.klass, 'STREAM': pdata['STREAM'],
-                'PID': pid, 'TERM': term, 'DATE_D': date,
-                'REPORT_TYPE': 'Abitur', 'GRADES': gstring
-            },
-            TERM = term,
-            PID = pid
-    )
+    db = DBT(schoolyear)
+    pdata.GKLASS = pdata.getKlass()
+    pdata.RTYPE = 'Abitur'
+    pdata.REMARKS = None
+    singleGrades2db(schoolyear, pdata, 'A', date,
+            gdate = None, grades = grades)
     REPORT.Info(_ABIGRADES, pname = pdata.name())
     return True
 

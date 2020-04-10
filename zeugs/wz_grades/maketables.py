@@ -4,7 +4,7 @@
 """
 wz_grades/maketables.py
 
-Last updated:  2020-04-06
+Last updated:  2020-04-09
 
 Build result tables for the grade groups, including evaluation, etc.
 
@@ -40,7 +40,6 @@ from weasyprint.fonts import FontConfiguration
 
 from wz_core.configuration import Paths
 from wz_core.pupils import Pupils, Klass
-from wz_core.db import DB
 from wz_core.template import openTemplate
 from wz_compat.config import printSchoolYear
 from wz_grades.gradedata import GradeReportData, getGradeData
@@ -60,7 +59,6 @@ def makeTable(schoolyear, term, ggroup):
     # <GradeReportData> manages the report template, etc.:
     reportData = GradeReportData(schoolyear, ggroup)
     plist = []
-    db = DB(schoolyear)
     for pdata in pupils.classPupils(ggroup):
         pid = pdata['PID']
         # Get grade map for pupil

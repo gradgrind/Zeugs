@@ -4,7 +4,7 @@
 """
 flask_app/text_cover/text_cover.py
 
-Last updated:  2020-04-06
+Last updated:  2020-04-09
 
 Flask Blueprint for text report cover sheets
 
@@ -39,7 +39,7 @@ import datetime, io, os
 from types import SimpleNamespace
 
 from wz_core.configuration import Dates
-from wz_core.db import DB
+from wz_core.db import DBT
 from wz_core.pupils import Pupils, Klass
 from wz_core.template import getTextTemplate, getTemplateTags, pupilFields
 from wz_compat.config import sortingName
@@ -55,8 +55,8 @@ class DateForm(FlaskForm):
         return self.DATE_D.data.isoformat()
 
     def defaultIssueDate(self, schoolyear):
-        db = DB(schoolyear)
-        _date = db.getInfo('TEXT_DATE_OF_ISSUE')
+        with DBT(schoolyear) as db:
+            _date = db.getInfo('TEXT_DATE_OF_ISSUE')
         if not _date:
             _date = Dates.getCalendar(schoolyear).get('END')
             if not _date:
@@ -81,8 +81,8 @@ def index():
         # POST
         # Store date of issue
         _date = form.getDate()
-        db = DB(schoolyear)
-        db.setInfo('TEXT_DATE_OF_ISSUE', _date)
+        with DBT(schoolyear) as db:
+            db.setInfo('TEXT_DATE_OF_ISSUE', _date)
 
     # GET
     form.defaultIssueDate(schoolyear)
