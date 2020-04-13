@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-04-09
+Last updated:  2020-04-13
 
 This module handles access to an sqlite database.
 
@@ -45,12 +45,12 @@ _NODB = "Keine Daten für Schuljahr {year}"
 #TODO: perhaps it should be possible to delete entries, or at least mark
 # them as superseded.
 
-GRADE_FIELDS = ('CLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
+GRADES_INFO_FIELDS = ('CLASS', 'STREAM', 'PID', 'TERM', 'REPORT_TYPE',
         'REMARKS', 'DATE_D', 'GDATE_D')
-GRADE_UNIQUE = [('PID', 'TERM')]
+GRADES_INFO_UNIQUE = [('PID', 'TERM')]
 
-GRADE_LOG_FIELDS = (('KEYTAG', 'INTEGER'), 'SID', 'GRADE',
-        'USER', 'TIMESTAMP')
+GRADES_LOG_FIELDS = (('KEYTAG', 'INTEGER'), 'SID', 'GRADE')
+GRADES_LOG_UNIQUE = [('KEYTAG', 'SID')]
 
 ABI_SUBJECTS_FIELDS = ('PID', 'SUBJECTS')
 ABI_SUBJECTS_UNIQUE = ['PID']
@@ -154,11 +154,12 @@ class DBT:
         with self:
             if not self.tableExists('INFO'):
                 self.makeTable('INFO', ('K', 'V'), index = ['K'])
-            if not self.tableExists('GRADES'):
-                self.makeTable('GRADES', GRADE_FIELDS, pk = 'KEYTAG',
-                        index = GRADE_UNIQUE)
-            if not self.tableExists('GRADE_LOG'):
-                self.makeTable('GRADE_LOG', GRADE_LOG_FIELDS)
+            if not self.tableExists('GRADES_INFO'):
+                self.makeTable('GRADES_INFO', GRADES_INFO_FIELDS,
+                        pk = 'KEYTAG', index = GRADES_INFO_UNIQUE)
+            if not self.tableExists('GRADES_LOG'):
+                self.makeTable('GRADES_LOG', GRADES_LOG_FIELDS,
+                        pk = 'ID', index = GRADES_LOG_UNIQUE)
             # Make indexes for (CLASS, PSORT) and PID. One might
             # consider using WITHOUT ROWID.
             if not self.tableExists('PUPILS'):

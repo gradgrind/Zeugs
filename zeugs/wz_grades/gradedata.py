@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-04-10
+Last updated:  2020-04-13
 
 Handle the data for grade reports.
 
@@ -36,7 +36,7 @@ _INVALID_KLASS = "Ungültige Klasse: {klass}"
 _UNKNOWN_PUPIL = "In Notentabelle: unbekannte Schüler-ID – {pid}"
 _NOPUPILS = "Keine (gültigen) Schüler in Notentabelle"
 _NEWGRADES = "Noten für {n} Schüler aktualisiert ({year}/{term}: {klass})"
-#_BAD_GRADE_DATA = "Fehlerhafte Notendaten für {pname}, TERM={term}"
+_BAD_GRADE = "Fehlerhafte Note für {pname} in {sid}: {grade}"
 _UNGROUPED_SID = ("Fach {sid} fehlt in den Fachgruppen (in GRADES.ORDERING)"
         " für Klasse {klass}")
 _NO_TEMPLATE = "Keine Zeugnisvorlage für Klasse {ks}, Typ {rtype}"
@@ -56,13 +56,14 @@ _LAST_USER = ("Note im Fach {sid} für {pname} zuletzt durch Benutzer {user0}"
         " geändert, Zugang verweigert")
 _INVALID_STREAM = ("{pname}: Gruppe {pstream} stimmt nicht mit Tabelle"
         " {tstream} überein")
+_CHANGE_FROM = "{pname} hat die Gruppe gewechselt (von {ks})"
 
 
 import os, datetime
 from collections import OrderedDict, namedtuple
 
 from wz_core.configuration import Paths, Dates
-from wz_core.db import DBT
+from wz_core.db import DBT, GRADES_INFO_FIELDS
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_core.teachers import Users
@@ -75,11 +76,87 @@ from wz_table.dbtable import readPSMatrix
 _INVALID = '/'      # Table entry for cells marked "invalid"
 
 
+""" OVERVIEW
 
+Grade information can be fetched using <getGradeData>. It returns all
+information about either a single subject or all subjects for a pupil
+and term. It should be constrained to return only valid grades. The
+all-subjects mode encapsulates its grades in a "grade manager" (see
+module "gradefunctions").
+
+It is possible that there is a conflict between the grade/stream of a
+pupil and that of the grade information in the database. This can happen
+if the pupil has changed class/stream. How to deal with this depends on
+whether we are handling the "current term" or not. If we are, there
+should be a warning, but the grades will be passed on if they are valid
+in the new scheme (otherwise null).
+If we are not handling the "current term", the grades can only be
+edited by an administrator anyway, so there is only the single-report
+access. Here the pupil effectively takes on the class/stream of the
+grade entry, which can, however, be changed.
+
+***********************
+
+Updating grade information has two parts. Firstly there is the general
+data: class/group, term, report type and stuff for the report (remarks
+and dates). This is common to all subjects for a pupil and term. It is
+stored in the GRADES_INFO table.
+
+The actual grades are stored in another table, GRADES_LOG.
+These are indexed by a combination of KEYTAG and SID (subject id).
+KEYTAG is the primary key of the GRADES_INFO table.
+
+Grade information is needed on a per pupil basis for individual report
+editing and building.
+
+Grade information is also needed on a subject basis for teacher-subject
+based editing. This is available via the single-subject interface to
+<GradeData>, though of course one would need to iterate through the
+pupils.
+
+It may not really be necessary in this case, but it is probably a bit
+"cleaner" if updating is done within a locked read/write transaction.
+
+One update function (admin only) thus needs to accept a set of grades
+for a pupil and term, including the possibility of a change of class/
+stream to that of the new data. The possibly new class/stream could be
+passed in with the pupil data (it needn't necessarily be the actual
+class/stream of the pupil) or separately (***TODO***).
+
+For the "current term" a change of class/stream is only possible in the
+pupil-data editor. If there is a GRADES_INFO entry, this must also be
+updated and a log-entry made so that the change can be communicated to
+the users.
+
+"Current term" only: Reading a GRADES_INFO entry with a class/stream
+conflict with the pupil data should be an error – report it (bug?) and
+correct it.
+
+The second update function (available to all users) would handle grades
+for a particular group of pupils, for a subject in the "current term"
+only. Warning of a change of class/stream for a pupil should be logged
+in the database, so that it can be signalled to the users – of course
+only if there were any grade entries before the change.
+
+The GRADE field of the GRADES_LOG table is not simply a grade. It
+includes the change log. Each change of grade adds a line to this
+string. Each line is formatted thus:
+    grade,user,timestamp
+The lines are separated by '\n'.
+
+A "normal" user may only update a grade if there is no entry at present
+or if (s)he was the last person to modify it. In the editor it might
+help to make non-editable grades visible, but read-only, and to show
+the "owner".
+"""
+
+
+#DEPRECATED: remove from abitur.py, used getGradeData instead.
 def gradeInfo(schoolyear, term, pid):
     """Return the GRADES table entry for the given year/pupil/term, if
     it exists, otherwise <None>.
     """
+    raise DEPRECATED
     with DBT(schoolyear) as tdb:
         ginfo = tdb.select1('GRADES', PID = pid, TERM = term)
     if ginfo:
@@ -89,93 +166,235 @@ def gradeInfo(schoolyear, term, pid):
         return None
 
 
-def getGradeData(schoolyear, pid, term, sid = None):
-    """Return all the data from the database GRADES table for the
-    given pupil and the given "term" as a mapping.
-        <term>: Either a term (small integer) or, for "extra"
-            reports, a tag (Xnn). It may also may also be any other
-            permissible entry in the TERM field of the GRADES table.
-    Return a mapping containing the basic grade-info for this year/term/
-    pupil.
-    If no <sid> is given, there will also be a 'GRADES' item, which is
-    a mapping {sid -> grade} for all subjects appropriate to the class.
-    Note that class and stream of the grade info entry are used, which
-    may differ from those of the pupil (if the pupil has changed
-    class/group).
-    If <sid> is supplied, there will be a 'GRADE' item, which is just
-    the grade of the given subject.
+#TODO: Maybe the GRADES_INFO entries should be made when the "term" is
+# opened?
+class GradeData:
+    """Manager for grade data for a particular term and pupil.
     """
-    gmap = gradeInfo(schoolyear, term, pid)
-    if not gmap:
+    def __init__(self, schoolyear, term, pdata):
+        """Get all the data from the database GRADES_INFO table for the
+        given pupil and the given "term".
+            <term>: Either a term (small integer) or, for "extra"
+                reports, a tag (Xnn). It may also may also be any other
+                permissible entry in the TERM field of the GRADES_INFO
+                table.
+            <pdata>: A <PupilData> instance.
+        The data is stored as attributes:
+            ginfo: the fields of the GRADES_INFO entry
+            gklass: a <Klass> instance for the GRADES_INFO entry – if
+                the class/stream is updated this will reflect the change
+                (ginfo won't)
+        """
+        self.schoolyear = schoolyear
+#TODO: The exclusive parameter is for the case that things are updated.
+# If the GRADE_INFO updating is removed, that would remove one reason.
+# Then it would only be a question of whether grade updates are covered
+# by this class (and why shouldn't they be?)
+        self.db = DBT(schoolyear, exclusive = True)
+        self.term = term
+        self.pdata = pdata
+        # Ideally the class/stream in the GRADE_INFO entry will be the
+        # same as that of the pupil, but if the pupil's class or stream
+        # has changed, there could be a difference. In the "current term"
+        # (only) the grade class/stream must then be adapted. Otherwise
+        # the difference is tolerable, the GRADE_INFO values will be used.
+        self.gklass = pdata.getKlass(withStream = True) # but see below
+        self._GradeManager = None
+        with self.db:
+            self.ginfo = self.db.select1('GRADES_INFO', TERM = term,
+                    PID = pdata['PID'])
+            try:
+                self.KEYTAG = self.ginfo['KEYTAG']
+            except:
+                self.KEYTAG = None
+            else:
+                _gklass = Klass.fromKandS(self.ginfo['CLASS'],
+                        self.ginfo['STREAM'])
+                if (_gklass.klass != self.gklass.klass
+                        or _gklass.stream != self.gklass.stream):
+                    try:
+                        CurrentTerm(schoolyear, term)
+                    except CurrentTerm.NoTerm as e:
+                        # If not "current term" the difference is
+                        # not an error, but use <_gklass>.
+                        self.gklass = _gklass
+                    else:
+                        # Update the class/stream for the grade-info
+                        self._updateGradeInfo(CLASS = self.gklass.klass,
+                                STREAM = self.gklass.stream)
+                        # Prepend the old class/stream to each existing
+                        # grade entry, e.g. "#10.RS:"
+                        for row in self.db.select('GRADES_LOG',
+                                KEYTAG = self.KEYTAG):
+                            pk = row['ID']
+                            g = row['GRADE']
+                            self.db.updateOrAdd('GRADES_LOG',
+                                    {'GRADE': '#%s:' % self.gklass},
+                                    update_only = True, ID = pk
+                            )
+#TODO: Shouldn't this rather be an error? even a bug?
+# Only an administrator should be able to update a GRADES_INFO entry.
+# Also report that it has been "fixed"/"angepasst"
+                        REPORT.Warn(_GROUP_CHANGE, pname = pdata.name(),
+                                pk = self.gklass, gk = _gklass)
+                        # Note that the old values are still available
+                        # in <self.ginfo>.
+
+
+# ?
+    def _updateGradeInfo(self, **changes):
+        # The transaction is active!
+        self.db.updateOrAdd('GRADES_INFO', changes, update_only = True,
+                KEYTAG = self.KEYTAG)
+
+
+# ?
+    def addGradeInfo(self):
+#?
+        # The transaction is active!
+        self.KEYTAG = self.db.addEntry('GRADES_INFO', {
+                'TERM': self.term,
+                'PID': self.pdata['PID'],
+                'CLASS': self.gklass.klass,
+                'STREAM': self.gklass.stream,
+            }
+        )
+
+
+    def getGrade(self, sid):
+        """Return a tuple: (grade, user) for the given subject.
+        If there is no entry for the subject, return <None>.
+        """
+        if self.KEYTAG:
+            with self.db:
+                record = self.db.select1('GRADES_LOG',
+                        KEYTAG = self.KEYTAG, SID = sid)
+            try:
+                g, user, rest = record['GRADE'].split(',', 2)
+            except:
+                pass
+            else:
+                self.user = user
+                # Check for class/group-change prefix
+                while g[0] == '#':
+                    pre, g = g.split(':', 1)
+                    REPORT.Warn(_CHANGE_FROM, pname = self.pdata.name(),
+                            ks = pre[1:])
+                # Validate grade
+                if not self._GradeManager:
+                    self._GradeManager = Manager(self.gklass)
+                if g in self._GradeManager.VALIDGRADES:
+                    return g
+                REPORT.Warn(_BAD_GRADE, pname = self.pdata.name(),
+                        sid = sid, grade = g)
+                return None
+
+        self.user = None
         return None
 
-    db = DBT(schoolyear)
-    gkey = gmap['KEYTAG']
-    if sid:
-        gmap['GRADE'] = _readGradeSid(db, gkey, sid)
-        return gmap
-    else:
-        setGrades(schoolyear, gmap)
-    return gmap
+
+    def getAllGrades(self):
+        self.users = {}
+        with self.db:
+            records = self.db.select('GRADES_LOG', KEYTAG = self.KEYTAG)
+        grades, self.users = {}, {}
+        for record in records:
+            sid = record['SID']
+            g, user, rest = record['GRADE'].split(',', 2)
+            self.users[sid] = user
+            # Check for class/group-change prefix
+            while g[0] == '#':
+                pre, g = g.split(':', 1)
+                REPORT.Warn(_CHANGE_FROM, pname = self.pdata.name(),
+                        ks = pre[1:])
+            grades[sid] = g
+        # Read all subjects for the class/group
+        courses = CourseTables(self.schoolyear)
+        sid2tlist = courses.classSubjects(self.gklass, 'GRADE')
+        # Use a Grade Manager to validate and complete the grades
+        if not self._GradeManager:
+            self._GradeManager = Manager(self.gklass)
+        self.grades = self._GradeManager(self.schoolyear, sid2tlist, grades)
+        return self.grades
 
 
-def setGrades(schoolyear, gmap):
-    # Read all subjects
-    klass = Klass.fromKandS(gmap['CLASS'], gmap['STREAM'])
-    # Read the grades
-    db = DBT(schoolyear)
-    gkey = gmap['KEYTAG']
-    sid2tlist = CourseTables(schoolyear).classSubjects(klass, 'GRADE')
-    gmap['GRADES'] = {sid: _readGradeSid(db, gkey, sid)
-            for sid in sid2tlist}
+    def updateGrades(self, grades, user = None):
+        """Read existing grades of all subjects in <grades> and update
+        if they have changed and the user has permission.
+            <grades> is a mapping: {sid -> grade}
+        Only administrators can "overwrite" grades entered by someone
+        else. If no <user> is supplied, the null user is used, which
+        acts like an administrator.
+        """
+        # First set up <utest>, which is true if the user must be
+        # checked when entering a new grade.
+        if user:
+            perms = Users().permission(user)
+            if 's' in perms:
+                utest = False
+            elif 'u' in perms:
+                utest = True
+            else:
+                REPORT.Fail(_INVALID_USER, user = user)
+        else:
+            utest = False
+            user = 'X'
+        timestamp = datetime.datetime.now().isoformat(
+                sep=' ', timespec='seconds')
+        # Keep separate lists for completely new entries and for those
+        # which must be updated.
+        new_entries, update_entries = [], []
+        with self.db:
+            for sid, g in grades.items():
+                g0 = None # Existing grade string (default)
+                if not g:
+                    # Null grades are ignored
+                    continue
+                if self.KEYTAG:
+                    # Get previous entry, if any
+                    record = self.db.select1('GRADES_LOG',
+                            KEYTAG = self.KEYTAG, SID = sid)
+                    try:
+                        g0, user0, rest = record['GRADE'].split(',', 2)
+                    except:
+                        pass
+                    else:
+                        # Check for class/group-change prefix
+                        if g0[0] == '#':
+                            # Do an update anyway
+                            pass
+                        elif g == g0:
+                            continue
+                        # Check that it is really a permissible change
+                        if utest and (user != user0):
+                            # User permissions inadequate
+                            REPORT.Error(_LAST_USER, user0 = user0,
+                                    sid = sid, pname = pdata.name())
+                            continue
+                # Add a new grade entry
+                g1 = ','.join((g, user, timestamp))
+                if g0:
+                    update_entries.append((sid, g1 + '\n' + g0))
+                else:
+                    new_entries.append((self.KEYTAG, sid, g1))
+
+            if new_entries:
+                if not self.KEYTAG:
+                    self.addGradeInfo()
+                self.db.addRows('GRADES_LOG', ('KEYTAG', 'SID', 'GRADE'),
+                        new_entries)
+
+            if update_entries:
+                if not self.KEYTAG:
+                    self.addGradeInfo()
+                for sid, grade in update_entries:
+                    self.db.updateOrAdd('GRADES_LOG', {'GRADE': grade},
+                        update_only = True,
+                        KEYTAG = self.KEYTAG, SID = sid)
 
 
-def getGrade(schoolyear, ginfo, sid):
-    """Fetch the grade for the given subject referenced by the given
-    grade-info item.
-    """
-    with DBT(schoolyear) as db:
-        # This might be faster with "fetchone" instead of "LIMIT",
-        # because of the "DESC" order.
-        records = db.select('GRADE_LOG',
-                order = 'TIMESTAMP', reverse = True, limit = 1,
-                KEYTAG = ginfo['KEYTAG'], SID = sid)
-    try:
-        return records[0]['GRADE']
-    except:
-        return None
-
-
-
-def _readGradeSid(db, gkey, sid, withuser = False):
-    """If there are entries for this key and sid, return the latest.
-    If no entries, return <None>.
-    If <withuser> is true, return a tuple (grade, user), otherwise
-    just return the grade.
-    """
-    with db:
-        # This might be faster with "fetchone" instead of "LIMIT",
-        # because of the "DESC" order.
-        records = db.select('GRADE_LOG',
-                order = 'TIMESTAMP', reverse = True, limit = 1,
-                KEYTAG = gkey, SID = sid)
-    try:
-        row = records[0]
-        return (row['GRADE'], row['USER']) if withuser else row['GRADE']
-    except:
-        return None
-
-
-# What about changed class/group? For the current term, I would probably
-# want pupils currently in the group. If there is a class/group mismatch
-# with the grades, certainly warn. Keep the grades IF they are valid?
-# For non-current terms I would rather want to act according to the
-# class/group stored with the grades. So search GRADES for class/group
-# and only include pupils with entries (as it is old data, these should
-# be complete).
-
-
-def updateGrades(schoolyear, pdata, term, grades, user = None):
+#TODO: update to new GRADE_LOG structure
+def _updateGrades(schoolyear, term, pdata, grades, user = None):
     """Update (only) the grades for year/pupil/term which have changed
     in the mapping <grades>: {sid -> grade}.
     <pdata> is a <PupilData> instance, supplying class and stream for
@@ -186,6 +405,9 @@ def updateGrades(schoolyear, pdata, term, grades, user = None):
     If no <user> is supplied, the null user is used, which acts like an
     administrator.
     """
+    raise TODO
+
+    gradeData = GradeData(schoolyear, term, pdata)
     # Because of potential (though unlikely) race conditions,
     # there needs to be a single EXCLUSIVE transaction for adding a
     # record if the grade has changed.
@@ -194,9 +416,9 @@ def updateGrades(schoolyear, pdata, term, grades, user = None):
 # modifying that being the task of another function?
     ## First fetch (creating if necessary) the entry in the GRADES table.
     # Only the KEYTAG field is needed (-> <gkey>).
-    tdb = DBT(schoolyear, exclusive = True)
-    with tdb:
-        ginfo = tdb.select1('GRADES', PID = pdata['PID'], TERM = term)
+    db = DBT(schoolyear, exclusive = True)
+    with db:
+        ginfo = db.select1('GRADES_INFO', PID = pdata['PID'], TERM = term)
         if ginfo:
             gkey = ginfo['KEYTAG']
 #TODO: Check class and stream?
@@ -204,62 +426,18 @@ def updateGrades(schoolyear, pdata, term, grades, user = None):
 # OR assume that has been handled previously, just update if necessary?
         else:
             ### Create entry
-# If creating a new GRADES entry, the pupil data must be used.
+# If creating a new GRADES_INFO entry, the pupil data must be used.
 # But is this the right place for this? Should it rather raise an error?
 # It should possibly only work in the current term, but I suppose that
 # could be handled externally? In a closed term, there is no sure way
 # of knowing the correct class and stream.
-            gkey = tdb.addEntry('GRADES', {
+            gkey = db.addEntry('GRADES_INFO', {
                     'PID': pdata['PID'],
                     'TERM': term,
                     'CLASS': pdata['CLASS'],
                     'STREAM': pdata['STREAM']}
             )
 
-    ## Read existing grades of all subjects in <grades> and update if
-    ## they have changed and the user is permitted.
-    if user:
-        perms = Users().permission(user)
-        if 's' in perms:
-            utest = False
-        elif 'u' in perms:
-            utest = True
-        else:
-            REPORT.Fail(_INVALID_USER, user = user)
-    else:
-        utest = False
-    timestamp = datetime.datetime.now().isoformat(
-            sep=' ', timespec='seconds')
-    new_entries = []
-    with tdb:
-        for sid, g in grades.items():
-            # Null grades are ignored
-            if not g:
-                continue
-            if ginfo:
-                # Check that it is really a permissible change
-                records = tdb.select('GRADE_LOG', order = 'TIMESTAMP',
-                        reverse = True, limit = 1,
-                        KEYTAG = gkey, sid = sid)
-                if records:
-                    row = records[0]
-                    if g == row['GRADE']:
-                        # Grade unchanged
-                        continue
-                    u0 = row['USER']
-                    if utest and (user != u0):
-                        # User permissions inadequate
-                        REPORT.Error(_LAST_USER, user0 = u0, sid = sid,
-                                pname = pdata.name())
-                        continue
-            # Add a new grade entry
-            new_entries.append((gkey, sid, g, user, timestamp))
-
-        if new_entries:
-            tdb.addRows('GRADE_LOG',
-                ('KEYTAG', 'SID', 'GRADE', 'USER', 'TIMESTAMP'),
-                new_entries
-            )
 
 
 def grades2db(gtable):
@@ -281,9 +459,8 @@ def grades2db(gtable):
     except CurrentTerm.NoTerm as e:
         REPORT.Fail(e)
 
-    # Check klass
+    # Check class validity
     klass = Klass(gtable.info.get('CLASS', '–––'))
-    # Check validity
     pupils = Pupils(schoolyear)
     try:
         plist = pupils.classPupils(klass)
@@ -319,14 +496,15 @@ def grades2db(gtable):
             # there are entries for all subject (a grade can be null).
             gradeManager = Manager(ks)(schoolyear, sid2tlist, grades)
             # Enter the grades
-            updateGrades(schoolyear, pdata, term, grades)
-        REPORT.Info(_NEWGRADES, n=len(pdata_grades),
+            gradeData = GradeData(schoolyear, term, pdata)
+            gradeData.updateGrades(gradeManager)
+        REPORT.Info(_NEWGRADES, n = len(pdata_grades),
                 klass = klass, year = schoolyear, term = term)
     else:
         REPORT.Warn(_NOPUPILS)
 
 
-
+#TODO?
 def singleGrades2db(schoolyear, pdata, rtag, date, gdate, grades):
     """Add or update GRADES table entry for a single pupil and date.
     <pdata> is an extended <PupilData> instance. It needs the following
@@ -363,7 +541,7 @@ def singleGrades2db(schoolyear, pdata, rtag, date, gdate, grades):
             REPORT.Fail(_TOO_MANY_REPORTS, pname = pdata.name())
         rtag = 'X%02d' % (xmax + 1)
     with db:
-        db.updateOrAdd('GRADES',
+        db.updateOrAdd('GRADES_INFO',
             {   'CLASS': pdata.GKLASS.klass,
                 'STREAM': pdata.GKLASS.stream,
                 'PID': pdata['PID'],
@@ -377,7 +555,7 @@ def singleGrades2db(schoolyear, pdata, rtag, date, gdate, grades):
             PID = pid
     )
     # Add grades
-    updateGrades(schoolyear, pdata, rtag, grades)
+    updateGrades(schoolyear, rtag, pdata, grades)
 
 
 
@@ -731,6 +909,129 @@ class CurrentTerm():
         return True
 
 
+#############################
+
+#DEPRECATED
+def getGradeData(schoolyear, pid, term, sid = None):
+    """Return all the data from the database GRADES_INFO table for the
+    given pupil and the given "term" as a mapping.
+        <term>: Either a term (small integer) or, for "extra"
+            reports, a tag (Xnn). It may also may also be any other
+            permissible entry in the TERM field of the GRADES_INFO table.
+    Return a mapping containing the basic grade-info for this year/term/
+    pupil.
+    If no <sid> is given, there will also be a 'GRADES' item, which is
+    a Grade Manager object (primarily a mapping {sid -> grade} for all
+    subjects appropriate to the class).
+    Note that class and stream of the GRADES_INFO entry may differ from
+    those of the pupil (if the pupil has changed class/stream).
+    There will also be a 'USERS' item, which is a mapping {sid -> user}
+    for all subjects relevant for real grades in the GRADES_INFO item's
+    class/stream.
+#TODO?: Different for the current term? Here the pupil's group should
+# be primary?
+    If <sid> is supplied, there will be a 'GRADE' item, which is just
+    the grade of the given subject. There will also be a 'USER' item,
+    the user who last updated this grade.
+    """
+    raise DEPRECATED
+    db = DBT(schoolyear)
+    with db:
+        ginfo = db.select1('GRADES_INFO', PID = pid, TERM = term)
+    if not ginfo:
+        return None
+    # Convert the grade info to a <dict>
+    gmap = dict(ginfo)
+
+    gkey = gmap['KEYTAG']
+    if sid:
+        with db:
+            record = db.select1('GRADES_LOG', KEYTAG = gkey, SID = sid)
+        g, user, rest = record['GRADE'].split(',', 2)
+        gmap['GRADE'] = g
+        gmap['USER'] = user
+    else:
+        # Include all subjects
+        with db:
+            records = db.select1('GRADE_LOG', KEYTAG = gkey)
+        grades, users = {}, {}
+        for record in records:
+            sid = record['SID']
+            g, user, rest = record['GRADE'].split(',', 2)
+            grades[sid] = (g, user)
+        # Read all subjects for the class/group
+
+
+# Use a grade-manager here? instead of the following lines ...
+# That needs a sid2tlist too, so I need to decide on class & stream.
+
+#TODO: different for "current" term?
+# Yes, probably: I think I would need the pupil data.
+        klass = Klass.fromKandS(gmap['CLASS'], gmap['STREAM'])
+        for sid in CourseTables(schoolyear).classSubjects(klass, 'GRADE'):
+            try:
+                allgrades[sid], allusers[sid] = allgrades[sid]
+            except:
+                allgrades[sid], allusers[sid] = None, None
+        gmap['GRADES'] = allgrades
+        gmap['USERS'] = allusers
+    return gmap
+
+
+#DEPRECATED, adjust gradetable.py line 187
+def setGrades(schoolyear, gmap):
+    raise DEPRECATED
+    # Read all subjects
+    klass = Klass.fromKandS(gmap['CLASS'], gmap['STREAM'])
+    # Read the grades
+    db = DBT(schoolyear)
+    gkey = gmap['KEYTAG']
+    sid2tlist = CourseTables(schoolyear).classSubjects(klass, 'GRADE')
+    gmap['GRADES'] = {sid: _readGradeSid(db, gkey, sid)
+            for sid in sid2tlist}
+
+
+#DEPRECATED, see abitur.py ll. 273, 276
+def getGrade(schoolyear, ginfo, sid):
+    """Fetch the grade for the given subject referenced by the given
+    grade-info item.
+    """
+    raise DEPRECATED
+    with DBT(schoolyear) as db:
+        # This might be faster with "fetchone" instead of "LIMIT",
+        # because of the "DESC" order.
+        records = db.select('GRADE_LOG',
+                order = 'TIMESTAMP', reverse = True, limit = 1,
+                KEYTAG = ginfo['KEYTAG'], SID = sid)
+    try:
+        return records[0]['GRADE']
+    except:
+        return None
+
+
+#DEPRECATED
+def _readGradeSid(db, gkey, sid, withuser = False):
+    """If there are entries for this key and sid, return the latest.
+    If no entries, return <None>.
+    If <withuser> is true, return a tuple (grade, user), otherwise
+    just return the grade.
+    """
+    raise DEPRECATED
+    with db:
+        # This might be faster with "fetchone" instead of "LIMIT",
+        # because of the "DESC" order.
+        records = db.select('GRADE_LOG',
+                order = 'TIMESTAMP', reverse = True, limit = 1,
+                KEYTAG = gkey, SID = sid)
+    try:
+        row = records[0]
+        return (row['GRADE'], row['USER']) if withuser else row['GRADE']
+    except:
+        return None
+
+
+
+
 
 ##################### Test functions
 _testyear = 2016
@@ -762,10 +1063,10 @@ def test_02():
     _term = '1'
     for klass in gradeGroups(_term):
         REPORT.Test("\n ++++ Class %s ++++" % klass)
-        rtype = getTermTypes(klass, _term)[0]
         pupils = Pupils(_testyear)
         for pdata in pupils.classPupils(klass):
-            gmap = getGradeData(_testyear, pdata['PID'], _term)
+            gradeData = GradeData(_testyear, _term, pdata)
+            gmap = gradeData.getAllGrades()
             REPORT.Test("GRADES for %s: %s" % (pdata.name(), repr(gmap)))
 
 def test_03():
@@ -779,4 +1080,5 @@ def test_03():
         try:
             grades2db(pgrades)
         except:
+            raise
             REPORT.Error("*** grades2db failed ***")
