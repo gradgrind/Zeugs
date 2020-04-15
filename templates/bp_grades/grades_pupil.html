@@ -5,7 +5,29 @@
 {% block title %}Einzelschüler{% endblock %}
 
 {% block content %}
-    <h3>Noten für {{ pdata.name() }}, Klasse {{ pdata.GKLASS.klass }}</h3>
+    <h3>Noten für {{ pdata.name() }}, Klasse {{ pdata.gklass }}</h3>
+  {% if astreams %}
+    <p>Der Bewertungsmaßstab kann hier – nur für dieses Zeugnis –
+    angepasst werden. Hinweis: Eine Änderung kann dazu führen, dass die
+    schon eingebenen Noten nicht mehr gültig sind!
+    </p>
+    <h3>Maßstab wechseln
+    </h3>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for s in astreams %}
+            <li class="pure-menu-item">
+                <a href="{{url_for('bp_grades.grades_pupil',
+                        pid=pdata.PID, rtag=pdata.RTAG, stream=s)}}"
+                        class="pure-menu-link">
+                    {{ s }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+    <hr>
+  {% endif %}
     <p>Die Noten für das Zeugnis am angezeigten Datum können hier
     bearbeitet werden. Auch die Pflichtzeugnisse (zum Halbjahr) können
     bearbeitet werden, dies könnte aber dazu führen, dass das Zeugnis
@@ -24,23 +46,6 @@
     {% set currentterm = termn and pdata.TERM0 == termn %}
     <form class="pure-form pure-form-aligned widelabel" method="POST">
         {{ form.csrf_token }}
-
-        <fieldset>
-            <div class="pure-control-group">
-                <label for="STREAM">Maßstab</label>
-                <select id="STREAM" name="STREAM"
-                        {% if not astreams %}disabled{% endif %}>
-                    <option selected>
-                        {{ pdata.GKLASS.stream }}
-                    </option>
-                {% for s in astreams %}
-                    <option>
-                        {{ s }}
-                    </option>
-                {% endfor %}
-                </select>
-            </div>
-        </fieldset>
 
         <fieldset>
         {% if termn %}
@@ -95,9 +100,9 @@
 
         <fieldset>
             <legend>Noten</legend>
-        {% for s, g0 in subjects %}
+        {% for s, sname, g0 in subjects %}
             <div class="pure-control-group">
-                <label for="{{ s }}">{{ s }}</label>
+                <label for="{{ s }}">{{ sname }}</label>
                 <select id="{{ s }}" name="{{ s }}">
                 {% for g in pdata.VALIDGRADES %}
                     <option {% if g == g0 %}selected{% endif %}>

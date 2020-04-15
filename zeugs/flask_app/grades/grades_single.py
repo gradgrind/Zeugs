@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_single.py
 
-Last updated:  2020-04-10
+Last updated:  2020-04-14
 
 "Sub-module" of grades for single reports
 
@@ -28,7 +28,6 @@ Copyright 2019-2020 Michael Towers
 
 # Messages
 _NO_REPORT_TYPES = "Kein Zeugnistyp für {ks} (Halbjahr/Kennzeichen {term})"
-_BAD_RTAG = "Ungültiges Halbjahr/Kennzeichen: {rtag}"
 
 
 from .grades_base import bp, _HEADING, _BPNAME
@@ -43,11 +42,11 @@ from flask_wtf import FlaskForm
 
 from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, Klass
-from wz_core.db import DBT
 from wz_grades.gradedata import (CurrentTerm, getTermTypes,
-        getGradeData, GradeReportData, singleGrades2db)
+        GradeData, GradeReportData, getGradeEntries)
 from wz_grades.makereports import makeOneSheet
-from wz_compat.grade_classes import needGradeDate, getGradeGroup, klass2streams
+from wz_compat.grade_classes import (needGradeDate, getGradeGroup,
+        klass2streams)
 
 
 ########### Views for single reports ###########
@@ -115,8 +114,7 @@ def pupil(pid):
     pdata = Pupils(schoolyear).pupil(pid)
     # Get existing grade entries for the pupil
     dates, _terms = [], {}
-    with DBT(schoolyear) as db:
-        rows = db.select('GRADES', PID = pid)
+    rows = getGradeEntries(schoolyear, pdata)
     for row in rows:
         t = row['TERM']
         rtype = row['REPORT_TYPE']
@@ -139,6 +137,7 @@ def pupil(pid):
             except:
 #TODO: illegal tag, delete entry?
                 raise TODO
+
             rtypes = getTermTypes(gklass, 'X') # valid report types
             if rtypes:
                 # If <rtype> is not a valid type, use the default
@@ -178,12 +177,10 @@ def pupil(pid):
                             todate = Dates.dateConv)
 
 
-@bp.route('/grades_pupil/<pid>/<rtag>', methods=['GET','POST'])
-def grades_pupil(pid, rtag):
-    """Edit data for the report to be created. Submit to save the
-    changes. A second submit possibility generates the report.
-    <rtag> is a TERM field entry from the GRADES table (term or tag).
-    It may also be 'X', indicating that a new date is to be set up.
+#???? Do I want this? Or integrate it in grades_pupil?
+@bp.route('/grades_pupil_klass/<pid>/<rtag>', methods=['GET','POST'])
+def grades_pupil_klass(pid, rtag):
+    """Change stream of a grades-info entry.
     """
     schoolyear = session['year']
     pdata = Pupils(schoolyear).pupil(pid)
@@ -191,35 +188,59 @@ def grades_pupil(pid, rtag):
         abort(404)
     try:
         curterm = CurrentTerm(schoolyear, rtag)
+        flash("Maßstab kann nicht für Noten im aktuellen Halbjahr geändert"
+                " werden. Dafür muss man die Schülerdaten ändern.",
+                "Warning")
+        return redirect(request.referrer)
+    except:
+        pass
+    streams = klass2streams(pdata['CLASS'])
+    form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        stream = request.form['STREAM']
+
+    # GET
+
+
+# Allow any stream and report type to be chosen, mismatches being
+# picked up on submission? It might make the coding easier ...
+# A stream change might change the grades, etc! A redisplay would
+# be necessary ...
+@bp.route('/grades_pupil/<pid>/<rtag>', methods=['GET','POST'])
+@bp.route('/grades_pupil/<pid>/<rtag>/<stream>', methods=['GET','POST'])
+def grades_pupil(pid, rtag, stream = None):
+    """Edit data for the report to be created. Submit to save the
+    changes. A second submit possibility generates the report.
+    <rtag> is a TERM field entry from the GRADES table (term or tag).
+    It may also be 'X', indicating that a new date is to be set up.
+    """
+    schoolyear = session['year']
+    pdata = Pupils(schoolyear).pupil(pid)
+    pdata.TERMTAG = rtag
+    if not pdata:
+        abort(404)
+    try:
+        curterm = CurrentTerm(schoolyear, rtag)
         pdata.TERM0 = curterm.TERM
     except:
         pdata.TERM0 = None
-    subjects = []
 
     def prepare():
-        # Get existing grades and report type (or default)
-        grades = getGradeData(schoolyear, pid, rtag)
-        if grades:
-            k, s = grades['CLASS'], grades['STREAM']
-            pdata.RTYPE = grades['REPORT_TYPE']
-            gmap = grades['GRADES']
-            pdata.DATE_D = grades['DATE_D']
-            pdata.GDATE_D = grades['GDATE_D']
-        elif rtag == 'X' or rtag in CONF.MISC.TERMS:
-            k, s = pdata['CLASS'], pdata['STREAM']
-            pdata.RTYPE = None
-            gmap = None
-            pdata.DATE_D = None
-            pdata.GDATE_D = None
-        else:
-            REPORT._Fail(_BAD_RTAG, rtag = rtag)
-
-        klass = Klass.fromKandS(k, s)
-        pdata.GKLASS = klass
+        ### Get existing grades and report type (or default)
+        pdata.RTAG = rtag
+        gradeData = GradeData(schoolyear, rtag, pdata, stream)
+        pdata.RTYPE = gradeData.ginfo.get('REPORT_TYPE')
+        pdata.DATE_D = gradeData.ginfo.get('DATE_D')
+        pdata.GDATE_D = gradeData.ginfo.get('GDATE_D')
+        pdata.REMARKS = gradeData.ginfo.get('REMARKS') or ''
+        gmap = gradeData.getAllGrades()
+        # Note that the GRADES_INFO entry has not yet been updated.
+        pdata.gklass = Klass.fromKandS(gradeData.gclass, gradeData.gstream)
         # Get a list of possible report types for this class/group
-        rtypes = getTermTypes(klass, rtag)
+        rtypes = getTermTypes(pdata.gklass, rtag)
         if not rtypes:
-            REPORT.Fail(_NO_REPORT_TYPES, ks = klass, term = rtag[0])
+            REPORT.Fail(_NO_REPORT_TYPES, ks = pdata.gklass, term = rtag[0])
         if pdata.RTYPE not in rtypes:
             pdata.RTYPE = rtypes[0]
         pdata.RTYPES = rtypes
@@ -229,61 +250,45 @@ def grades_pupil(pid, rtag):
 # Should it be required (unlikely?) it might also be possible to make
 # all fields of a template editable, by selecting the template and having
 # an editor page with fields for all variables.
-        gdata = GradeReportData(schoolyear, klass)
-        gradechoices = gdata.validGrades() + ('?',)
-        pdata.VALIDGRADES = gradechoices
-        # Get the grade manager
-        gradeManager = gdata.gradeManager(gmap)
+        pdata.VALIDGRADES = gradeData.validGrades() + ('?',)
 
         # Dates ...
         if pdata.TERM0 == rtag:
             # Need the containing grade-group, not the pupil/grade group!
-            ggroup = str(getGradeGroup(rtag, klass))
+            ggroup = str(getGradeGroup(rtag, pdata.gklass))
             dates = curterm.dates().get(ggroup)
             if dates:
                 pdata.DATE_D0 = dates.DATE_D
                 pdata.GDATE_D0 = dates.GDATE_D
         # Grade conference date only for some classes / terms
-        pdata.GDATE = needGradeDate(rtag, klass)
+        pdata.GDATE = needGradeDate(rtag, pdata.gklass)
 
 #TODO: Subjects grouped (using gdata.sgroup2sids)?
-        # Add the grade fields to the form
-        for sid, tlist in gdata.sid2tlist.items():
-            # Only "taught" subjects
-            if sid in gradeManager.composites:
-                continue
-            subjects.append((sid, gradeManager[sid] or '?'))
-
-        try:
-            pdata.REMARKS = grades['REMARKS'] or ''
-        except:
-            pdata.REMARKS = ''
-        return gdata
+        # Return the grades
+        return gradeData.getAllGrades()
 
     def enterGrades():
         # Enter grade data into db
-        _grades = gdata.gradeManager(gmap)
-        singleGrades2db(schoolyear, pdata, rtag = rtag,
-                date = DATE_D, gdate = GDATE_D, grades = _grades)
+        gradeData = GradeData(schoolyear, rtag, pdata, stream)
+        gradeData.updateGrades(gmap, user = session['user_id'],
+                DATE_D = DATE_D, GDATE_D = GDATE_D,
+                REPORT_TYPE = RTYPE, REMARKS = REMARKS)
         return True
 
-    gdata = REPORT.wrap(prepare, suppressok = True)
-    if not gdata:
-        return redirect(url_for('bp_grades.pupils',
-                klass = pdata['CLASS']))
     form = FlaskForm()
     if app.isPOST(form):
         # POST
         DATE_D = request.form['DATE_D']
         GDATE_D = request.form.get('GDATE_D')
-        pdata.RTYPE = request.form['rtype']
+        RTYPE = request.form['rtype']
         gmap = {}   # grade mapping {sid -> "grade"}
-        for sid, g0 in subjects:
-            g = request.form[sid]
-            if g == '?':
-                g = None
-            gmap[sid] = g
-        pdata.REMARKS = request.form.get('REMARKS') or None
+        for tag, g in request.form.items():
+            if tag.startswith('G_'):
+                sid = tag[2:]
+                if g == '?':
+                    g = None
+                gmap[sid] = g
+        REMARKS = request.form.get('REMARKS') or None
         # Update GRADES entry, or add new one
         if REPORT.wrap(enterGrades, suppressok = True):
             flash("Zeugnisdaten gespeichert", "Info")
@@ -303,8 +308,21 @@ def grades_pupil(pid, rtag):
         return redirect(request.path)
 
     # GET
-    astreams = REPORT.wrap(klass2streams, pdata.GKLASS.klass,
-            pdata.GKLASS.stream, suppressok = True) or []
+    gradeManager = REPORT.wrap(prepare, suppressok = True)
+    if not gradeManager:
+        return redirect(url_for('bp_grades.pupils',
+                klass = pdata['CLASS']))
+    subjects = []
+    names = gradeManager.sname
+    for sid, g in gradeManager.items():
+        # Only "taught" subjects
+        subjects.append(('G_' + sid, names[sid], g or '?'))
+    astreams = []
+    if not stream:
+        streams0 = REPORT.wrap(klass2streams, pdata.gklass.klass,
+                suppressok = True)
+        if streams0:
+            astreams = [s for s in streams0 if s != pdata.gklass.stream]
     return render_template(os.path.join(_BPNAME, 'grades_pupil.html'),
             form = form,
             heading = _HEADING,

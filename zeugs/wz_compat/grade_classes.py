@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-04-10
+Last updated:  2020-04-15
 
 For which school-classes and streams are grade reports possible?
 
@@ -54,37 +54,21 @@ from wz_table.matrix import KlassMatrix
 from .gradefunctions import AbiSubjects
 
 
-def klass2streams(class_, stream = None):
-    """If <stream> is not supplied, return a list of permissible streams
-    for the given school-class.
-    If <stream> is supplied, return a list of streams which can be switched
-    to from the given one, with the same grade scale.
-    The sense of this latter function is a bit questionable, as a stream
-    switch presumably means a different assessment is necessary ...
+def klass2streams(class_):
+    """Return a list of permissible streams for the given school-class.
     """
     # Check <class_> is valid.
     try:
         klass = Klass(class_)
         if klass.streams:
             raise ValueError
-        if klass.klass < "01" or klass.klass >= "14":
-            raise ValueError
+        # Get the stream list
+        streams = klass.match_map(CONF.MISC.STREAMS)
+        if streams:
+            return sorted(streams.split())
     except:
-        REPORT.Fail(_INVALID_KLASS, klass = class_)
-    streams = {}
-    for s, tags in CONF.GRADES.STREAMS.items():
-        tag = klass.match_map(tags)
-        if tag:
-            streams[s] = [] if tag == '-' else tag.split()
-    if not streams:
-        REPORT.Fail(_INVALID_KLASS, klass = class_)
-    if stream:
-        try:
-            return streams[stream]
-        except:
-            REPORT.Fail(_STREAM_NOT_IN_KLASS, klass = class_,
-                    stream = stream)
-    return sorted(streams)
+        pass
+    REPORT.Fail(_INVALID_KLASS, klass = class_)
 
 
 def gradeGroups(term):
@@ -96,6 +80,18 @@ def gradeGroups(term):
     except KeyError:
         REPORT.Bug("Invalid term in <gradeGroups>: %s" % term)
     return [Klass(g) for g in groups.csplit(None)]
+
+
+def validTermTag(gclass, gstream, term):
+    """Term-tags for which grade-info entries may be created.
+    Basically that means the terms and Abitur grades.
+    """
+#TODO: Klausur grades?
+    if term in CONF.MISC.TERMS:
+        return True
+    if term == 'A' and gclass in CONF.MISC.ABICLASSES:
+        return True
+    return False
 
 
 def getGradeGroup(term, klass):

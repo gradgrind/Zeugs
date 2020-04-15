@@ -1,8 +1,12 @@
 ############## GRADES/TEMPLATE_INFO
-############## Version: 2020-04-01
+############## Version: 2020-04-15
 
 ### Info-Spalten der Notentabellen, für welche Klassen/Gruppen
 ### und Halbjahre/Zeugnistypen sie relevant sind
+
+# ------------------------
+# Klass.match_map matching
+# ------------------------
 
 GRADE_TABLE =& 13*: Noteneingabe-SII
              & 12.Gym: Noteneingabe-SII
@@ -33,7 +37,7 @@ _2 =& 13*: X Abgang
 
 # Sonderzeugnisse
 _X  =& 13*: Abgang
-     & 12.*: Abgang 
+     & 12.*: Abgang
      & 05<??.*: Abgang Zwischenzeugnis
 
 ### Zuordnung: Zeugnistyp -> Zeugnisvorlage

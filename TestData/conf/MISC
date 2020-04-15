@@ -1,5 +1,5 @@
 ############## MISC
-############## Version: 2020-04-08
+############## Version: 2020-04-15
 
 ### Einstellungen, die nicht woanders gehören.
 
@@ -14,16 +14,14 @@ SCHOOLYEAR_MONTH_1 = 8
 TERMS =& 1
        & 2
 
+# Abitur-Klassen
+ABICLASSES =& 13
+
 # Pro Benutzer werden maximal soviele Log-Dateien aufbewahrt
 MAXLOGFILES = 2
 
 # Wert setzen, falls leitende Nullen bei Klassennamen erscheinen sollen
 CLASS_LEADING_ZERO =
-
-# Klasse/Gruppe -> Notenskala
-GRADE_SCALE =& 13*: GRADES_A
-             & 12.Gym: GRADES_P
-             & *: GRADES
 
 # "Zwischenschnipsel" (ndl. "tussenvoegsel"), die besonderer Behandlung bei
 # der Sortierung von Namen bedürfen:
@@ -35,6 +33,25 @@ TUSSENVOEGSEL =& von
           & der
           & de
 
-#? currently in migrate.py
-STREAM_MAX_YEAR =& :12
-                & Gym:13
+#? currently in migrate.py - DEPRECATED, see STREAMS below
+#STREAM_MAX_YEAR =& :12
+#                & Gym:13
+
+
+# ------------------------
+# Klass.match_map matching
+# ------------------------
+
+### Klasse/Gruppe -> Notenskala
+GRADE_SCALE =& 13*: GRADES_A
+             & 12.Gym: GRADES_P
+             & *: GRADES
+
+### Welche Gruppen sind in welcher Klasse möglich?
+# Die Gruppen für die jeweilig abgedeckten Klassen sind nach dem ':'.
+# "_" bedeutet: "Keine" Gruppe,
+# Leer (oder nicht abgedeckt) bedeutet: Klasse nicht zulässig.
+STREAMS =& 14<*:
+         & 13.: Gym
+         & 05<??.: Gym RS HS
+         & 01<*: _

@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-10
+Last updated:  2020-04-15
 
 Calculations needed for grade handling.
 
@@ -85,10 +85,10 @@ def stripsid(sid):
 
 
 
-def Manager(klass):
-    if klass.klass >= '13':
+def Manager(gclass, gstream):
+    if gclass >= '13':
         return GradeManagerQ1
-    if klass.klass >= '12' and klass.stream == 'Gym':
+    if gclass >= '12' and gstream == 'Gym':
         return GradeManagerQ1
     return GradeManagerN
 
@@ -132,9 +132,11 @@ class _GradeManager(dict):
         self.components = {}    # {tag -> [(stripped sid, int/None), ...]}
         self.composites = {}    # {sid -> composite tag}
         self.XINFO = {}         # additional (calculated) fields
+        self.sname = {}         # Subject names
         for sid, tlist in sid2tlist.items():
             if tlist == None:
                 continue
+            self.sname[sid] = tlist.subject
             if tlist.COMPOSITE:
                 # A composite
                 self.composites[sid] = tlist.COMPOSITE
@@ -157,7 +159,7 @@ class _GradeManager(dict):
                 REPORT.Fail(_MULTIPLE_SUBJECT, sid=sid0)
             # Differentiate between "normal" and "component" subjects
             tag = sid2tlist.component[sid]
-            gint = self.gradeFilter(sid, g)
+            gint = self.gradeFilter(sid, g) # this also sets <self[sid]>
             if gint != None:
                 self.sid0_sid[sid0] = sid
                 if tag:
