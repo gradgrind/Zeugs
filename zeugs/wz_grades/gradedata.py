@@ -570,7 +570,6 @@ class GradeReportData:
         """
         self.schoolyear = schoolyear
         self.klassdata = klass
-        self._GradeManager = Manager(klass)
         ### Get subjects information, including ordering
         courses = CourseTables(schoolyear)
         self.sid2tlist = courses.classSubjects(klass, 'GRADE')
@@ -603,16 +602,21 @@ class GradeReportData:
         except:
             self.xfields = []
 
-
+#?
     def validGrades(self):
+        raise DEPRECATED
         return self._GradeManager.VALIDGRADES
 
 
+#?
     def XNAMES(self):
+        raise DEPRECATED
         return self._GradeManager.XNAMES
 
 
+#?
     def gradeManager(self, grades):
+        raise DEPRECATED
         return self._GradeManager(self.schoolyear, self.sid2tlist, grades)
 
 

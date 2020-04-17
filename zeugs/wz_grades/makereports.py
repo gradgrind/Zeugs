@@ -4,7 +4,7 @@
 """
 wz_grades/makereports.py
 
-Last updated:  2020-04-09
+Last updated:  2020-04-16
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -63,7 +63,7 @@ from wz_core.pupils import Pupils, Klass
 from wz_compat.config import printSchoolYear, printStream
 from wz_compat.grade_classes import getGradeGroup
 from wz_grades.gradedata import (GradeReportData, CurrentTerm,
-        getGradeData, getTermTypes)
+        GradeData, getTermTypes)
 
 
 def makeReports(klass_streams, pids=None):
@@ -118,32 +118,30 @@ def makeReports(klass_streams, pids=None):
     reportData = GradeReportData(schoolyear, klass_streams)
     pmaplist = []
     for pdata in plist:
-        pid = pdata['PID']
         # Get grade map for pupil
-        gradedata = getGradeData(schoolyear, pid, curterm.TERM)
+        gradedata = GradeData(schoolyear, curterm.TERM, pdata)
         # Check for mismatches with pupil and term info
-        if not gradedata:
+        if not gradedata.KEYTAG:
             REPORT.Error(_NO_GRADES, pname = pdata.name())
             continue
-        if (gradedata['CLASS'] != klass_streams.klass
-                or gradedata['STREAM'] != pdata['STREAM']):
+        if (gradedata.gclass != klass_streams.klass
+                or gradedata.gstream != pdata['STREAM']):
             REPORT.Warn(_WRONG_GROUP, pname = pdata.name())
             continue
-        grtype = gradedata['REPORT_TYPE']
+        grtype = gradedata.ginfo['REPORT_TYPE']
         if grtype and grtype != rtype:
             REPORT.Warn(_WRONG_RTYPE, pname = pdata.name(),
-                    rtype = gradedata['REPORT_TYPE'])
+                    rtype = gradedata.ginfo['REPORT_TYPE'])
             continue
-        pdata.date_D = gradedata['DATE_D'] or DATE_D
-        pdata.gdate_D = gradedata['GDATE_D'] or GDATE_D
+        pdata.date_D = gradedata.ginfo['DATE_D'] or DATE_D
+        pdata.gdate_D = gradedata.ginfo['GDATE_D'] or GDATE_D
         # Add the grades, etc., to the pupil data
-        gmap = gradedata['GRADES']
-        gmanager = reportData.gradeManager(gmap)
+        gmanager = gradedata.getAllGrades()
         reportData.getTagmap(gmanager, pdata, rtype)
         if gmanager.reportFail(termn, rtype, pdata):
             # true -> include report
             pdata.grades = gmanager
-            pdata.remarks = gradedata['REMARKS']
+            pdata.remarks = gradedata.ginfo['REMARKS']
             pmaplist.append(pdata)
 
     if not pmaplist:
@@ -191,20 +189,19 @@ def makeOneSheet(schoolyear, pdata, term):
     <pdata>: a <PupilData> instance for the pupil whose report is to be built
     <term>: keys the grades in the database (term or tag)
     """
-    pid = pdata['PID']
     # Read database entry for the grades
-    gradedata = getGradeData(schoolyear, pid, term)
-    gmap = gradedata['GRADES']  # grade mapping
+    gradedata = GradeData(schoolyear, term, pdata)
+    gmap = gradedata.getAllGrades()  # grade manager
     # <GradeReportData> manages the report template, etc.:
     # From here on use klass and stream from <gradedata>
-    klass = Klass.fromKandS(gradedata['CLASS'], gradedata['STREAM'])
+    klass = Klass.fromKandS(gradedata.gclass, gradedata.gstream)
     try:
         curterm = CurrentTerm(schoolyear, term)
     except CurrentTerm.NoTerm:
         curterm = None
-    pdata.date_D = gradedata['DATE_D']
-    pdata.gdate_D = gradedata['GDATE_D']
-    rtype = gradedata['REPORT_TYPE']
+    pdata.date_D = gradedata.ginfo['DATE_D']
+    pdata.gdate_D = gradedata.ginfo['GDATE_D']
+    rtype = gradedata.ginfo['REPORT_TYPE']
     if curterm:
         ggroup = str(getGradeGroup(term, klass))
         dates = curterm.dates().get(ggroup)
@@ -219,14 +216,13 @@ def makeOneSheet(schoolyear, pdata, term):
     reportData = GradeReportData(schoolyear, klass)
     # Build a grade mapping for the tags of the template.
     # Use the class and stream from the grade data
-    pdata['CLASS'] = gradedata['CLASS']
-    pdata['STREAM'] = gradedata['STREAM']
-    gmanager = reportData.gradeManager(gmap)
-    reportData.getTagmap(gmanager, pdata, rtype)
-    if not gmanager.reportFail(term, rtype, pdata):
+    pdata['CLASS'] = gradedata.gclass
+    pdata['STREAM'] = gradedata.gstream
+    reportData.getTagmap(gmap, pdata, rtype)
+    if not gmap.reportFail(term, rtype, pdata):
         return None
-    pdata.grades = gmanager
-    pdata.remarks = gradedata['REMARKS']
+    pdata.grades = gmap
+    pdata.remarks = gradedata.ginfo['REMARKS']
 
     ### Generate html for the reports
     source = reportData.template.render(

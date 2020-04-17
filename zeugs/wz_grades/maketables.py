@@ -4,7 +4,7 @@
 """
 wz_grades/maketables.py
 
-Last updated:  2020-04-09
+Last updated:  2020-04-17
 
 Build result tables for the grade groups, including evaluation, etc.
 
@@ -42,7 +42,7 @@ from wz_core.configuration import Paths
 from wz_core.pupils import Pupils, Klass
 from wz_core.template import openTemplate
 from wz_compat.config import printSchoolYear
-from wz_grades.gradedata import GradeReportData, getGradeData
+from wz_grades.gradedata import GradeReportData, GradeData
 
 
 def trimName(name):
@@ -60,31 +60,27 @@ def makeTable(schoolyear, term, ggroup):
     reportData = GradeReportData(schoolyear, ggroup)
     plist = []
     for pdata in pupils.classPupils(ggroup):
-        pid = pdata['PID']
         # Get grade map for pupil
-        gradedata = getGradeData(schoolyear, pid, term)
+        gradedata = GradeData(schoolyear, term, pdata)
         # Check for mismatches with pupil and term info
-        gmap = None
-        if gradedata:
-            if gradedata['CLASS'] != ggroup.klass:
-                REPORT.Warn(_WRONG_CLASS, pname = pdata.name())
-                continue
-            gstream = gradedata['STREAM']
-            if gstream != pdata['STREAM']:
-                REPORT.Warn(_WRONG_GROUP, pname = pdata.name())
-                if ggroup.containsStream(gstream):
-                    pdata['STREAM'] = gstream
-                else:
-                    continue
-            # Add the grades, etc., to the pupil data
-            gmap = gradedata['GRADES']
-
-        if not gmap:
+        if not gradedata.KEYTAG:
             REPORT.Warn(_NO_GRADES, pname = pdata.name())
             continue
+        if gradedata.gclass != ggroup.klass:
+            REPORT.Warn(_WRONG_CLASS, pname = pdata.name())
+            continue
+        gstream = gradedata.gstream
+        if gstream != pdata['STREAM']:
+            REPORT.Warn(_WRONG_GROUP, pname = pdata.name())
+            if ggroup.containsStream(gstream):
+                pdata['STREAM'] = gstream
+            else:
+                continue
+        # Add the grades, etc., to the pupil data
+        gmanager = gradedata.getAllGrades()
 
-#        REPORT.Test("??? %s: %s" % (pdata.name(), repr(gmap)))
-        gmanager = reportData.gradeManager(gmap)
+
+#        REPORT.Test("??? %s: %s" % (pdata.name(), repr(gmanagerp)))
         gmanager.addDerivedEntries()    # add "composite" subjects
         # Handle "extra" fields
         for x in reportData.xfields:
@@ -142,15 +138,15 @@ def makeTable(schoolyear, term, ggroup):
                 slist.append((sid, trimName(sname), ckcss))
                 width += cellw
 
-    xnames = reportData.XNAMES()
+    xnames = CONF.GRADES.ORDERING
     if reportData.xfields:
         slist.append((None, None, None))
         width += spacerw
-    for x in reportData.xfields:
-        if x[0] == '*':
-            x = x[1:]
-        slist.append((x, trimName(xnames[x]), 'extra'))
-        width += cellw
+        for x in reportData.xfields:
+            if x[0] == '*':
+                x = x[1:]
+            slist.append((x, trimName(xnames['X_' + x]), 'extra'))
+            width += cellw
 
     # Scaling (via table font) based on estimated width
     pagewidthL = 842 - 2*sizes['marginwidth']   # landscape

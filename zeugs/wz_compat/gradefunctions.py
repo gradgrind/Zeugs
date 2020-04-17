@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-15
+Last updated:  2020-04-17
 
 Calculations needed for grade handling.
 
@@ -258,13 +258,6 @@ class GradeManagerN(_GradeManager):
                 '*', 'nt', 't', 'nb', #'ne',
                 _UNCHOSEN
     )
-    XNAMES = {
-            'AVE': 'Φ Alle Fächer',
-            'DEM': 'Φ De-En-Ma',
-            'GS': 'Gleichstellungsvermerk',
-            'V': 'Versetzung (Quali)',
-            'Q12': 'Abschluss 12. Kl.'
-    }
 
 
     def printGrade(self, g):
@@ -525,9 +518,6 @@ class GradeManagerQ1(_GradeManager):
                 '*', 'nt', 't', 'nb', #'ne',
                 _UNCHOSEN
     )
-    XNAMES = {
-            'V13': 'Versetzung (13. Kl.)'
-    }
 
 
 

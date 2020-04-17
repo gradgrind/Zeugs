@@ -1,5 +1,5 @@
 ############## GRADES/ORDERING
-############## Version: 2020-04-03
+############## Version: 2020-04-17
 
 CLASSES =& 13*: E G
          & 12.Gym: A B C D X
@@ -13,6 +13,15 @@ EXTRA =& 13*:
        & 11.Gym:  *AVE V GS
        & 11*: *AVE *DEM GS
        & 10*: *AVE *DEM GS
+
+# Die Bezeichnungen für die Bewertungsfelder.
+# Die Schlüssel müssen 'X_' als Vorsatz haben.
+X_AVE = Φ Alle Fächer
+X_DEM = Φ De-En-Ma
+X_GS = Gleichstellungsvermerk
+X_V = Versetzung (Quali)
+X_Q12 = Abschluss 12. Kl
+X_V13 = Versetzung (13. Kl.)
 
 ###########################################
 # Die Einträge unten geben die Fächer in den
