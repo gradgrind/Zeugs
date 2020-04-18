@@ -72,15 +72,16 @@ def makeAbi(schoolyear, pdata,):
         REPORT.Fail(_NO_GRADES, pname = pdata.name())
 
     # Get an ordered list of (sid, sname) pairs
-    sid_name = []
-    courses = CourseTables(schoolyear)
-    for sid in sid2grade:
-        try:
-            sname = courses.subjectName(sid).split('|')[0].rstrip()
-        except:
-            continue
-        sid_name.append((sid, sname))
-    abiCalc = AbiCalc(sid_name, sid2grade)
+#    sid_name = []
+#    courses = CourseTables(schoolyear)
+#    for sid in sid2grade:
+#        try:
+#            sname = courses.subjectName(sid).split('|')[0].rstrip()
+#        except:
+#            continue
+#        sid_name.append((sid, sname))
+#    abiCalc = AbiCalc(sid2grade, sid_name)
+    abiCalc = AbiCalc(sid2grade)
     try:
         zgrades = abiCalc.getFullGrades()
     except GradeError:
@@ -110,6 +111,9 @@ def makeAbi(schoolyear, pdata,):
 ############### TEST functions ###############
 _testyear = 2016
 def test_01():
+    return
+#TODO
+
     from wz_core.pupils import Pupils
     _date = '2016-06-10'
     _grades = {
@@ -162,10 +166,8 @@ def test_01():
         saveGrades(_testyear, pdata, grades, _date)
 
 def test_02():
-    return
-#TODO
-
     from wz_core.pupils import Pupils
+    from wz_core.configuration import Paths
     _pids = ('200305', '200302', '200301')
     pupils = Pupils(_testyear)
     for _pid in _pids:
@@ -173,7 +175,7 @@ def test_02():
         pdfBytes = makeAbi(_testyear, pdata)
         if pdfBytes:
             ptag = pdata['PSORT'].replace(' ', '_')
-            fpath = Paths.getYearPath(_year, 'FILE_GRADE_REPORT', make = -1
-                    ).replace('*', ptag + '.pdf')
+            fpath = Paths.getYearPath(_testyear, 'FILE_GRADE_REPORT',
+                    make = -1).replace('*', ptag + '.pdf')
             with open(fpath, 'wb') as fh:
                 fh.write(pdfBytes)

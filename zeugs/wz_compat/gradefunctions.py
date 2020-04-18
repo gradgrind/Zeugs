@@ -753,23 +753,29 @@ class AbiCalc:
             return '?'
 
 
-    def __init__(self, sid_name, sid2grade):
-#        REPORT.Test("???name %s" % repr(sid_name))
+    def __init__(self, sid2grade):
+#        REPORT.Test("???name %s" % repr(sid2grade.sname))
 #        REPORT.Test("???grade %s" % repr(sid2grade))
         self.zgrades = {}
         i = 0
-        for sid, sname in sid_name:
-            i += 1
-            self.zgrades["F%d" % i] = sname
-            self.zgrades["S%d" % i] = self.fixGrade(sid2grade[sid])
-            if i <= 4:
-                self.zgrades["M%d" % i] = self.fixGrade(sid2grade[sid + 'N'])
+        for sid, grade in sid2grade.items():
+            if sid.startswith('N_'):
+                self.zgrades["M%d" % i] = self.fixGrade(grade)
                 if i == 4 and sid.endswith('.g'):
                     continue
-                if sid.endswith('.e'):
+                if i in (1,2,3) and sid.endswith('.e'):
                     continue
-            elif sid.endswith('.m'):
-                continue
+            else:
+                i += 1
+                self.zgrades["F%d" % i] = sid2grade.sname[sid].split(
+                        '|')[0].rstrip()
+                self.zgrades["S%d" % i] = self.fixGrade(grade)
+                if i == 4 and sid.endswith('.g'):
+                    continue
+                if i in (1,2,3) and sid.endswith('.e'):
+                    continue
+                if i in (5,6,7,8) and sid.endswith('.m'):
+                    continue
             REPORT.Fail(_INVALID_GRADES, pname=pdata.name())
 
 
