@@ -1,9 +1,9 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 """
 test_abitur.py
 
-Last updated:  2020-02-07
+Last updated:  2020-04-17
 
 Run some tests on the abitur module in the wz_grades package.
 

@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-04-15
+Last updated:  2020-04-18
 
 For which school-classes and streams are grade reports possible?
 
@@ -38,11 +38,6 @@ _NOPUPILS = "Keine Schüler"
 _ABI_CHOICES = "{pname} muss genau 8 Fächer für das Abitur wählen"
 _BAD_DATE_GROUP = "Ungültige Zeugnisgruppe: {group}"
 _STREAM_NOT_IN_KLASS = "Gruppe {stream} ist nicht möglich in Klasse {klass}"
-_TOO_MANY_SUBJECTS = "zu viele Fächer (es müssen genau 8 sein): siehe Kurswahl-Tabelle"
-_NOT_G = "{i}. Fach: {sid}. Dieses muss gA + schriftlich (Endung '.g') sein."
-_NOT_E = "{i}. Fach: {sid}. Dieses muss eA (Endung '.e') sein."
-_NOT_M = "{i}. Fach: {sid}. Dieses muss mündlich (Endung '.m') sein."
-_SUBJECT_CHOICE = "Unerwarte Abifächer: {sids}"
 
 
 from wz_core.db import DBT
@@ -143,55 +138,14 @@ def abi_klausuren():
 
 
 def abi_sid_name(schoolyear, pdata):
-    """Return a list of Abitur subjects for the given pupil:
-        [(sid, name), ... ].
+    """Return an iterator providing Abitur subjects and names for the
+    given pupil as (sid, name) tuples.
+    Note that oral "Nachprüfungen" ('N_*.*') are also returned.
     """
-    pid = pdata['PID']
     klass = pdata.getKlass(withStream = True)
-    with DBT(schoolyear) as db:
-        row = db.select1('ABI_SUBJECTS', PID = pid)
-    try:
-        choices = AbiSubjects(schoolyear, pid)
-    except:
-        REPORT.Fail(_ABI_CHOICES, pname = Pupils.pid2name(schoolyear, pid))
-
-    subjects = []   # [(sid, subject name), ... ]
-    abisids = []    # This is a simple sid list, but including the 'N' tags.
     courses = CourseTables(schoolyear)
     sid2tlist = courses.classSubjects(klass, 'GRADE')
-    i = 0
-    for sid in sid2tlist:
-        try:
-            choices.remove(sid)
-        except ValueError:
-            continue
-        i += 1
-        if i < 4:
-            # Check written subject, eA
-            if sid.endswith (".e"):
-                abisids.append(sid)
-                abisids.append(sid + 'N')
-            else:
-                REPORT.Fail(_NOT_E, i = i, sid = sid)
-        elif i == 4:
-            # Check written subject, gA
-            if sid.endswith (".g"):
-                abisids.append(sid)
-                abisids.append(sid + 'N')
-            else:
-                REPORT.Fail(_NOT_G, i = i, sid = sid)
-        elif i <= 8:
-            # Check oral subject
-            if sid.endswith (".m"):
-                abisids.append(sid)
-            else:
-                REPORT.Fail(_NOT_M, i = i, sid = sid)
-        else:
-            REPORT.Bug("It should not be possible to have too many subjects here")
-        subjects.append((sid, sid2tlist[sid].subject))
-    if choices:
-        REPORT.Fail(_SUBJECT_CHOICE, sids = ', '.join(choices))
-    return subjects
+    return p2abiSubjects(schoolyear, pdata)
 
 
 

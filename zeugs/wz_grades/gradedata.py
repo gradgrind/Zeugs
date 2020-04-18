@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-04-15
+Last updated:  2020-04-18
 
 Handle the data for grade reports.
 
@@ -259,7 +259,7 @@ class GradeData:
                     self.gstream, term):
                 REPORT.Fail(_INVALID_TERMTAG, tag = term,
                         ks = self.gclass + '.' + self.gstream)
-        self._GradeManager = Manager(self.gclass, self.gstream)
+        self._GradeManager = Manager(self.gclass, self.gstream, term)
 
 
     def validGrades(self):
@@ -326,7 +326,8 @@ class GradeData:
         sid2tlist = courses.classSubjects(
                 Klass.fromKandS(self.gclass, self.gstream), 'GRADE')
         # Use a Grade Manager to validate and complete the grades
-        self.grades = self._GradeManager(self.schoolyear, sid2tlist, grades)
+        self.grades = self._GradeManager(self.schoolyear, sid2tlist,
+                grades, self.pdata)
         return self.grades
 
 
@@ -344,8 +345,10 @@ class GradeData:
         courses = CourseTables(self.schoolyear)
         sid2tlist = courses.classSubjects(Klass.fromKandS(
                 self.gclass, self.gstream), 'GRADE')
+
         # Use a Grade Manager to validate and complete the grades
-        gmap = self._GradeManager(self.schoolyear, sid2tlist, grades)
+        gmap = self._GradeManager(self.schoolyear, sid2tlist, grades,
+                self.pdata)
         # First set up <utest>, which is true if the user must be
         # checked when entering a new grade.
         if (not user) or user == 'X':
@@ -601,23 +604,6 @@ class GradeReportData:
             self.xfields = klass.match_map(subject_ordering.EXTRA).split()
         except:
             self.xfields = []
-
-#?
-    def validGrades(self):
-        raise DEPRECATED
-        return self._GradeManager.VALIDGRADES
-
-
-#?
-    def XNAMES(self):
-        raise DEPRECATED
-        return self._GradeManager.XNAMES
-
-
-#?
-    def gradeManager(self, grades):
-        raise DEPRECATED
-        return self._GradeManager(self.schoolyear, self.sid2tlist, grades)
 
 
     def getTagmap(self, grades, pdata, rtype):

@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-17
+Last updated:  2020-04-18
 
 Calculations needed for grade handling.
 
@@ -48,7 +48,11 @@ _UNDER2_1_ERROR = "< 2 schriftliche Fächer mit mindestens 5 Punkten"
 _UNDER2_2_ERROR = "< 2 mündliche Fächer mit mindestens 5 Punkten"
 _FAILED = "Abitur nicht bestanden: {error}"
 _INVALID_GRADES = ("Ungültige Fächer/Noten für {pname}, erwartet:\n"
-        "  .e .eN .e .eN .e .eN .g .gN .m .m .m .m")
+        "  *.e, N_*.e, *.e, N_*.e, *.e, N_*.e, *.g, N_*.g, *.m, *.m, *.m, *.m")
+_NOT_G = "{i}. Fach: {sid}. Dieses muss gA + schriftlich (Endung '.g') sein."
+_NOT_E = "{i}. Fach: {sid}. Dieses muss eA (Endung '.e') sein."
+_NOT_M = "{i}. Fach: {sid}. Dieses muss mündlich (Endung '.m') sein."
+_SUBJECT_CHOICE = "Unerwarte Abifächer: {sids}"
 
 
 from fractions import Fraction
@@ -85,8 +89,10 @@ def stripsid(sid):
 
 
 
-def Manager(gclass, gstream):
+def Manager(gclass, gstream, term = None):
     if gclass >= '13':
+        if term == 'A':
+            return GradeManagerA
         return GradeManagerQ1
     if gclass >= '12' and gstream == 'Gym':
         return GradeManagerQ1
@@ -102,7 +108,7 @@ class _GradeManager(dict):
     """
     ZPAD = 1    # set to 2 to force leading zero (e.g. '6' -> '06')
 
-    def __init__(self, schoolyear, sid2tlist, grademap):
+    def __init__(self, schoolyear, sid2tlist, grademap, pdata = None):
         """Sanitize all "grades" in <grademap>, storing the results as
         instance items.
         Also collect all numeric grades as instance attribute <grades>:
@@ -133,14 +139,15 @@ class _GradeManager(dict):
         self.composites = {}    # {sid -> composite tag}
         self.XINFO = {}         # additional (calculated) fields
         self.sname = {}         # Subject names
-        for sid, tlist in sid2tlist.items():
-            if tlist == None:
-                continue
-            self.sname[sid] = tlist.subject
-            if tlist.COMPOSITE:
-                # A composite
-                self.composites[sid] = tlist.COMPOSITE
-                continue
+        for sid, sname in self.sidFilter(sid2tlist, pdata):
+            self.sname[sid] = sname
+            try:
+                composite = sid2tlist[sid].COMPOSITE
+                if composite:
+                    self.composites[sid] = composite
+                    continue
+            except KeyError:
+                pass
             g = grademap.get(sid)
             if g == _UNCHOSEN:
                 # This allows <grademap> to indicate that this subject
@@ -158,7 +165,7 @@ class _GradeManager(dict):
             if g0:
                 REPORT.Fail(_MULTIPLE_SUBJECT, sid=sid0)
             # Differentiate between "normal" and "component" subjects
-            tag = sid2tlist.component[sid]
+            tag = sid2tlist.component.get(sid)
             gint = self.gradeFilter(sid, g) # this also sets <self[sid]>
             if gint != None:
                 self.sid0_sid[sid0] = sid
@@ -166,6 +173,17 @@ class _GradeManager(dict):
                     addcomponent(tag, sid0, None if gint < 0 else gint)
                 elif gint >= 0:
                     self.grades[sid0] = gint
+
+
+    def sidFilter(self, sid2tlist, pdata):
+        """Iterate over the subject entries in <sid2tlist>, returning
+        (sid, name) tuples for non-null entries.
+        <pdata> allows for pupil-specific filtering, which is not
+        implemented in this base method.
+        """
+        for sid, tlist in sid2tlist.items():
+            if tlist is not None:
+                yield (sid, tlist.subject)
 
 
     def addDerivedEntries(self):
@@ -506,7 +524,9 @@ class AbiSubjects(list):
 
 
 
-class GradeManagerQ1(_GradeManager):
+class _GradeManagerQ(_GradeManager):
+    """Revised base class for the "Qualifikationsphase".
+    """
     ZPAD = 2    # all (numeric) grades have two digits (e.g. '1' -> '01')
     VALIDGRADES = (
                 '15', '14', '13',
@@ -518,8 +538,6 @@ class GradeManagerQ1(_GradeManager):
                 '*', 'nt', 't', 'nb', #'ne',
                 _UNCHOSEN
     )
-
-
 
     def printGrade(self, g):
         """Fetch the grade for the given subject id and return the
@@ -556,6 +574,8 @@ class GradeManagerQ1(_GradeManager):
         return gint
 
 
+
+class GradeManagerQ1(_GradeManagerQ):
     def SekII(self, pdata, fhs = False):
         """Perform general "pass" tests on grades at end of class 12:
         not more than two times points < 5 or one subject with 0
@@ -657,6 +677,62 @@ class GradeManagerQ1(_GradeManager):
             # possible at the END of year 12!
             self.XINFO['V13'] = 'HS'
         return True
+
+
+
+class GradeManagerA(_GradeManagerQ):
+    """This handles grades for the Abitur final results.
+    Only the chosen Abitur subjects are included and the grades of the
+    oral "Nachprüfungen" are added.
+    """
+#TODO
+    def reportFail(self, term, rtype, pdata):
+        REPORT.Warn("TODO: GradeManagerA.reportFail")
+        return True
+
+
+    def sidFilter(self, sid2tlist, pdata):
+        """Iterate over the subject entries in <sid2tlist>, returning
+        (sid, name) tuples for non-null entries.
+        <pdata> allows for pupil-specific filtering, which is used here
+        to keep only the chosen subjects and to add the results of the
+        oral "Nachprüfungen".
+        """
+        if not pdata:
+            REPORT.Bug("'sidFilter' invoked without pupil data")
+        try:
+            choices = AbiSubjects(self.schoolyear, pdata['PID'])
+        except:
+            REPORT.Fail(_ABI_CHOICES, pname = pdata.name())
+        i = 0
+        for sid in sid2tlist:
+            try:
+                choices.remove(sid)
+            except ValueError:
+                continue
+            sname = sid2tlist[sid].subject
+            i += 1
+            if i < 4:
+                # Check written subject, eA
+                if not sid.endswith (".e"):
+                    REPORT.Fail(_NOT_E, i = i, sid = sid)
+                yield (sid, sname)
+                yield ('N_' + sid, sname + ' – mdl. Nachprüfung')
+            elif i == 4:
+                # Check written subject, gA
+                if not sid.endswith (".g"):
+                    REPORT.Fail(_NOT_G, i = i, sid = sid)
+                yield (sid, sname)
+                yield ('N_' + sid, sname + ' – mdl. Nachprüfung')
+            elif i <= 8:
+                # Check oral subject
+                if not sid.endswith (".m"):
+                    REPORT.Fail(_NOT_M, i = i, sid = sid)
+                yield (sid, sname)
+            else:
+                REPORT.Bug("It should not be possible to have too many subjects here")
+        if choices:
+            REPORT.Fail(_SUBJECT_CHOICE, sids = ', '.join(choices))
 
 
 
