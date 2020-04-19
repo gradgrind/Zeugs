@@ -137,11 +137,13 @@ def abi_klausuren():
 
 
 
+#DEPRECATED
 def abi_sid_name(schoolyear, pdata):
     """Return an iterator providing Abitur subjects and names for the
     given pupil as (sid, name) tuples.
     Note that oral "Nachprüfungen" ('N_*.*') are also returned.
     """
+    raise DEPRECATED
     klass = pdata.getKlass(withStream = True)
     courses = CourseTables(schoolyear)
     sid2tlist = courses.classSubjects(klass, 'GRADE')

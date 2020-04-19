@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-04-18
+Last updated:  2020-04-19
 
 Handle the data for grade reports.
 
@@ -857,176 +857,15 @@ class CurrentTerm():
         return True
 
 
-#############################
-
-#DEPRECATED -> updateGrades, via GradeData
-#!!! extra pdata attributes (REPORT_TYPE, etc.) -> xfields
-#def singleGrades2db(schoolyear, rtag, pdata, date, gdate, grades):
-
-
-#DEPRECATED
-#def updateGrades(schoolyear, term, pdata, grades, user = None):
-#    """Update (only) the grades for year/pupil/term which have changed
-#    in the mapping <grades>: {sid -> grade}.
-#    <pdata> is a <PupilData> instance, supplying class and stream for
-#    new GRADES entries.
-#    This updating is achieved by adding a new record to the GRADE_LOG
-#    table.
-#    Only administrators can "overwrite" grades entered by someone else.
-#    If no <user> is supplied, the null user is used, which acts like an
-#    administrator.
-#    """
-
-
-#DEPRECATED: remove from abitur.py, used getGradeData instead.
-def gradeInfo(schoolyear, term, pid):
-    """Return the GRADES table entry for the given year/pupil/term, if
-    it exists, otherwise <None>.
-    """
-    raise DEPRECATED
-    with DBT(schoolyear) as tdb:
-        ginfo = tdb.select1('GRADES', PID = pid, TERM = term)
-    if ginfo:
-        # Convert the grade info to a <dict>
-        return dict(ginfo)
-    else:
-        return None
-
-
-#DEPRECATED
-def getGradeData(schoolyear, pid, term, sid = None):
-    """Return all the data from the database GRADES_INFO table for the
-    given pupil and the given "term" as a mapping.
-        <term>: Either a term (small integer) or, for "extra"
-            reports, a tag (Xnn). It may also may also be any other
-            permissible entry in the TERM field of the GRADES_INFO table.
-    Return a mapping containing the basic grade-info for this year/term/
-    pupil.
-    If no <sid> is given, there will also be a 'GRADES' item, which is
-    a Grade Manager object (primarily a mapping {sid -> grade} for all
-    subjects appropriate to the class).
-    Note that class and stream of the GRADES_INFO entry may differ from
-    those of the pupil (if the pupil has changed class/stream).
-    There will also be a 'USERS' item, which is a mapping {sid -> user}
-    for all subjects relevant for real grades in the GRADES_INFO item's
-    class/stream.
-#TODO?: Different for the current term? Here the pupil's group should
-# be primary?
-    If <sid> is supplied, there will be a 'GRADE' item, which is just
-    the grade of the given subject. There will also be a 'USER' item,
-    the user who last updated this grade.
-    """
-    raise DEPRECATED
-    db = DBT(schoolyear)
-    with db:
-        ginfo = db.select1('GRADES_INFO', PID = pid, TERM = term)
-    if not ginfo:
-        return None
-    # Convert the grade info to a <dict>
-    gmap = dict(ginfo)
-
-    gkey = gmap['KEYTAG']
-    if sid:
-        with db:
-            record = db.select1('GRADES_LOG', KEYTAG = gkey, SID = sid)
-        g, user, rest = record['GRADE'].split(',', 2)
-        gmap['GRADE'] = g
-        gmap['USER'] = user
-    else:
-        # Include all subjects
-        with db:
-            records = db.select1('GRADE_LOG', KEYTAG = gkey)
-        grades, users = {}, {}
-        for record in records:
-            sid = record['SID']
-            g, user, rest = record['GRADE'].split(',', 2)
-            grades[sid] = (g, user)
-        # Read all subjects for the class/group
-
-
-# Use a grade-manager here? instead of the following lines ...
-# That needs a sid2tlist too, so I need to decide on class & stream.
-
-#TODO: different for "current" term?
-# Yes, probably: I think I would need the pupil data.
-        klass = Klass.fromKandS(gmap['CLASS'], gmap['STREAM'])
-        for sid in CourseTables(schoolyear).classSubjects(klass, 'GRADE'):
-            try:
-                allgrades[sid], allusers[sid] = allgrades[sid]
-            except:
-                allgrades[sid], allusers[sid] = None, None
-        gmap['GRADES'] = allgrades
-        gmap['USERS'] = allusers
-    return gmap
-
-
-#DEPRECATED, adjust gradetable.py line 187
-def setGrades(schoolyear, gmap):
-    raise DEPRECATED
-    # Read all subjects
-    klass = Klass.fromKandS(gmap['CLASS'], gmap['STREAM'])
-    # Read the grades
-    db = DBT(schoolyear)
-    gkey = gmap['KEYTAG']
-    sid2tlist = CourseTables(schoolyear).classSubjects(klass, 'GRADE')
-    gmap['GRADES'] = {sid: _readGradeSid(db, gkey, sid)
-            for sid in sid2tlist}
-
-
-#DEPRECATED, see abitur.py ll. 273, 276
-def getGrade(schoolyear, ginfo, sid):
-    """Fetch the grade for the given subject referenced by the given
-    grade-info item.
-    """
-    raise DEPRECATED
-    with DBT(schoolyear) as db:
-        # This might be faster with "fetchone" instead of "LIMIT",
-        # because of the "DESC" order.
-        records = db.select('GRADE_LOG',
-                order = 'TIMESTAMP', reverse = True, limit = 1,
-                KEYTAG = ginfo['KEYTAG'], SID = sid)
-    try:
-        return records[0]['GRADE']
-    except:
-        return None
-
-
-#DEPRECATED
-def _readGradeSid(db, gkey, sid, withuser = False):
-    """If there are entries for this key and sid, return the latest.
-    If no entries, return <None>.
-    If <withuser> is true, return a tuple (grade, user), otherwise
-    just return the grade.
-    """
-    raise DEPRECATED
-    with db:
-        # This might be faster with "fetchone" instead of "LIMIT",
-        # because of the "DESC" order.
-        records = db.select('GRADE_LOG',
-                order = 'TIMESTAMP', reverse = True, limit = 1,
-                KEYTAG = gkey, SID = sid)
-    try:
-        row = records[0]
-        return (row['GRADE'], row['USER']) if withuser else row['GRADE']
-    except:
-        return None
-
-
-
-
-
 ##################### Test functions
 _testyear = 2016
 def test_01 ():
-#TODO:
-    return
-
-
     _term = '2'
     _pid = '200403'
+    pupils = Pupils(_testyear)
     REPORT.Test("Reading basic grade data for pupil %s" % _pid)
-    pgrades = getGradeData(_testyear, _pid, _term)
-    klass = Klass.fromKandS(pgrades['CLASS'], pgrades['STREAM'])
+    gdata = GradeData(_testyear, _term, pupils.pupil(_pid))
+    klass = Klass.fromKandS(gdata.gclass, gdata.gstream)
 
     gradedata = GradeReportData(_testyear, klass)
     REPORT.Test("\nGrade groups:\n  %s" % repr(gradedata.sgroup2sids))
@@ -1038,7 +877,7 @@ def test_01 ():
             (klass, _rtype))
 
     pupils = Pupils(_testyear)
-    gm = gradedata.gradeManager(pgrades['GRADES'])
+    gm = gdata.getAllGrades()
     tagmap = gradedata.getTagmap(gm, pupils.pupil(_pid), _rtype)
     REPORT.Test("  Grade tags:\n  %s" % repr(tagmap))
     REPORT.Test("\n  Grade data:\n  %s" % repr(gm))

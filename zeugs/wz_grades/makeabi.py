@@ -70,17 +70,6 @@ def makeAbi(schoolyear, pdata,):
         date = gdata.ginfo['DATE_D']
     else:
         REPORT.Fail(_NO_GRADES, pname = pdata.name())
-
-    # Get an ordered list of (sid, sname) pairs
-#    sid_name = []
-#    courses = CourseTables(schoolyear)
-#    for sid in sid2grade:
-#        try:
-#            sname = courses.subjectName(sid).split('|')[0].rstrip()
-#        except:
-#            continue
-#        sid_name.append((sid, sname))
-#    abiCalc = AbiCalc(sid2grade, sid_name)
     abiCalc = AbiCalc(sid2grade)
     try:
         zgrades = abiCalc.getFullGrades()

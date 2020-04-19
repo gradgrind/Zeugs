@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-04-09
+wz_grades/gradetable.py - last updated 2020-04-19
 
 Create grade tables for display and grade entry.
 
@@ -46,7 +46,7 @@ from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_table.matrix import KlassMatrix
 from wz_compat.grade_classes import gradeGroups
-from .gradedata import getGradeData, CurrentTerm, setGrades
+from .gradedata import GradeData, CurrentTerm
 
 
 def makeBasicGradeTable(schoolyear, term, klass):
@@ -73,18 +73,14 @@ def makeBasicGradeTable(schoolyear, term, klass):
         plist = oldTablePupils(schoolyear, term, klass)
 
 #TODO: That won't do for Klausur results because it only searches
-# existing grades- It should probably be more like the code below,
+# existing grades. It should probably be more like the code below,
 # but maybe also having a concept of "closed" data sets?
-    if not plist:
+    else:
+        # "Current term"
         plist = Pupils(schoolyear).classPupils(klass)
-        for pdata in plist:
-            gdata = getGradeData(schoolyear, pdata['PID'], term)
-            if gdata:
-                if (gdata['CLASS'] == klass.klass and
-                        gdata['STREAM'] == pdata['STREAM']):
-                    pdata.grades = gdata['GRADES']
-                    continue
-            pdata.grades = None
+    for pdata in plist:
+        gdata = GradeData(schoolyear, term, pdata)
+        pdata.grades = gdata.getAllGrades()
 
     ### Determine table template
     gtinfo = CONF.GRADES.TEMPLATE_INFO
@@ -177,15 +173,11 @@ def oldTablePupils(schoolyear, term, klass):
     plist = []
     pupils = Pupils(schoolyear)
     with DBT(schoolyear) as db:
-        rows = db.select('GRADES', CLASS = klass.klass, TERM = term)
+        rows = db.select('GRADES_INFO', CLASS = klass.klass, TERM = term)
     for row in rows:
         stream = row['STREAM']
         if klass.containsStream(stream):
             pdata = pupils.pupil(row['PID'])
-            # Get the grades
-            gmap = dict(row)
-            setGrades(schoolyear, gmap)
-            pdata.grades = gmap['GRADES']
             # In case class or stream have changed:
             pdata['CLASS'] = klass.klass
             pdata['STREAM'] = stream
