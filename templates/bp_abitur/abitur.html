@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set klass = pdata.CLASS %}
 {% set uplink = url_for('bp_abitur.pupils', klass=klass) %}
 {% set uplink_help = "Klasse " + klass %}
 
@@ -22,7 +23,7 @@
 {% block title %}Prüfungsnoten{% endblock %}
 
 {% block content %}
-    <h3>für {{pname}}</h3>
+    <h3>für {{ pdata.name() }}</h3>
     <p>Geben Sie alle Daten ein, die für das Zeugnis nötig sind, dann
     klicken Sie auf „Speichern“ oder „Erstellen“ (ganz unten).
     </p>
@@ -31,26 +32,43 @@
         {{ form.csrf_token }}
 
         <fieldset>
-            {% for sid, sname in sids %}
+            <legend>Noten</legend>
+          {% for sid, sname, g0, gn in subjects %}
             <div class="pure-control-group">
                 <div class="subject">
+                    {% set skey = 'G_' + sid %}
 <!-- Hier sollten die Fachnamen deren Zusätze (eA, usw.) beibehalten -->
-                    {{ form[sid].label }}{{ form[sid] }}
+                    <label for="{{ skey }}">{{ sname }}</label>
+                    <select id="{{ skey }}" name="{{ skey }}">
+                    {% for g in choices[0] %}
+                        <option {% if g == g0 %}selected{% endif %}>
+                            {{ g }}
+                        </option>
+                    {% endfor %}
+                    </select>
                 </div>
 <!-- Für schriftliche Fächer kann es auch eine mündliche Nachprüfung geben -->
-                {% if not sid.endswith('.m') %}
-                {% set sn = sid + 'N' %}
+              {% if gn %}
                 <div class="subjectM">
-                    {{ form[sn].label }}{{ form[sn] }}
+                    {% set skey = 'G_N_' + sid %}
+                    <label for="{{ skey }}">mdl.</label>
+                    <select id="{{ skey }}" name="{{ skey }}">
+                    {% for g in choices[1] %}
+                        <option {% if g == gn %}selected{% endif %}>
+                            {{ g }}
+                        </option>
+                    {% endfor %}
+                    </select>
                 </div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </fieldset>
-        <div class="pure-control-group" style="margin-bottom: 1rem;">
-            {{ form.DATE_D.label }}{{ form.DATE_D }}
+              {% endif %}
+          {% endfor %}
+
+        <div class="pure-control-group">
+            <label for="DATE_D">Ausstellungsdatum</label>
+            <input id="DATE_D" name="DATE_D" type="date"
+            value="{{pdata.DATE_D}}">
         </div>
-        <hr />
+        <hr>
         <button type="submit" name="action" value="update"
                 class="pure-button submit-button"
                 style="margin: 0.5rem 1rem;">Speichern</button>

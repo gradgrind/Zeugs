@@ -4,7 +4,7 @@
 """
 flask_app/grades/abitur.py
 
-Last updated:  2020-04-10
+Last updated:  2020-04-19
 
 Flask Blueprint for abitur reports
 
@@ -30,9 +30,6 @@ _HEADING = "Abitur"     # page heading
 
 ABIYEAR = "13"          # Abitur only possible in this year
 
-# Messages
-_NOT_ABI_YEAR = "{pname} (Klasse {klass}) ist nicht in einer Abiturklasse."
-
 
 #TODO: check imports ...
 import datetime, os
@@ -49,12 +46,12 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
-from wz_grades.gradedata import gradeInfo, getGrade
+from wz_grades.gradedata import GradeData
 from wz_grades.gradetable import makeBasicGradeTable
 from wz_grades.makeabi import saveGrades, makeAbi
 from wz_compat.grade_classes import (choices2db, choiceTable,
-        abi_sid_name, abi_klausuren,
-        abi_klausur_classes, abi_choice_classes)
+        abi_klausuren, abi_klausur_classes, abi_choice_classes)
+from wz_compat.gradefunctions import AbiCalc
 
 
 # Set up Blueprint
@@ -250,114 +247,69 @@ def pupils(klass):
 def grades(pid):
     """View: enter grades for a pupil.
     """
-    class _Form(FlaskForm):
-        DATE_D = DateField('Ausstellungsdatum', validators=[InputRequired()])
+    schoolyear = session['year']
+    pdata = REPORT.wrap(Pupils(schoolyear).pupil, pid, suppressok = True)
+    if (not pdata) or (pdata['CLASS'] < ABIYEAR):
+        abort(404)
 
+    form = FlaskForm()
+    if app.isPOST(form):
+        ### POST
+        DATE_D = request.form['DATE_D']
+        gmap = {}   # grade mapping {sid -> "grade"}
+        for tag, g in request.form.items():
+            if tag.startswith('G_'):
+                sid = tag[2:]
+                if g == '?':
+                    g = None
+                gmap[sid] = g
+        # Update GRADES entry, or add new one
+        if REPORT.wrap(saveGrades, schoolyear, pdata, grades, DATE_D,
+                suppressok = True):
+            flash("Zeugnisdaten gespeichert", "Info")
+            # Test whether a report is to be constructed
+            ok = True
+            if request.form['action'] == 'build':
+                if DATE_D:
+                    pdfBytes = REPORT.wrap(makeAbi, schoolyear, pdata)
+                    if pdfBytes:
+                        session['filebytes'] = pdfBytes
+                        session['download'] = 'Abiturzeugnis_%s.pdf' % (
+                                pdata['PSORT'].replace(' ', '_'))
+                    else:
+                        ok = False
+                else:
+                    flash("Ausstellungsdatum fehlt", "Error")
+                    ok = False
+            if ok:
+                return redirect(url_for('bp_abitur.pupils',
+                        klass = pdata['CLASS']))
+        return redirect(request.path)
+
+    ### GET
     def prepare():
-        pupils = Pupils(schoolyear)
-        pdata = pupils.pupil(pid)
-        k = pdata['CLASS']
-        if k < ABIYEAR:
-            REPORT.Fail(_NOT_ABI_YEAR, klass=k, pname=pdata.name())
-        klass = Klass(k)
-        subjects = abi_sid_name(schoolyear, pdata)
-
-        # Get any existing grades for this pupil: {sid -> grade}
-        # If there is no grade data, use <{}> to satisfy the subsequent code.
-        ginfo = gradeInfo(schoolyear, 'A', pid)
-        sid2grade = []
-        sid2xgrade = []
-        date = ginfo['DATE_D'] if ginfo else '?'
-        i = 0
-        for sid, sname in subjects:
-            sid2grade.append(getGrade(schoolyear, ginfo, sid)
-                    if ginfo else None)
-            if i < 4:
-                sid2xgrade.append(getGrade(schoolyear, ginfo, sid + 'N')
-                        if ginfo else None)
-            i += 1
-
-#TODO: without WTFORMS?
-
-        # Add grade-select fields
-        gchoices = [(g, g) for g in gradechoices]
-        gchoicesM = [(g, g) for g in gradechoicesM]
-        i = 0
-        for sid, sname in subjects:
-            grade = sid2grade[i]
-            if grade not in gradechoices:
-                grade = ''
-            sfield = SelectField(sname, choices=gchoices, default=grade)
-            setattr(_Form, sid, sfield)
-            if i < 4:
-                # Add (optional) oral exam
-                grade = sid2xgrade[i]
-                if grade not in gradechoicesM:
-                    grade = '*'
-                sfield = SelectField("mdl.", choices = gchoicesM,
-                        default = grade)
-                setattr(_Form, sid + 'N', sfield)
-            i += 1
-        return subjects, pdata, klass, date
+        gdata = GradeData(schoolyear, 'A', pdata)
+        pdata.DATE_D = gdata.ginfo.get('DATE_D')
+        pdata.grades = gdata.getAllGrades()
+        # Return the sid-name-grade-Ngrade list
+        return AbiCalc(gdata.getAllGrades()).sngg
 
     # Build grade lists. <gradechoicesM> is for the additional oral
     # exams for the first four subjects – these are optional so they
     # can take the value '*' (no exam).
-    gradechoices, gradechoicesM = [], []
-    for i in range(15, -1, -1):
-        g = "%02d" % i
-        gradechoices.append(g)
-        gradechoicesM.append(g)
-    gradechoices.append('')
+    gradechoices = ["%02d" % i for i in range(15, -1, -1)]
+    gradechoicesM = gradechoices.copy()
+    gradechoices.append('?')
     gradechoicesM.append('*')
-
-    schoolyear = session['year']
-    try:
-        subjects, pdata, klass, date = REPORT.wrap(prepare, suppressok=True)
-    except TypeError:
+    subjects = REPORT.wrap(prepare, suppressok=True)
+    if not subjects:
         # Return to caller
         return redirect(request.referrer)
-
-    form = _Form()
-    if form.validate_on_submit():
-        ### POST
-        # Get the date of issue
-        _d = form.DATE_D.data.isoformat()
-        # Get the grades
-        grades = {} # for saving grades
-        for sid, sname in subjects:
-            grades[sid] = form[sid].data
-            if not sid.endswith('m'):
-                sn = sid + 'N'
-                grades[sn] = form[sn].data
-        # Save the grades and date to the database
-        if REPORT.wrap(saveGrades, schoolyear, pdata, grades, _d,
-                suppressok=True):
-            # Test whether a report is to be constructed
-            if request.form['action'] == 'build':
-                pdfBytes = REPORT.wrap(makeAbi, schoolyear, pdata)
-                if pdfBytes:
-                    session['filebytes'] = pdfBytes
-                    session['download'] = 'Abiturzeugnis_%s.pdf' % (
-                            pdata['PSORT'].replace(' ', '_'))
-                    return redirect(url_for('bp_abitur.pupils',
-                            klass = klass.klass))
-            else:
-                return redirect(url_for('bp_abitur.pupils',
-                        klass = klass.klass))
-
-    ### GET
-    # Set date (if saved)
-    try:
-        form.DATE_D.data = datetime.date.fromisoformat(date)
-    except ValueError:
-        form.DATE_D.data = datetime.date.today()
-
     return render_template(os.path.join(_BPNAME, 'abitur.html'),
                     heading = _HEADING,
                     form = form,
-                    klass = klass.klass,
-                    pname = pdata.name(),
-                    sids = subjects
+                    pdata = pdata,
+                    subjects = subjects,
+                    choices = (gradechoices, gradechoicesM)
                 )
 

@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-18
+Last updated:  2020-04-19
 
 Calculations needed for grade handling.
 
@@ -47,8 +47,7 @@ _LOW2_ERROR = "Punkte in mündlichen Fächer < 80"
 _UNDER2_1_ERROR = "< 2 schriftliche Fächer mit mindestens 5 Punkten"
 _UNDER2_2_ERROR = "< 2 mündliche Fächer mit mindestens 5 Punkten"
 _FAILED = "Abitur nicht bestanden: {error}"
-_INVALID_GRADES = ("Ungültige Fächer/Noten für {pname}, erwartet:\n"
-        "  *.e, N_*.e, *.e, N_*.e, *.e, N_*.e, *.g, N_*.g, *.m, *.m, *.m, *.m")
+
 _NOT_G = "{i}. Fach: {sid}. Dieses muss gA + schriftlich (Endung '.g') sein."
 _NOT_E = "{i}. Fach: {sid}. Dieses muss eA (Endung '.e') sein."
 _NOT_M = "{i}. Fach: {sid}. Dieses muss mündlich (Endung '.m') sein."
@@ -56,6 +55,7 @@ _SUBJECT_CHOICE = "Unerwarte Abifächer: {sids}"
 
 
 from fractions import Fraction
+from collections import OrderedDict
 
 from wz_core.db import DBT
 
@@ -100,7 +100,7 @@ def Manager(gclass, gstream, term = None):
 
 
 
-class _GradeManager(dict):
+class _GradeManager(OrderedDict):
     """Analyse the grades to derive the additional information
     necessary for the evaluation of the results.
     The grades in composite subjects can be calculated and made available
@@ -754,33 +754,33 @@ class AbiCalc:
 
 
     def __init__(self, sid2grade):
+        """<sid2grade> must be a <GradeManagerA> instance. The subjects
+        should thus be checked and ordered.
+        """
+        def getSG():
+            for sid, grade in sid2grade.items():
+                yield (sid, grade)
+
 #        REPORT.Test("???name %s" % repr(sid2grade.sname))
 #        REPORT.Test("???grade %s" % repr(sid2grade))
-        self.zgrades = {}
-        i = 0
-        for sid, grade in sid2grade.items():
-            if sid.startswith('N_'):
-                self.zgrades["M%d" % i] = self.fixGrade(grade)
-                if i == 4 and sid.endswith('.g'):
-                    continue
-                if i in (1,2,3) and sid.endswith('.e'):
-                    continue
+        self.zgrades = {}   # For report building
+        self.sngg = []      # For grade entry/editing
+        sg = getSG()
+        for i in range(1, 9):
+            sid, grade = sg.__next__()
+            sname = sid2grade.sname[sid]
+            self.zgrades["F%d" % i] = sname.split('|')[0].rstrip()
+            self.zgrades["S%d" % i] = self.fixGrade(grade)
+            if i <= 4:
+                sn, gn = sg.__next__()
+                self.zgrades["M%d" % i] = self.fixGrade(gn)
             else:
-                i += 1
-                self.zgrades["F%d" % i] = sid2grade.sname[sid].split(
-                        '|')[0].rstrip()
-                self.zgrades["S%d" % i] = self.fixGrade(grade)
-                if i == 4 and sid.endswith('.g'):
-                    continue
-                if i in (1,2,3) and sid.endswith('.e'):
-                    continue
-                if i in (5,6,7,8) and sid.endswith('.m'):
-                    continue
-            REPORT.Fail(_INVALID_GRADES, pname=pdata.name())
+                gn = None
+            self.sngg.append((sid, sname, grade, gn))
 
 
     def getFullGrades(self):
-        """Return the tag mapping for an Abitur report.
+        """Return the full tag mapping for an Abitur report.
         """
         gmap = self.zgrades.copy()
         errors = []
@@ -788,17 +788,17 @@ class AbiCalc:
         ### First the 'E' points
         eN = []
         n1, n2 = 0, 0
-        for i in range(1, 9):
+        for i in range(8):
             try:
-                s = int(gmap["S%d" % i])
+                s = int(self.sngg[i][2])
             except:
-                critical.append(_NO_GRADE % gmap["F%d" % i])
+                critical.append(_NO_GRADE % self.sngg[i][1])
                 s = 0
-            if i <= 4:
+            if i < 4:
                 # written exam
-                f = 4 if i == 4 else 6  # gA / eA
+                f = 4 if i == 3 else 6  # gA / eA
                 try:
-                    e = s + int(gmap["M%d" % i])
+                    e = s + int(self.sngg[i][3])
                 except:
                     e = s + s
                 if e >= 10:
@@ -812,7 +812,7 @@ class AbiCalc:
             gmap["E%d" % i] = str(e)
             eN.append(e)
             if e == 0:
-                errors.append(_NULL_ERROR % gmap["F%d" % i])
+                errors.append(_NULL_ERROR % self.sngg[i][1])
 
         if critical:
             for e in critical:

@@ -3,7 +3,7 @@
 """
 wz_grades/makeabi.py
 
-Last updated:  2020-04-18
+Last updated:  2020-04-19
 
 Generate final grade reports for the Abitur.
 
@@ -60,7 +60,7 @@ def saveGrades(schoolyear, pdata, grades, date):
     return True
 
 
-def makeAbi(schoolyear, pdata,):
+def makeAbi(schoolyear, pdata):
     """Make an Abitur report. Return it as a byte-stream (pdf).
     """
     # Get grade data: This needs to be an ordered mapping.

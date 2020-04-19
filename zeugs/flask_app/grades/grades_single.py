@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_single.py
 
-Last updated:  2020-04-14
+Last updated:  2020-04-19
 
 "Sub-module" of grades for single reports
 
@@ -216,10 +216,10 @@ def grades_pupil(pid, rtag, stream = None):
     It may also be 'X', indicating that a new date is to be set up.
     """
     schoolyear = session['year']
-    pdata = Pupils(schoolyear).pupil(pid)
-    pdata.TERMTAG = rtag
+    pdata = REPORT.wrap(Pupils(schoolyear).pupil, pid)
     if not pdata:
         abort(404)
+    pdata.TERMTAG = rtag
     try:
         curterm = CurrentTerm(schoolyear, rtag)
         pdata.TERM0 = curterm.TERM

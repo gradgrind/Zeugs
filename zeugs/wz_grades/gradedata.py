@@ -60,7 +60,6 @@ _CHANGE_FROM = "{pname} hat die Gruppe gewechselt (von {ks})"
 _INVALID_TERMTAG = "Ungültige Zeugniskategorie für Klasse {ks}: {tag}"
 _STREAM_CURRENT = ("Maßstab ({stream} kann im „aktuellen“ Halbjahr nur über"
         " den Schüler ({pname}) eingestellt werden")
-_INCOMPATIBLE_STREAM = "Maßstab {stream} ist mit anderen in der Gruppe nicht kompatibel"
 _NOT_GRADEGROUP = "Gruppe {group} ist keine „Notengruppe“"
 _BAD_STREAM = "Ungültiger Gruppe/Bewertungsmaßstab für {pname}: {stream}"
 
