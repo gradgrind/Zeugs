@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-wz_grades/gradetable.py - last updated 2020-04-19
+wz_grades/gradetable.py - last updated 2020-04-21
 
 Create grade tables for display and grade entry.
 
@@ -36,6 +36,7 @@ _MISSING_SUBJECT = "Fachkürzel {sid} fehlt in Notentabellenvorlage:\n  {path}"
 _NO_TEMPLATE = ("Keine Notentabelle-Vorlage für Klasse/Gruppe {ks} in"
         " GRADES.TEMPLATE_INFO.GRADE_TABLE")
 _NOT_CURRENT_TERM = "Nicht das aktuelle Halbjahr, die Noten werden erscheinen"
+_INVALID_TERMTAG = "Zeugniskategorie {tag} ungültig für Klasse {ks}"
 
 
 import datetime
@@ -45,7 +46,7 @@ from wz_core.db import DBT
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
 from wz_table.matrix import KlassMatrix
-from wz_compat.grade_classes import gradeGroups
+from wz_compat.grade_classes import gradeGroups, validTermTag
 from .gradedata import GradeData, CurrentTerm
 
 
@@ -59,24 +60,24 @@ def makeBasicGradeTable(schoolyear, term, klass):
     """
     title = _TITLE0     # default, minimal title
     # If using old data, a pupil's stream, and even class, may have changed!
-    try:
-        termdata = CurrentTerm(schoolyear, term)
-        gdate = termdata.dates()[str(klass)].GDATE_D
-        if gdate:
+    if not validTermTag(klass.klass, klass.stream, term):
+        REPORT.Fail(_INVALID_TERMTAG, tag = term, ks = klass)
+    plist = None
+    if term[0] != 'T':
+        # not a test result table
+        try:
+            termdata = CurrentTerm(schoolyear, term)
+            gdate = termdata.dates()[str(klass)].GDATE_D
+            if gdate:
 #TODO: use a date 2 or 3 days earlier?
-            title = _TITLE.format(date = Dates.dateConv(gdate))
-        plist = None
-    except CurrentTerm.NoTerm:
-        # A term, but not the current term.
-        # Search the GRADES table for entries with TERM == <term> and
-        # matching class. Include those with a stream covered by <klass>.
-        plist = oldTablePupils(schoolyear, term, klass)
-
-#TODO: That won't do for Klausur results because it only searches
-# existing grades. It should probably be more like the code below,
-# but maybe also having a concept of "closed" data sets?
-    else:
-        # "Current term"
+                title = _TITLE.format(date = Dates.dateConv(gdate))
+        except CurrentTerm.NoTerm:
+            # A term, but not the current term.
+            # Search the GRADES table for entries with TERM == <term> and
+            # matching class. Include those with a stream covered by <klass>.
+            plist = oldTablePupils(schoolyear, term, klass)
+    if not plist:
+        # "Current term" or test result table
         plist = Pupils(schoolyear).classPupils(klass)
     for pdata in plist:
         gdata = GradeData(schoolyear, term, pdata)
@@ -97,7 +98,7 @@ def makeBasicGradeTable(schoolyear, term, klass):
     if term[0] == 'T':
         info3 = kmap['TEST']
         title = _TTITLE
-        t0 = term[1]
+        t0 = term[1:]
     else:
         info3 = kmap['TERM']
         t0 = term

@@ -1,5 +1,5 @@
 ############## GRADES/TEMPLATE_INFO
-############## Version: 2020-04-15
+############## Version: 2020-04-21
 
 ### Info-Spalten der Notentabellen, für welche Klassen/Gruppen
 ### und Halbjahre/Zeugnistypen sie relevant sind
@@ -20,6 +20,9 @@ GROUPS_1 = 13 12.Gym 12.RS-HS 11.Gym 11.RS-HS
 GROUPS_2 = 13 12.Gym 12.RS-HS 11.Gym 11.RS-HS 10
 # Einzelzeugnisse
 GROUPS_X = 13 12 11 10 09 08 07 06 05
+
+### Gruppen, für die Klausurergebnisse gespeichert werden können
+TESTS_GROUPS =& 13: 1 2 3
 
 ### Zuordnung der Zeugnisvorlagen zu den Klassen/Gruppen.
 ## Zeugnisse zum Ende des Abiturjahrgangs sind gesondert behandelt.

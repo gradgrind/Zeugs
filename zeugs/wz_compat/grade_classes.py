@@ -4,7 +4,7 @@
 """
 wz_compat/grade_classes.py
 
-Last updated:  2020-04-19
+Last updated:  2020-04-21
 
 For which school-classes and streams are grade reports possible?
 
@@ -38,6 +38,8 @@ _NOPUPILS = "Keine Schüler"
 _ABI_CHOICES = "{pname} muss genau 8 Fächer für das Abitur wählen"
 _BAD_DATE_GROUP = "Ungültige Zeugnisgruppe: {group}"
 _STREAM_NOT_IN_KLASS = "Gruppe {stream} ist nicht möglich in Klasse {klass}"
+_BAD_TESTS_GROUPS = ("Konfiguration, in GRADES.TEMPLATE_INFO. Ungültiger"
+        " Wert in TESTS_GROUPS: {val}")
 
 
 from wz_core.db import DBT
@@ -81,11 +83,19 @@ def validTermTag(gclass, gstream, term):
     """Term-tags for which grade-info entries may be created.
     Basically that means the terms and Abitur grades.
     """
-#TODO: Klausur grades?
     if term in CONF.MISC.TERMS:
         return True
     if term == 'A' and gclass in CONF.MISC.ABICLASSES:
         return True
+    if term[0] == 'T':
+        # Klausur grades
+        tag = term[1:]
+        for g, tags in test_info().items():
+            tklass = Klass(g)
+            if gclass == tklass.klass:
+                if tklass.containsStream(gstream):
+                    # Check tag
+                    return tag in tags
     return False
 
 
@@ -113,13 +123,6 @@ def needGradeDate(termn, klass):
             and klass.klass < '13')
 
 
-def abi_klausur_classes(schoolyear):
-    """Return a list of names (str) of classes writing "Klausuren" for
-    the Abitur which need to be recorded.
-    """
-    pupils = Pupils(schoolyear)
-    return [k for k in pupils.classes('Gym') if k.startswith('13')]
-
 
 def abi_choice_classes(schoolyear):
     """Return a list of names (str) of classes with pupils in the
@@ -130,10 +133,21 @@ def abi_choice_classes(schoolyear):
             if k.startswith('12') or k.startswith('13')]
 
 
-def abi_klausuren():
-    """Return a list (tuple) of tags for the Abitur-Klausuren.
+
+def test_info():
+    """The results of which test blocks in which classes/groups may be
+    collected in the database.
+    Return a mapping { group -> [test-tag, ...] }.
+    Probably this only concerns the Abitur class.
     """
-    return ("T1", "T2", "T3")
+    k2t = {}
+    for kt in CONF.GRADES.TEMPLATE_INFO.TESTS_GROUPS:
+        try:
+            k, tls = kt.split(':', 1)
+        except:
+            REPORT.Fail(_BAD_TESTS_GROUPS, val = kt)
+        k2t[k] = tls.split()
+    return k2t
 
 
 

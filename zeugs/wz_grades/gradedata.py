@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-04-19
+Last updated:  2020-04-21
 
 Handle the data for grade reports.
 
@@ -62,6 +62,7 @@ _STREAM_CURRENT = ("Maßstab ({stream} kann im „aktuellen“ Halbjahr nur übe
         " den Schüler ({pname}) eingestellt werden")
 _NOT_GRADEGROUP = "Gruppe {group} ist keine „Notengruppe“"
 _BAD_STREAM = "Ungültiger Gruppe/Bewertungsmaßstab für {pname}: {stream}"
+_INVALID_TESTTAG = "Ungültige Klausurbezeichnung: {tag}"
 
 
 import os, datetime
@@ -74,7 +75,8 @@ from wz_core.courses import CourseTables
 from wz_core.teachers import Users
 from wz_core.template import getGradeTemplate, getTemplateTags, TemplateError
 from wz_compat.gradefunctions import Manager
-from wz_compat.grade_classes import gradeGroups, validTermTag, klass2streams
+from wz_compat.grade_classes import (gradeGroups, validTermTag,
+        klass2streams, test_info)
 from wz_table.dbtable import readPSMatrix
 
 
@@ -519,6 +521,74 @@ def grades2db(gtable):
                 klass = klass, year = schoolyear, term = term)
     else:
         REPORT.Warn(_NOPUPILS)
+
+
+#TODO: Adapt to tests (Klausuren)
+def test2db(schoolyear, gtable):
+    """Enter the grades from the given table into the database.
+    Only tables for the current year and with a valid "test tag" are
+    accepted (check gtable.info['SCHOOLYEAR'] and gtable.info['TEST']).
+    This update doesn't pay attention to user permissions – it is
+    performed as the "null" user, who may update any grade.
+    """
+    # Check school-year and test tag
+    try:
+        y = gtable.info.get('SCHOOLYEAR', '–––')
+        schoolyear = int(y)
+    except ValueError:
+        REPORT.Fail(_INVALID_YEAR, val = y)
+    testtag = gtable.info.get('TEST')
+
+
+#TODO
+#    if testtag not in abi_klausuren():
+#        REPORT.Fail(_INVALID_TESTTAG, tag = testtag)
+
+    # Check class validity
+    klass = Klass(gtable.info.get('CLASS', '–––'))
+    pupils = Pupils(schoolyear)
+    try:
+        plist = pupils.classPupils(klass)
+        if not plist:
+            raise ValueError
+    except:
+        REPORT.Fail(_INVALID_KLASS, klass = klass)
+    testInfo = test_info()
+    rtag = 'T' + testtag
+#TODO: The test tag must still be checked ...
+
+    # Filter the relevant pids
+    pdata_grades = []
+    _GradeManager = None
+    for pdata in plist:
+        pid = pdata['PID']
+        try:
+            pgrades = gtable.pop(pid)
+        except KeyError:
+            # The table may include just a subset of the pupils
+            continue
+        # Check stream against entry in table
+        pstream = pdata['STREAM']
+        if pgrades.stream != pstream:
+            REPORT.Fail(_INVALID_STREAM, pname = pdata.name(),
+                    pstream = pstream, tstream = pgrades.stream)
+        pdata_grades.append((pdata, pgrades))
+    # Anything left unhandled in <gtable>?
+    for pid in gtable:
+        REPORT.Error(_UNKNOWN_PUPIL, pid = pid)
+
+    # Now enter to database
+    if pdata_grades:
+        sid2tlist = CourseTables(schoolyear).classSubjects(klass, 'GRADE')
+        for pdata, grades in pdata_grades:
+            # Enter the grades
+            gradeData = GradeData(schoolyear, rtag, pdata)
+            gradeData.updateGrades(grades)
+        REPORT.Info(_NEWGRADES, n = len(pdata_grades),
+                klass = klass, year = schoolyear, term = rtag)
+    else:
+        REPORT.Warn(_NOPUPILS)
+
 
 
 def getPupilList(schoolyear, term, klass, rtype):

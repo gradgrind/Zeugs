@@ -4,7 +4,7 @@
 """
 flask_app/grades/abitur.py
 
-Last updated:  2020-04-19
+Last updated:  2020-04-21
 
 Flask Blueprint for abitur reports
 
@@ -31,26 +31,22 @@ _HEADING = "Abitur"     # page heading
 ABIYEAR = "13"          # Abitur only possible in this year
 
 
-#TODO: check imports ...
-import datetime, os
+import os
 
 from flask import (Blueprint, render_template, request, session,
         url_for, abort, redirect, flash, make_response)
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
-from wtforms import SelectField
-from wtforms.fields.html5 import DateField
-from wtforms.validators import InputRequired
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.pupils import Pupils, Klass
-from wz_core.courses import CourseTables
-from wz_grades.gradedata import GradeData
+from wz_table.dbtable import readPSMatrix
+from wz_grades.gradedata import GradeData, test2db
 from wz_grades.gradetable import makeBasicGradeTable
 from wz_grades.makeabi import saveGrades, makeAbi
 from wz_compat.grade_classes import (choices2db, choiceTable,
-        abi_klausuren, abi_klausur_classes, abi_choice_classes)
+        test_info, abi_choice_classes)
 from wz_compat.gradefunctions import AbiCalc
 
 
@@ -66,43 +62,47 @@ bp = Blueprint(_BPNAME,             # internal name of the Blueprint
 #    return render_template(os.path.join(_BPNAME, 'abi-index.html'),
 #                            heading=_HEADING)
 
-@bp.route('/tests/<testn>/<klass>', methods=['GET'])
-@bp.route('/tests/<testn>', methods=['GET','POST'])
-@bp.route('/tests', methods=['GET'])
-def tests(testn = None, klass = None):
+@bp.route('/tests/<testkn>', methods=['GET'])
+@bp.route('/tests', methods=['GET','POST'])
+def tests(testkn = None):
     """Manage the results of the scheduled tests (Klausuren) in the
-    final class.
+    final class(es).
     Result tables can be downloaded and uploaded here.
-    <testn> is the test number (1-3) preceded by 'T'.
-    <klass> is an Abitur class.
+    <testkn> has the form <group>:<test-tag>.
+    Only Abitur groups are accepted here.
     """
-    test_vals = abi_klausuren()
-    if not testn:
-        return render_template(os.path.join(_BPNAME, 'tests_n.html'),
-                            heading = _HEADING,
-                            tests = test_vals)
+    testInfo = test_info()
+    test_vals = []
+    for grp, tags in testInfo.items():
+        if grp < '12':
+            continue
+        try:
+            k, s = grp.split('.', 1)
+        except:
+            pass
+        else:
+            if s != 'Gym':
+                continue
+        for t in tags:
+            test_vals.append(grp + ':' + t)
 
-    schoolyear = session['year']
-    # Get a list of relevant classes
-    klasslist = abi_klausur_classes(schoolyear)
     try:
         dfile = session.pop('test_klass')   # download file
     except:
         dfile = None
-    if testn not in test_vals:
-        abort(404)
-#TODO
-    if klass:
-        if klass not in klasslist:
+
+    schoolyear = session['year']
+    if testkn:
+        ### GET only. Generate the table
+        if testkn not in test_vals:
             abort(404)
-        # GET only. Generate the table
         dfile = None    # download file
+        klass, testtag = testkn.split(':')
         ks = Klass(klass)
-        # GET: Generate the table
         xlsxBytes = REPORT.wrap(makeBasicGradeTable,
-                schoolyear, testn, ks, suppressok = True)
+                schoolyear, 'T' + testtag, ks, suppressok = True)
         if xlsxBytes:
-            dfile = 'Klausur_%s-%s.xlsx' % (testn[1], klass)
+            dfile = 'Klausur_%s-%s.xlsx' % (testtag, klass)
             session['filebytes'] = xlsxBytes
 #WARNING: This is not part of the official flask API, it might change!
             if not session.get("_flashes"):
@@ -110,11 +110,11 @@ def tests(testn = None, klass = None):
                 return redirect(url_for('download', dfile = dfile))
             # If there are messages, save the file-name in the
             # session data and then redirect to the page with no
-            # <klass> parameter.
+            # <testkn> parameter.
             # The template will show the messages
             # and make the file available for downloading.
             session['test_klass'] = dfile
-        return redirect(url_for('bp_abitur.tests', testn = testn))
+            return redirect(url_for('bp_abitur.tests'))
 
     class UploadForm(FlaskForm):
         upload = FileField('Klausur-Ergebnisse:', validators=[
@@ -122,16 +122,18 @@ def tests(testn = None, klass = None):
             FileAllowed(['xlsx', 'ods'], 'Klausur-Ergebnisse')
         ])
 
+    def readdata(f):
+        gtbl = readPSMatrix(f)
+        test2db(schoolyear, gtbl)
+
     form = UploadForm()
     if app.isPOST(form):
-#TODO: like grade table, but check test number
-        REPORT.wrap(tests2db, schoolyear, testn, form.upload.data)
+        REPORT.wrap(readdata, form.upload.data)
         return redirect(url_for('bp_abitur.tests'))
 
     return render_template(os.path.join(_BPNAME, 'tests.html'),
                             heading = _HEADING,
-                            test = testn,
-                            klasses = klasslist,
+                            tests = test_vals,
                             dfile = dfile,
                             form = form)
 
