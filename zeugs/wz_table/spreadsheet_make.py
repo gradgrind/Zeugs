@@ -3,12 +3,12 @@
 """
 wz_table/spreadsheet_make.py
 
-Last updated:  2019-10-14
+Last updated:  2020-04-25
 
 Create a new spreadsheet (.xlsx).
 
 =+LICENCE=============================
-Copyright 2017-2019 Michael Towers
+Copyright 2017-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ Copyright 2017-2019 Michael Towers
 """
 
 import os, datetime
+from io import BytesIO
 from collections import namedtuple
 
 from openpyxl import Workbook
@@ -346,17 +347,21 @@ class NewSpreadsheet:
         self._ws.freeze_panes = self.cellName (row, col)
 
 
-    def save (self, filepath):
-        """Write the spreadsheet to a file.
-        The ending '.xlsx' is added automatically if it is not present
-        already.
-        Return the full filepath.
+    def save (self, filepath = None):
+        """If <filepath> is given, the resulting table will be written
+        to a file. The ending '.xlsx' is added automatically if it is
+        not present already. Then return the full filepath.
+        Without <filepath>, a <bytes> object is returned.
         """
-        fdir = os.path.dirname (filepath)
-        fname = os.path.basename (filepath).rsplit ('.', 1) [0] + '.xlsx'
-        fp = os.path.join (fdir, fname)
-        self._wb.save (fp)
-        return fp
+        if filepath:
+            if not filepath.endswith('.xlsx'):
+                filepath += '.xlsx'
+            self._wb.save(filepath)
+            return filepath
+        else:
+            virtual_workbook = BytesIO()
+            self._wb.save(virtual_workbook)
+            return virtual_workbook.getvalue()
 
 
 

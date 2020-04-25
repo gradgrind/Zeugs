@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-04-09
+wz_compat/import_pupils.py - last updated 2020-04-25
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -37,12 +37,8 @@ _WRONGLENGTH = ("Tabellenzeile hat die falsche Länge.\n  Felder: {fields}"
                 "\n  Werte: {values}")
 _BADCLASSNAME = "Ungülitige Klassenname: {name}"
 _BAD_DATE = "Ungültiges Datum: Feld {tag}, Wert {val} in:\n  {path}"
-
-#???
-_BADSCHOOLYEAR  = "Falsches Jahr in Tabelle {filepath}"
-_MISSINGDBFIELD = "Feld fehlt in Schüler-Tabelle {filepath}:\n  {field}"
-_DB_FIELD_MISSING = "PUPILS-Tabelle ohne Feld {field}"
-_DB_FIELD_LOST = "PUPILS-Tabelle: Feld {field} wird nicht exportiert"
+_BADSCHOOLYEAR  = "Falsches Jahr in Tabelle {filepath}: {year} erwartet"
+#?:
 _IMPORT_FROM = "Importiere Schüler von Datei:\n  {path}"
 
 # Info tag in spreadsheet table
@@ -205,6 +201,18 @@ def readRawPupils(schoolyear, filepath, startdate):
     """
     # An exception is raised if there is no file:
     table = readDBTable(filepath)
+    try:
+        # If there is a year field, check it against <schoolyear>
+        _tyear = table.info[_SCHOOLYEAR]
+    except KeyError:
+        pass    # No year given in table
+    else:
+        try:
+            if int(_tyear) != schoolyear:
+                raise ValueError
+        except:
+            REPORT.Fail(_BADSCHOOLYEAR, filepath = table.filepath,
+                    year = schoolyear)
 
     # Get ordered field list for the table.
     # The config file has: internal name -> table name.
@@ -263,18 +271,19 @@ def readRawPupils(schoolyear, filepath, startdate):
         if pdata['EXIT_D'] and pdata['EXIT_D'] < startdate:
             continue
 
-        ## Name fixing
-        firstnames, tv = tvSplitF(pdata['FIRSTNAMES'])
-        lastname = pdata['LASTNAME']
-        firstname = tvSplitF(pdata['FIRSTNAME'])[0]
-        if tv:
-            sortname = lastname + ' ' + tv + ' ' + firstname
-            pdata['FIRSTNAMES'] = firstnames
-            pdata['FIRSTNAME'] = firstname
-            pdata['LASTNAME'] = tv + ' ' + lastname
-        else:
-            sortname = lastname + ' ' + firstname
-        pdata['PSORT'] = sortname.translate(ttable)
+        ## Name fixing (if the input table doesn't have the PSORT field)
+        if not pdata['PSORT']:
+            firstnames, tv = tvSplitF(pdata['FIRSTNAMES'])
+            lastname = pdata['LASTNAME']
+            firstname = tvSplitF(pdata['FIRSTNAME'])[0]
+            if tv:
+                sortname = lastname + ' ' + tv + ' ' + firstname
+                pdata['FIRSTNAMES'] = firstnames
+                pdata['FIRSTNAME'] = firstname
+                pdata['LASTNAME'] = tv + ' ' + lastname
+            else:
+                sortname = lastname + ' ' + firstname
+            pdata['PSORT'] = sortname.translate(ttable)
 
         klass = pdata['CLASS']
         # Normalize class name
@@ -333,7 +342,7 @@ class DeltaRaw:
         self.delta = []                 # the list of changes
         db = DBT(schoolyear, mustexist = False)
         with db:
-            rows = db.getTable('PUPILS')
+            rows = db.select('PUPILS')
         oldpdata = {pdata['PID']: pdata for pdata in rows}
         for k, plistR in rawdata.items():
             for pdataR in plistR:
@@ -394,102 +403,44 @@ class DeltaRaw:
         return lines
 
 
-###########?????
-def importPupils(schoolyear, filepath):
-    """Import the pupils data for the given year from the given file.
-    The file must be a 'dbtable' spreadsheet with the correct school-year.
-    """
-    classes = {}
-    # Ordered field list for the table
-    fields = CONF.TABLES.PUPILS_FIELDNAMES  # internal names
-    rfields = fields.values()      # external names (spreadsheet headers)
 
-    table = readDBTable(filepath)
-    try:
-        if int(table.info[_SCHOOLYEAR]) != schoolyear:
-            raise ValueError
-    except:
-        REPORT.Fail (_BADSCHOOLYEAR, filepath=filepath)
-
-    colmap = []
-    for f in rfields:
-        try:
-            colmap.append (table.headers [f])
-        except:
-            # Field not present
-            REPORT.Warn (_MISSINGDBFIELD, filepath=filepath,
-                    field=f)
-            colmap.append (None)
-
-    ### Read the row data
-    rows = []
-    classcol = table.headers [fields ['CLASS']] # class-name column
-    for row in table:
-        rowdata = [None if col == None else row [col] for col in colmap]
-        rows.append (rowdata)
-
-        # Count pupils in each class
-        klass = rowdata [classcol]
-        try:
-            classes [klass] += 1
-        except:
-            classes [klass] = 1
-
-    # Create the database table PUPILS from the loaded pupil data.
-    with DBT(schoolyear, mustexist = False) as db:
-#TODO: add pupil data
-        raise TODO
-        db.addRows('PUPILS', fields, rows) # ???
-
-    return classes
-
-
-#TODO: Maybe rather as ByteStream?
-def exportPupils (schoolyear, filepath):
+def exportPupils (schoolyear, filepath = None):
     """Export the pupil data for the given year to a spreadsheet file,
     formatted as a 'dbtable'.
     """
-    # Ensure folder exists
-    folder = os.path.dirname (filepath)
-    if not os.path.isdir (folder):
-        os.makedirs (folder)
+    if filepath:
+        # Ensure folder exists
+        folder = os.path.dirname(filepath)
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
 
     db = DBT(schoolyear)
     classes = {}
     with db:
-        rows = db.getTable ('PUPILS')
+        rows = db.select('PUPILS')
     for row in rows:
-        klass = row ['CLASS']
+        klass = row['CLASS']
         try:
-            classes [klass].append (row)
+            classes[klass].append(row)
         except:
-            classes [klass] = [row]
-    # Check all fields are present
-    dbfields = set (db.fields)
+            classes[klass] = [row]
+    # The fields of the pupils table (in the database):
     fields = CONF.TABLES.PUPILS_FIELDNAMES
-    for f in fields:
-        try:
-            dbfields.remove (f)
-        except:
-            REPORT.Error (_DB_FIELD_MISSING, field=f)
-    for f in dbfields:
-        REPORT.Error (_DB_FIELD_LOST, field=f)
-
     rows = []
-    for klass in sorted (classes):
-        for vrow in classes [klass]:
+    for klass in sorted(classes):
+        for vrow in classes[klass]:
             values = []
             for f in fields:
                 try:
-                    values.append (vrow [f])
+                    values.append(vrow[f])
                 except KeyError:
-                    values.append (None)
+                    values.append(None)
 
-            rows.append (vrow)
-        rows.append (None)
+            rows.append(vrow)
+        rows.append(None)
 
-    makeDBTable (filepath, _PUPIL_TABLE_TITLE, fields.values (), rows,
-            [(_SCHOOLYEAR, schoolyear)])
+    return makeDBTable(filepath, _PUPIL_TABLE_TITLE, fields.values(),
+            rows, [(_SCHOOLYEAR, schoolyear)])
 
 
 # Only for testing?
@@ -511,17 +462,28 @@ def test_01 ():
 #    deltaRaw(2018, None)
 
 def test_02 ():
-#    return
+    """Export pupil data to a spreadsheet table.
+    """
+    REPORT.Test ("Exporting pupil data for school-year %d" % _testyear)
+    fpath = os.path.join(Paths.getYearPath(_testyear), 'tmp',
+            'Pupil-Data', 'export_pupils_0.xlsx')
+    bytefile = exportPupils(_testyear)
+    with open(fpath, 'wb') as fh:
+        fh.write(bytefile)
+    REPORT.Test ("Exported to %s" % fpath)
+
+def test_03 ():
     """
     Initialise PUPILS table from "old" raw data (creation from scratch,
     no pre-existing table).
     """
-#    db = DB (_testyear, 'RECREATE')
-    fpath = os.path.join (Paths.getYearPath (_testyear, 'DIR_SCHOOLDATA'),
-            '_test', 'pupil_data_0_raw')
+#    fpath = os.path.join(Paths.getYearPath(_testyear), 'testfiles',
+#            'Pupil-Data', 'pupil_data_0_raw')
+    fpath = os.path.join(Paths.getYearPath(_testyear), 'testfiles',
+            'Pupil-Data', 'Schuelerdaten_1')
     REPORT.Test ("Initialise with raw pupil data for school-year %d from:\n  %s"
             % (_testyear, fpath))
-    rpd = readRawPupils (_testyear, fpath, _DAY1)
+    rpd = readRawPupils(_testyear, fpath, _DAY1)
     REPORT.Test("RAW fields: %s\n" % repr(rpd.fields))
     for klass in sorted (rpd):
         REPORT.Test ("\n +++ Class %s" % klass)
@@ -547,7 +509,7 @@ def test_02 ():
 #    delta.updateFromDelta()
 
 
-def test_03 ():
+def test_04 ():
     return
     """Import pupil data – an old version (to later test updates).
     The data is in a spreadsheet table.
@@ -558,16 +520,6 @@ def test_03 ():
             (_testyear, fpath))
 #    classes = importPupils (_testyear, fpath)
 #    REPORT.Test ("CLASSES/PUPILS: %s" % repr (classes))
-
-def test_04 ():
-    return
-    """Export pupil data to a spreadsheet table.
-    """
-    REPORT.Test ("Exporting pupil data for school-year %d" % _testyear)
-    fpath = os.path.join (Paths.getYearPath (_testyear, 'DIR_SCHOOLDATA'),
-            '_test', 'export_pupils_0')
-    classes = exportPupils (_testyear, fpath)
-    REPORT.Test ("Exported to %s" % fpath)
 
 def test_05 ():
     return
