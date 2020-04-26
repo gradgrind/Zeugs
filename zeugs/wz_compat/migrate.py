@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/migrate.py - last updated 2020-04-09
+wz_compat/migrate.py - last updated 2020-04-26
 
 Use data from the database of a previous year to get a starting point
 for a new year.
@@ -24,11 +24,11 @@ Copyright 2019-2020 Michael Towers
 """
 
 # Messages
-_BAD_STREAM_MAX_YEAR = ("Ungültiger Wert in Einstellungsdatei.\n"
-        "  MISC.STREAM_MAX_YEAR: {val}")
 _BADCLASSNAME = "Ungültiger Klassenname: {klass}"
 _PUPIL_LEFT = "Abgemeldeter Schüler in Klasse {klass}: {name}"
 
+# Maximum year for all the streams (default is stream '')
+MAXYEAR = {'': 12, 'Gym': 13}
 
 from wz_core.db import DBT
 from wz_core.pupils import Pupils, PupilData, Klass
@@ -38,7 +38,7 @@ from wz_core.pupils import Pupils, PupilData, Klass
 #    year1 = schoolyear if month1 == 1 else schoolyear - 1
 #    date0 = '{:04d}-{:02d}-01'.format (year1, month1)
 
-
+#TODO: master db
 # The calendar might also be in the db ... (json in INFO table?)
 
 #TODO: Add entry to Qualifikationsphase for new 12.Gym
@@ -53,14 +53,6 @@ def migratePupils(schoolyear):
     """
     # Get pupil data from previous year
     pdb = Pupils(schoolyear-1)
-    # Maximum year number for various streams:
-    maxyear = {}
-    try:
-        for x in CONF.MISC.STREAM_MAX_YEAR:
-            k, v = x.split(':')
-            maxyear[k] = v
-    except:
-        REPORT.Fail(_BAD_STREAM_MAX_YEAR, val = x)
     rows = []
     for c_old in pdb.classes():
         # Increment the year part of the class name
@@ -77,9 +69,9 @@ def migratePupils(schoolyear):
                 left = True
             else:
                 try:
-                    mxy = maxyear[pdata['STREAM']]
+                    mxy = MAXYEAR[pdata['STREAM']]
                 except:
-                    mxy = maxyear['']
+                    mxy = MAXYEAR['']
                 if cnum > int (mxy):
                     left = True
             if left:
@@ -92,8 +84,7 @@ def migratePupils(schoolyear):
     db = DBT(schoolyear, mustexist = False)
     with db:
         db.clearTable('PUPILS')
-    with db:
-        db.vacuum()
+    db.vacuum()
     with db:
         db.addRows('PUPILS', PupilData.fields(), rows)
     return db.filepath

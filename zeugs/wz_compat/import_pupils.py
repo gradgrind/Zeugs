@@ -477,10 +477,10 @@ def test_03 ():
     Initialise PUPILS table from "old" raw data (creation from scratch,
     no pre-existing table).
     """
-#    fpath = os.path.join(Paths.getYearPath(_testyear), 'testfiles',
-#            'Pupil-Data', 'pupil_data_0_raw')
     fpath = os.path.join(Paths.getYearPath(_testyear), 'testfiles',
-            'Pupil-Data', 'Schuelerdaten_1')
+            'Pupil-Data', 'pupil_data_0_raw')
+#    fpath = os.path.join(Paths.getYearPath(_testyear), 'testfiles',
+#            'Pupil-Data', 'Schuelerdaten_1')
     REPORT.Test ("Initialise with raw pupil data for school-year %d from:\n  %s"
             % (_testyear, fpath))
     rpd = readRawPupils(_testyear, fpath, _DAY1)
@@ -489,7 +489,7 @@ def test_03 ():
         REPORT.Test ("\n +++ Class %s" % klass)
         for row in rpd [klass]:
             REPORT.Test ("   --- %s" % repr (row))
-#    updateFromRaw (_testyear, rpd)
+#?
 #    db.renameTable ('PUPILS', 'PUPILS0')
 #    db.deleteIndexes ('PUPILS0')
 #    REPORT.Test ("Saved in table PUPILS0")

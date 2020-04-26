@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-04-13
+Last updated:  2020-04-26
 
 This module handles access to an sqlite database.
 
@@ -78,6 +78,7 @@ class DBT:
         return CONF.TABLES.PUPILS_FIELDNAMES
 
 
+#TODO: Look again at dbexists ... (esp. when even the folders don't exist)
     def __init__(self, schoolyear = None, mustexist = True,
             exclusive = False):
         """If no school-year is supplied, use the "master" database.
@@ -92,18 +93,26 @@ class DBT:
             self.filepath = self.getYearPath(schoolyear)
             self.schoolyear = schoolyear
             dbexists = os.path.isfile(self.filepath)
+            if not dbexists:
+                if mustexist:
+                    REPORT.Fail (_DBFILENOTFOUND, path = self.filepath)
+                dirpath = os.path.dirname(self.filepath)
+                if not os.path.isdir(dirpath):
+                    os.makedirs(dirpath)
             self._dbcon = sqlite3.connect(self.filepath,
                     isolation_level = None)
             self._dbcon.row_factory = sqlite3.Row
             if not dbexists:
-                if mustexist:
-                    REPORT.Fail (_DBFILENOTFOUND, path=filepath)
                 self._init()
 
         else:
             # The "master" database for the application.
             self.filepath = self.getMasterPath()
             dbexists = os.path.isfile(self.filepath)
+            if not dbexists:
+                dirpath = os.path.dirname(self.filepath)
+                if not os.path.isdir(dirpath):
+                    os.makedirs(dirpath)
             self._dbcon = sqlite3.connect (self.filepath)
             self._dbcon.row_factory = sqlite3.Row
             if not dbexists:
@@ -405,7 +414,10 @@ class DBT:
 
 
     def vacuum(self):
-        self._cursor.execute('VACUUM')
+        """This should not be called with a transaction, i.e. not
+        within a <with> wrapper.
+        """
+        self._dbcon.execute('VACUUM')
 
 
 
