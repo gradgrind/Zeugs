@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-04-25
+wz_compat/import_pupils.py - last updated 2020-05-01
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -33,8 +33,6 @@ Copyright 2019-2020 Michael Towers
 
 # Messages
 _FIELDMISSING = "Benötigtes Feld {field} fehlt in Rohdatentabelle:\n  {path}"
-_WRONGLENGTH = ("Tabellenzeile hat die falsche Länge.\n  Felder: {fields}"
-                "\n  Werte: {values}")
 _BADCLASSNAME = "Ungülitige Klassenname: {name}"
 _BAD_DATE = "Ungültiges Datum: Feld {tag}, Wert {val} in:\n  {path}"
 _BADSCHOOLYEAR  = "Falsches Jahr in Tabelle {filepath}: {year} erwartet"
@@ -53,6 +51,7 @@ from glob import glob
 
 from wz_core.configuration import Paths
 from wz_core.db import DBT
+from wz_core.pupils import PupilData
 # To read/write spreadsheet tables:
 from wz_table.dbtable import readDBTable, makeDBTable
 
@@ -60,11 +59,11 @@ from wz_table.dbtable import readDBTable, makeDBTable
 def _getFieldmap():
     """Return an ordered mapping of pupil db fields to the external
     (translated) tags. The external tags are all converted to upper case
-    so that case insensitive comparisons can be made.
+    so that case-insensitive comparisons can be made.
     """
-    fmap = OrderedDict ()
-    for f, val in DBT.pupilFields().items ():
-        fmap [f] = val.upper ()
+    fmap = OrderedDict()
+    for f, val in DBT.pupilFields().items():
+        fmap[f] = val.upper()
     return fmap
 
 # In dutch there is a word for those little lastname prefixes like "von",
@@ -123,50 +122,6 @@ def tvSplitF (name):
 
 
 
-class RawPupilData(list):
-    """A list which allows keyed access to its fields.
-    Here it is used for the fields of the raw pupil data.
-    Before instantiating, <setup> must be called to set up the field
-    names and indexes.
-    """
-    _fields = None
-
-    @classmethod
-    def setup(cls, fields):
-        if cls._fields == None:
-            cls._fields = {}
-            i = 0
-            for f in fields:
-                cls._fields[f] = i
-                i += 1
-
-    #### The main part of the class, dealing with instances:
-
-    def __init__(self, values):
-        if len(values) != len (self._fields):
-            REPORT.Fail(_WRONGLENGTH, fields = repr(self._fields),
-                    values = repr(values))
-        super().__init__(values)
-
-    def __getitem__(self, key):
-        if type(key) == str:
-            return super().__getitem__(self._fields[key])
-        else:
-            return super().__getitem__(key)
-
-    def __setitem__(self, key, value):
-        if type(key) == str:
-            return super().__setitem__(self._fields[key], value)
-        else:
-            return super().__setitem__(key, value)
-
-    def name(self):
-        """Return the (short form of) pupil's name.
-        """
-        return self['FIRSTNAME'] + ' ' + self['LASTNAME']
-
-
-
 class MiniPupilData(dict):
     """A subset of a pupil's data, used for pupils who are to be removed
     from the database.
@@ -192,8 +147,8 @@ def readRawPupils(schoolyear, filepath, startdate):
     (<startdate>, in iso-format) (s)he will be excluded from the list
     built here.
     Build a mapping:
-        {classname -> ordered list of <RawPupilData> instances}
-    The ordering of the pupil data fields in the <RawPupilData> instances
+        {classname -> ordered list of <PupilData> instances}
+    The ordering of the pupil data fields in the <PupilData> instances
     is determined ultimately by the config file TABLES/PUPILS_FIELDNAMES.
     The fields supplied in the raw data are saved as the <fields>
     attribute of the result. Fields which are not included in the raw
@@ -218,25 +173,26 @@ def readRawPupils(schoolyear, filepath, startdate):
     # The config file has: internal name -> table name.
     # All names are converted to upper case to enable case-free matching.
     fieldMap = _getFieldmap()
-    # Build a list of the field names which are used
-    fields = OrderedDict()
 
-    colmap = []
     # Read the (capitalised) column headers from this line
     h_colix = {h.upper (): colix
             for h, colix in table.headers.items ()}
+    # Reorder the table columns to suit the database table,
+    # collect date fields for format checking / conversion.
+    colmap = []
     datefields = []
+    fields = []     # The fields supplied in the raw table
     for f, fx in fieldMap.items():
         try:
             colmap.append(h_colix [fx])
-            fields[f] = fx
+            fields.append(f)
             if f.endswith('_D'):
                 datefields.append(f)
         except:
             # Field not present in raw data
+            colmap.append(None)
             if f == 'PSORT':
-                fields[f] = fx
-                colmap.append(None)
+                fields.append(f)
             else:
                 REPORT.Warn(_FIELDMISSING, field = f, path = filepath)
 
@@ -246,13 +202,12 @@ def readRawPupils(schoolyear, filepath, startdate):
     classes.fields = fields
     ### Read the row data
     ntuples = {}
-    RawPupilData.setup(fields)
     dateformat = CONF.MISC.DATEFORMAT
     for row in table:
         rowdata = []
         for col in colmap:
             rowdata.append(None if col == None else row[col])
-        pdata = RawPupilData(rowdata)
+        pdata = PupilData(rowdata)
         # Check date fields
         for f in datefields:
             val = pdata[f]
@@ -503,7 +458,7 @@ def test_03 ():
         else:
             x = ""
         REPORT.Test("  %s %s: %s%s" % (op, pdata['CLASS'],
-                RawPupilData.name(pdata), x))
+                PupilData.name(pdata), x))
 
 #    REPORT.Test("\n\n *** updating ***\n")
 #    delta.updateFromDelta()

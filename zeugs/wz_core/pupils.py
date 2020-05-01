@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-04-08
+wz_core/pupils.py - last updated 2020-05-01
 
 Database access for reading pupil data.
 
@@ -195,7 +195,7 @@ class PupilData(list):
     #### The main part of the class, dealing with instances:
 
     def __init__(self, values):
-        if len(values) != len(self._fields):
+        if len(values) != len(self.fields()):
             REPORT.Fail(_WRONGLENGTH, fields = repr(self._fields),
                     values = repr(values))
         super().__init__(values)

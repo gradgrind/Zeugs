@@ -4,7 +4,7 @@
 """
 flask_app/sttings/pupildata.py
 
-Last updated:  2020-04-08
+Last updated:  2020-04-30
 
 Flask Blueprint for updating pupil data.
 
@@ -121,7 +121,8 @@ def update():
     be deselected. Submitting the form initiates the actual update.
     """
 #TODO: Differentiate between update and initialize ...
-
+# An initialisation would not need confirmation?
+#AND/OR: If there are a lot of changes, divide into classes?
 
     def readable(updates):
         """Convert the given changes-list into a human-readable form.

@@ -7,15 +7,13 @@
 {% block content %}
     <p>Selektieren Sie hier die Datei (Schülertabelle) zum Einlesen.
     </p>
-    <form class="pure-form pure-form-stacked" method="POST" enctype="multipart/form-data">
+    <form class="pure-form pure-form-aligned" method="POST"
+            enctype="multipart/form-data">
         {{ form.csrf_token }}
-
         <div class="uploaddiv">
             {{ form.upload.label }}{{ form.upload }}
         </div>
-        <hr />
-        <div class="formsubmit">
-            <button type="submit" class="pure-button pure-button-primary">Einlesen</button>
-        </div>
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">Einlesen</button>
     </form>
 {% endblock %}
