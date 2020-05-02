@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-05-01
+wz_compat/import_pupils.py - last updated 2020-05-02
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -33,17 +33,18 @@ Copyright 2019-2020 Michael Towers
 
 # Messages
 _FIELDMISSING = "Benötigtes Feld {field} fehlt in Rohdatentabelle:\n  {path}"
-_BADCLASSNAME = "Ungülitige Klassenname: {name}"
+_BADCLASSNAME = "Ungültiger Klassenname: {name}"
 _BAD_DATE = "Ungültiges Datum: Feld {tag}, Wert {val} in:\n  {path}"
 _BADSCHOOLYEAR  = "Falsches Jahr in Tabelle {filepath}: {year} erwartet"
-#?:
-_IMPORT_FROM = "Importiere Schüler von Datei:\n  {path}"
+_PUPIL_LEFT = "Abgemeldeter Schüler in Klasse {klass}: {name}"
 
 # Info tag in spreadsheet table
 _SCHOOLYEAR = "Schuljahr"
 # Spreadsheet configuration
 _PUPIL_TABLE_TITLE = "** Schüler **"
 
+# Specify maximum year for each stream (default is stream '')
+MAXYEAR = {'': 12, 'Gym': 13}
 
 import os, datetime
 from collections import OrderedDict, UserDict
@@ -51,9 +52,63 @@ from glob import glob
 
 from wz_core.configuration import Paths
 from wz_core.db import DBT
-from wz_core.pupils import PupilData
+from wz_core.pupils import Pupils, PupilData, Klass
 # To read/write spreadsheet tables:
 from wz_table.dbtable import readDBTable, makeDBTable
+
+
+#TODO: master db
+# The calendar might also be in the db ... (json in INFO table?)
+
+#TODO: Add entry to Qualifikationsphase for new 12.Gym (see readRawPupils)
+# It might be more appropriate to change this entry in the PUPILS table
+# so that it is more general, e.g. XDATA, which could be json.
+
+def migratePupils(schoolyear):
+    """Read the pupil data from the previous year and build a preliminary
+    database table for pupils in the current (new) year, migrating the
+    class names by incrementing the integer part.
+    It assumes all class names start with a 2-digit year (Am.: grade) number.
+    Return the path to the (possibly newly created) database file.
+    """
+    # Get pupil data from previous year
+    pdb = Pupils(schoolyear-1)
+    rows = []
+    for c_old in pdb.classes():
+        # Increment the year part of the class name
+        try:
+            cnum = int(c_old[:2]) + 1
+            ctag = c_old[2:]
+        except:
+            REPORT.Fail(_BADCLASSNAME, klass=c_old)
+        c_new = '%02d%s' % (cnum, ctag)
+        for pdata in pdb.classPupils(Klass(c_old)):
+            left = False
+            if pdata['EXIT_D']:
+                # If there is an exit date, assume the pupil has left.
+                left = True
+            else:
+                try:
+                    mxy = MAXYEAR[pdata['STREAM']]
+                except:
+                    mxy = MAXYEAR['']
+                if cnum > int (mxy):
+                    left = True
+            if left:
+                REPORT.Info(_PUPIL_LEFT, klass=c_old, name=pdata.name())
+                continue
+            pdata['CLASS'] = c_new
+            rows.append(pdata)
+
+    # Create the database table PUPILS from the loaded pupil data.
+    db = DBT(schoolyear, mustexist = False)
+    with db:
+        db.clearTable('PUPILS')
+    db.vacuum()
+    with db:
+        db.addRows('PUPILS', PupilData.fields(), rows)
+    return db.filepath
+
 
 
 def _getFieldmap():
@@ -66,7 +121,7 @@ def _getFieldmap():
         fmap[f] = val.upper()
     return fmap
 
-# In dutch there is a word for those little lastname prefixes like "von",
+# In Dutch there is a word for those little lastname prefixes like "von",
 # "zu", "van" "de": "tussenvoegsel". For sorting purposes these can be a
 # bit annoying because they are often ignored, e.g. "van Gogh" would be
 # sorted under "G".
@@ -137,12 +192,15 @@ class MiniPupilData(dict):
 
 
 
+#TODO: use <startdate> to initialise QUALI_D field for 12.Gym (if
+# no other date is there already).
 def readRawPupils(schoolyear, filepath, startdate):
     """Read in a table containing raw pupil data for the whole school
     from the given file (ods or xlsx, the file ending can be omitted).
-    The names of date fields are expected to end with '_D'. Values are
-    accepted in isoformat (YYYY-MM-DD, or %Y-%m-%d for <datetime>) or
-    in the format specified for output, config value MISC.DATEFORMAT.
+    The names of date fields are expected to end with '_D'. Date values
+    are accepted in isoformat, YYYY-MM-DD (that is %Y-%m-%d for the
+    <datetime> module) or in the format specified for output, config
+    value MISC.DATEFORMAT.
     If a pupil left the school before the beginning of the school year
     (<startdate>, in iso-format) (s)he will be excluded from the list
     built here.
@@ -152,7 +210,8 @@ def readRawPupils(schoolyear, filepath, startdate):
     is determined ultimately by the config file TABLES/PUPILS_FIELDNAMES.
     The fields supplied in the raw data are saved as the <fields>
     attribute of the result. Fields which are not included in the raw
-    data are excluded, except for the sorting field, which is added here.
+    data are excluded, except for the sorting field, PSORT, which is
+    added here.
     """
     # An exception is raised if there is no file:
     table = readDBTable(filepath)
@@ -277,11 +336,11 @@ def readRawPupils(schoolyear, filepath, startdate):
 #  - Field change
 # Decide which changes to apply.
 # Then (a separate function) apply this subset of the changes.
-_ADD = "+++"
-_REMOVE = "---"
-_CHANGE = ">>>"
-_BADOP = "PUPILS operation must be %s, %s or %s: not {op}" % (_REMOVE,
-        _CHANGE, _ADD)
+PID_ADD = "+++"
+PID_REMOVE = "---"
+PID_CHANGE = ">>>"
+_BADOP = "PUPILS operation must be %s, %s or %s: not {op}" % (PID_REMOVE,
+        PID_CHANGE, PID_ADD)
 class DeltaRaw:
     def __init__(self, schoolyear, rawdata):
         """Compare the existing pupil data with the supplied raw data.
@@ -306,17 +365,17 @@ class DeltaRaw:
                     pdata = oldpdata.pop(pid)
                 except:
                     # Pupil not in old data: list for addition
-                    self.delta.append((_ADD, pdataR))
+                    self.delta.append((PID_ADD, pdataR))
                     continue
                 for f in self.fields:
                     val = pdata[f]
                     if val != pdataR[f]:
                         # Field changed
-                        self.delta.append((_CHANGE, pdataR, f, val))
+                        self.delta.append((PID_CHANGE, pdataR, f, val))
         for pid, pdata in oldpdata.items():
             # Pupil not in new data: list for removal.
             # Just the necessary fields are retained (<MiniPupilData>).
-            self.delta.append((_REMOVE, MiniPupilData(pdata)))
+            self.delta.append((PID_REMOVE, MiniPupilData(pdata)))
 
 
     def updateFromDelta(self, updates = None):
@@ -335,12 +394,12 @@ class DeltaRaw:
         for line in lines:
             op, pdata = line[0:2]
             pid = pdata['PID']
-            if op == _REMOVE:
+            if op == PID_REMOVE:
                 d.append(pid)
-            elif op == _CHANGE:
+            elif op == PID_CHANGE:
                 f = line[2]
                 c.append((pid, f, pdata[f]))
-            elif op == _ADD:
+            elif op == PID_ADD:
                 a.append(pdata)
             else:
                 REPORT.Bug(_BADOP, op = op)
@@ -354,14 +413,18 @@ class DeltaRaw:
                         update_only = True, PID = pid)
         if a:
             with db:
-                db.addRows('PUPILS', self.fields, a)
+                db.addRows('PUPILS', DBT.pupilFields(), a)
         return lines
 
 
 
 def exportPupils (schoolyear, filepath = None):
     """Export the pupil data for the given year to a spreadsheet file,
-    formatted as a 'dbtable'.
+    (.xlsx) formatted as a 'dbtable'.
+    If <filepath> is supplied, it must be the full path, but the
+    file-type ending is not required. The full path to the spreadsheet
+    file, including the file-type ending, is returned.
+    If no filepath is given, return the spreadsheet as a <bytes> object.
     """
     if filepath:
         # Ensure folder exists
@@ -398,61 +461,52 @@ def exportPupils (schoolyear, filepath = None):
             rows, [(_SCHOOLYEAR, schoolyear)])
 
 
-# Only for testing?
-def getLatestRaw(schoolyear):
-    allfiles = glob(Paths.getYearPath(schoolyear, 'FILE_PUPILS_RAW'))
-    fpath = sorted(allfiles)[-1]
-    REPORT.Info(_IMPORT_FROM, path=fpath)
-    return readRawPupils(schoolyear, fpath)
-
-
-
 
 ##################### Test functions
-_testyear = 2016
-_DAY1 = '2015-09-03'
 
-def test_01 ():
-    REPORT.Test ("DB FIELDS: %s" % repr(_getFieldmap ()))
-#    deltaRaw(2018, None)
+def test_01():
+    REPORT.Test("DB FIELDS: %s" % repr(_getFieldmap ()))
 
-def test_02 ():
+def test_02():
     """Export pupil data to a spreadsheet table.
     """
-    REPORT.Test ("Exporting pupil data for school-year %d" % _testyear)
-    fpath = os.path.join(Paths.getYearPath(_testyear), 'tmp',
-            'Pupil-Data', 'export_pupils_0.xlsx')
-    bytefile = exportPupils(_testyear)
+    _year = 2016
+    REPORT.Test ("Exporting pupil data for school-year %d" % _year)
+    fpath = os.path.join(Paths.getYearPath(_year), 'tmp',
+            'Pupil-Data', 'export_pupils_%d.xlsx' % _year)
+    bytefile = exportPupils(_year)
     with open(fpath, 'wb') as fh:
         fh.write(bytefile)
     REPORT.Test ("Exported to %s" % fpath)
 
-def test_03 ():
+def test_03():
+    """Create a new year with PUPILS table from raw pupil data.
     """
-    Initialise PUPILS table from "old" raw data (creation from scratch,
-    no pre-existing table).
-    """
-    fpath = os.path.join(Paths.getYearPath(_testyear), 'testfiles',
-            'Pupil-Data', 'pupil_data_0_raw')
-#    fpath = os.path.join(Paths.getYearPath(_testyear), 'testfiles',
-#            'Pupil-Data', 'Schuelerdaten_1')
-    REPORT.Test ("Initialise with raw pupil data for school-year %d from:\n  %s"
-            % (_testyear, fpath))
-    rpd = readRawPupils(_testyear, fpath, _DAY1)
+    import shutil
+    year = 2017
+    # Delete the year folder if it exists
+    ypath = Paths.getYearPath(year)
+    if os.path.exists(ypath):
+        shutil.rmtree(ypath)
+    DAY1 = '2016-08-04'
+    REPORT.Test ("Initialise PUPILS from raw data: %d" % year)
+    _year0 = 2016
+    _ypath0 = Paths.getYearPath(_year0)
+    fpath = os.path.join(_ypath0, 'testfiles',
+            'Pupil-Data', 'pupil_data_%d_raw' % year)
+    REPORT.Test("FROM %s" % fpath)
+    rpd = readRawPupils(year, fpath, DAY1)
     REPORT.Test("RAW fields: %s\n" % repr(rpd.fields))
     for klass in sorted (rpd):
         REPORT.Test ("\n +++ Class %s" % klass)
         for row in rpd [klass]:
             REPORT.Test ("   --- %s" % repr (row))
-#?
-#    db.renameTable ('PUPILS', 'PUPILS0')
-#    db.deleteIndexes ('PUPILS0')
-#    REPORT.Test ("Saved in table PUPILS0")
+
     REPORT.Test("\n\n *** DELTA ***\n")
-    delta = DeltaRaw(_testyear, rpd)
+    delta = DeltaRaw(year, rpd)
     for line in delta.delta:
         op, pdata = line[0], line[1]
-        if op == _CHANGE:
+        if op == PID_CHANGE:
             f = line[2]
             x = " || %s (%s -> %s)" % (f, line[3], pdata[f])
         else:
@@ -460,39 +514,79 @@ def test_03 ():
         REPORT.Test("  %s %s: %s%s" % (op, pdata['CLASS'],
                 PupilData.name(pdata), x))
 
-#    REPORT.Test("\n\n *** updating ***\n")
-#    delta.updateFromDelta()
+    REPORT.Test("\n\n *** saving ***\n")
+    delta.updateFromDelta()
 
+    dbpath = DBT(year).filepath
+    tmpdir = os.path.join(_ypath0, 'tmp')
+    db2 = os.path.join(tmpdir, os.path.basename(dbpath))
+    os.replace(dbpath, db2)
+    REPORT.Test("Database %d saved as %s" % (year, db2))
 
-def test_04 ():
-    return
-    """Import pupil data – an old version (to later test updates).
-    The data is in a spreadsheet table.
+def test_04():
+    year = 2017
+    REPORT.Test("Migrate pupils from %d to %d" % (year - 1, year))
+    REPORT.Test("Pupil table created in: " + migratePupils(year))
+
+def test_05():
+    _year0 = 2016
+    year = 2017
+    DAY1 = '2016-08-04'
+    REPORT.Test("Update year %d with raw data" % year)
+    fpath = os.path.join(Paths.getYearPath(_year0), 'testfiles',
+            'Pupil-Data', 'pupil_data_%d_raw' % year)
+    REPORT.Test("FROM %s" % fpath)
+    rpd = readRawPupils(year, fpath, DAY1)
+    REPORT.Test("\n\n *** DELTA ***\n")
+    delta = DeltaRaw(year, rpd)
+    for line in delta.delta:
+        op, pdata = line[0], line[1]
+        if op == PID_CHANGE:
+            f = line[2]
+            x = " || %s (%s -> %s)" % (f, line[3], pdata[f])
+        else:
+            x = ""
+        REPORT.Test("  %s %s: %s%s" % (op, pdata['CLASS'],
+                PupilData.name(pdata), x))
+
+    REPORT.Test("\n\n *** updating ***\n")
+    delta.updateFromDelta()
+
+def test_06():
+    """Export new year's data, delete the PUPILS table and import the
+    saved data.
     """
-    fpath = os.path.join (Paths.getYearPath (_testyear, 'DIR_SCHOOLDATA'),
-            '_test', 'import_pupils_0')
-    REPORT.Test ("Importing pupil data for school-year %d from %s" %
-            (_testyear, fpath))
-#    classes = importPupils (_testyear, fpath)
-#    REPORT.Test ("CLASSES/PUPILS: %s" % repr (classes))
+    year = 2017
+    _year0 = 2016
+    _ypath0 = Paths.getYearPath(_year0)
+    REPORT.Test("Save and restore the pupil data for year %d" % year)
+    fspath = os.path.join(_ypath0, 'tmp',
+            'Pupil-Data', 'export_pupils_%d.xlsx' % year)
+    bytefile = exportPupils(year)
+    with open(fspath, 'wb') as fh:
+        fh.write(bytefile)
+    REPORT.Test (" ... exported to %s" % fspath)
 
-def test_05 ():
-    return
-    """Update to new raw pupil data.
+    db = DBT(year)
+    with db:
+        db.clearTable('PUPILS')
+    db.vacuum()
+    DAY1 = '2016-08-04'
+    REPORT.Test (" ... initialise PUPILS from saved data")
+    rpd = readRawPupils(year, fspath, DAY1)
+    delta = DeltaRaw(year, rpd)
+    delta.updateFromDelta()
+
+def test_07():
+    """Move new year to "tmp" folder.
     """
-    REPORT.Test ("\n -------------------\n UPDATES:")
-    importLatestRaw (_testyear)
-
-def test_06 ():
-    return
-    """Compare new raw data with saved complete version:
-    Import complete version, then perform update from raw data.
-    """
-    REPORT.Test ("\n --1-----------------\n RESET PUPILS TABLE")
-    fpath = os.path.join (Paths.getYearPath (_testyear, 'DIR_SCHOOLDATA'),
-            '_test', 'Schuelerdaten_1')
-    REPORT.Test ("Importing pupil data for school-year %d from %s" %
-            (_testyear, fpath))
-
-    REPORT.Test ("\n --2-----------------\n COMPARE UPDATES:")
-    importLatestRaw (_testyear)
+    import shutil
+    year = 2017
+    _year0 = 2016
+    _ypath0 = Paths.getYearPath(_year0)
+    ypath = Paths.getYearPath(year)
+    tpath = os.path.join(_ypath0, 'tmp', os.path.basename(ypath))
+    if os.path.exists(tpath):
+        shutil.rmtree(tpath)
+    os.rename(ypath, tpath)
+    REPORT.Test("Resulting test data moved to %s" % tpath)
