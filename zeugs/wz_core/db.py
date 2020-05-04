@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-04-26
+Last updated:  2020-05-04
 
 This module handles access to an sqlite database.
 
@@ -78,7 +78,6 @@ class DBT:
         return CONF.TABLES.PUPILS_FIELDNAMES
 
 
-#TODO: Look again at dbexists ... (esp. when even the folders don't exist)
     def __init__(self, schoolyear = None, mustexist = True,
             exclusive = False):
         """If no school-year is supplied, use the "master" database.

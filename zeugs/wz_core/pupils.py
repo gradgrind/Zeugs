@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-05-01
+wz_core/pupils.py - last updated 2020-05-04
 
 Database access for reading pupil data.
 
@@ -172,6 +172,8 @@ class PupilData(list):
     one type of list. It is used to hold the fields of the pupil data.
     Before instantiating, <fields> must be called to set up the field
     names and indexes.
+    The XDATA field is intended for "custom" fields, so it is handled
+    by the special methods <xdata> and <makeXdata>.
     """
     _fields = None
 
@@ -227,6 +229,29 @@ class PupilData(list):
 
     def toMapping(self):
         return OrderedDict(map(lambda a,b: (a,b), self.fields(), self))
+
+    def xdata(self):
+        """Return the contents of the XDATA field as a mapping.
+        """
+        _xdata = {}
+        try:
+            for line in self['XDATA'].split():
+                k, v = line.split(':', 1)
+                _xdata[k] = v
+        except:
+            pass
+        return _xdata
+
+    def makeXdata(self, **kvmap):
+        """Build a value for the XDATA field from the supplied key/value
+        pairs.
+        """
+        if kvmap:
+            _xdlist = ['%s:%s' % (k, v) for k, v in kvmap.items()]
+            return '\n'.join(_xdlist)
+        else:
+            return None
+
 
 
 class Pupils:

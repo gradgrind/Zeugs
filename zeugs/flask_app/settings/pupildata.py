@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-flask_app/sttings/pupildata.py
+flask_app/settings/pupildata.py
 
-Last updated:  2020-04-30
+Last updated:  2020-05-04
 
 Flask Blueprint for updating pupil data.
 
@@ -47,7 +47,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 #from wz_core.configuration import Dates
 #from wz_core.pupils import Pupils, Klass
 from wz_core.db import DBT
-from wz_compat.import_pupils import readRawPupils, DeltaRaw, RawPupilData, _CHANGE
+from wz_compat.import_pupils import readRawPupils, DeltaRaw, PID_CHANGE
 
 
 # Set up Blueprint

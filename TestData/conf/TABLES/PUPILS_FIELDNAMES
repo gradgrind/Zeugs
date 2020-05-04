@@ -1,5 +1,5 @@
 ############## TABLES/PUPILS_FIELDNAMES
-############## Version: 2019-12-03
+############## Version: 2020-05-04
 
 ### Feldnamen der Schüler-Datenbank.
 ### Die Werte sind deutsche Bezeichnungen (nur für die externe Bearbeitung)
@@ -27,6 +27,11 @@ ENTRY_D =     Eintrittsdatum
 #EXIT_D =      Austrittsdatum
 EXIT_D =      Schulaustritt
 
-# Eintritt in die Qualifikationsphase (Abitur)
-QUALI_D =     EintrittQ
+## Dieses Feld ist für Informationen, die nicht oben abgedeckt sind!
+## Es kann weitere Schlüssel/Wert-Paare enthalten.
+## Das Format ist:
+##    key:value\n
+##    key:value ...
+XDATA =       Weiteres
+##++ QUALI_D: Eintritt in die Qualifikationsphase (Abitur)
 

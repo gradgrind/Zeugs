@@ -202,9 +202,8 @@
 
             <div style="display: flex; align-items: flex-start;
                     width: 150mm; margin-top: 5mm;">
-<!-- TODO: Are the date variables correct? -->
                 <span style="">
-                    ist am {{todate(pupil.QUALI_D)}} in die
+                    ist am {{ todate(pupil.xdata()['QUALI_D']) }} in die
                     Qualifikationsphase eingetreten.
                 </span>
             </div>
