@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-05-02
+wz_compat/import_pupils.py - last updated 2020-05-06
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -188,7 +188,9 @@ class MiniPupilData(dict):
         self['LASTNAME'] = pdata['LASTNAME']
 
     def name(self):
-        return self.shortname
+        """Return the (short form of) pupil's name.
+        """
+        return self['FIRSTNAME'] + ' ' + self['LASTNAME']
 
 
 
@@ -350,10 +352,13 @@ class DeltaRaw:
             - a pid has been removed
             - a field value for one pid has changed
         The list is available as attribute <delta>.
+        It is also available on a list-per-class basis as a mapping,
+        attribute <cdelta>: {class -> list}
         """
         self.schoolyear = schoolyear
         self.fields = rawdata.fields    # fields to compare
         self.delta = []                 # the list of changes
+        self.cdelta = {}                # class-indexed lists
         db = DBT(schoolyear, mustexist = False)
         with db:
             rows = db.select('PUPILS')
@@ -361,23 +366,91 @@ class DeltaRaw:
         for k, plistR in rawdata.items():
             for pdataR in plistR:
                 pid = pdataR['PID']
+                klass = pdataR['CLASS']
                 try:
                     pdata = oldpdata.pop(pid)
                 except:
                     # Pupil not in old data: list for addition
-                    self.delta.append((PID_ADD, pdataR))
+                    item = (PID_ADD, pdataR)
+                    self.delta.append(item)
+                    try:
+                        self.cdelta[klass].append(item)
+                    except:
+                        self.cdelta[klass] = [item]
                     continue
                 for f in self.fields:
                     val = pdata[f]
                     if val != pdataR[f]:
                         # Field changed
-                        self.delta.append((PID_CHANGE, pdataR, f, val))
+                        item = (PID_CHANGE, pdataR, f, val)
+                        self.delta.append(item)
+                        try:
+                            self.cdelta[klass].append(item)
+                        except:
+                            self.cdelta[klass] = [item]
+
         for pid, pdata in oldpdata.items():
             # Pupil not in new data: list for removal.
             # Just the necessary fields are retained (<MiniPupilData>).
-            self.delta.append((PID_REMOVE, MiniPupilData(pdata)))
+            item = (PID_REMOVE, MiniPupilData(pdata))
+            self.delta.append(item)
+            klass = pdata['CLASS']
+            try:
+                self.cdelta[klass].append(item)
+            except:
+                self.cdelta[klass] = [item]
 
 
+    def updateFromClassDelta(self, updates):
+        """Update the PUPILS table from the supplied raw pupil data.
+        Only the fields in the delta list (<self.fields>) will be affected.
+        <updates> is a list of class-index tags for the class-delta
+        mapping, <self.cdelta>. Only these ones will be updated.
+        Return a mapping (<lines>) {klass -> delta-item}
+        """
+        lines = {}
+        # Sort into deletions, changes and additions
+        d, c, a = [], [], []
+        for tag in updates:
+            try:
+                klass, index = tag.rsplit('-', 1)
+                line = self.cdelta[klass][int(index)]
+            except:
+                REPORT.Bug("Bad update tag: %s" % tag)
+#            REPORT.Test("UPDATE: %s" % repr(line))
+            try:
+                lines[klass].append(line)
+            except:
+                lines[klass] = [line]
+
+            op, pdata = line[0:2]
+            if op == PID_REMOVE:
+                d.append(pdata['PID'])
+            elif op == PID_CHANGE:
+                f = line[2]
+                c.append((pdata, f))
+            elif op == PID_ADD:
+                a.append(pdata)
+            else:
+                REPORT.Bug(_BADOP, op = op)
+        db = DBT(self.schoolyear)
+        with db:
+            for pid in d:
+                db.deleteEntry('PUPILS', PID = pid)
+        with db:
+            for pdata, f in c: # new value = pdata[f]
+                # <pupilEdit> returns a mapping of new field/value pairs
+                db.updateOrAdd('PUPILS', pupilEdit(pdata, f),
+                        update_only = True, PID = pdata['PID'])
+        if a:
+            with db:
+                # <pupilAdd> can modify/complete the <pdata> items
+                db.addRows('PUPILS', DBT.pupilFields(),
+                        [pupilAdd(pdata) for pdata in a])
+        return lines
+
+
+#DEPRECATED? Would need to adapt tests (below)
     def updateFromDelta(self, updates = None):
         """Update the PUPILS table from the supplied raw pupil data.
         Only the fields in the delta list (<self.fields>) will be affected.
@@ -462,6 +535,25 @@ def exportPupils (schoolyear, filepath = None):
 
 
 
+
+def pupilAdd(pdata):
+    """Manipulate a <PupilData> instance before saving it to the database.
+    """
+# Handle (conditionally) STREAM and XDATA (QUALI_D)
+    return pdata    # No manipulation
+
+
+def pupilEdit(pdata, field):
+    """Tweak a pupil entry modification before saving it to the database.
+    Return a mapping: {field -> new value}.
+    <field> is the name of the field which specifies the desired change
+    (the value being in <pdata>.
+    """
+# Handle (conditionally) STREAM and XDATA (QUALI_D) ... PSORT if name changed
+    return {field: pdata[field]}    # No manipulation
+
+
+
 ##################### Test functions
 
 def test_01():
@@ -515,6 +607,7 @@ def test_03():
                 PupilData.name(pdata), x))
 
     REPORT.Test("\n\n *** saving ***\n")
+#TODO?
     delta.updateFromDelta()
 
     dbpath = DBT(year).filepath
@@ -550,6 +643,7 @@ def test_05():
                 PupilData.name(pdata), x))
 
     REPORT.Test("\n\n *** updating ***\n")
+#TODO?
     delta.updateFromDelta()
 
 def test_06():
@@ -575,6 +669,7 @@ def test_06():
     REPORT.Test (" ... initialise PUPILS from saved data")
     rpd = readRawPupils(year, fspath, DAY1)
     delta = DeltaRaw(year, rpd)
+#TODO?
     delta.updateFromDelta()
 
 def test_07():

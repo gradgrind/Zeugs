@@ -1,6 +1,59 @@
 {% extends "base.html" %}
 {% set uplink = url_for('bp_settings.index') %}
 {% set uplink_help = "Einstellungen" %}
+{% block imports %}
+<style>
+    input.acc_title {
+        display: none;
+    }
+
+    .acc_label {
+        display: block;
+        position: relative;
+        padding: 8px 22px;
+        margin: 0 0 1px 0;
+        cursor: pointer;
+        background: #A0A0FF;
+        border-radius: 3px;
+        color: #222;
+    }
+
+    .acc_label::after {
+        content: '+';
+        font-size: 22px;
+        font-weight: bold;
+        position: absolute;
+        right: 10px;
+        top: 2px;
+    }
+
+    .acc_label:hover {
+        background: #8080E0;
+    }
+
+    .acc_content {
+        padding: 10px 25px;
+        border: 1px solid #A7A7A7;
+        margin: 0 0 1px 0;
+        border-radius: 3px;
+    }
+
+    input + .acc_label + .acc_content {
+        display: none;
+    }
+
+    input:checked + .acc_label + .acc_content {
+        display: block;
+    }
+
+    input:checked + .acc_label::after {
+        content: '–';
+        right: 14px;
+        top: 3px;
+    }
+
+</style>
+{% endblock %}
 
 {% block title %}Schülerdaten aktualisieren{% endblock %}
 
@@ -11,11 +64,19 @@
     <form id="dataform" class="pure-form" method="POST">
         {{ form.csrf_token }}
 
-        {% for change in changes %}
-        <div class="form-group">
-            <input name="Change" type="checkbox" value="{{loop.index0}}" checked>
-            <span class="menu-item">{{change}}</span>
-        </div>
+        {% for k, clist in kchanges %}
+            {% set t = "title_" + k %}
+            <input type="checkbox" id="{{ t }}" class="acc_title" />
+            <label class="acc_label" for="{{ t }}">Klasse {{ k }}</label>
+            <div class="acc_content">
+            {% for change in clist %}
+                <div class="form-group">
+                    <input name="Change" type="checkbox"
+                        value="{{ '%s-%d' % (k, loop.index0) }}" checked>
+                    <span class="menu-item">{{change}}</span>
+                </div>
+            {% endfor %}
+            </div>
         {% endfor %}
 
         <hr>

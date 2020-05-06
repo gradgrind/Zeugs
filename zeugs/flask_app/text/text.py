@@ -4,7 +4,7 @@
 """
 flask_app/text/text.py
 
-Last updated:  2020-04-09
+Last updated:  2020-05-05
 
 Flask Blueprint for text reports
 
@@ -62,9 +62,7 @@ def index():
 #    klasses = [k for k in p.classes() if k >= '01' and k < '13']
 #TODO: Maybe a validity test for text report classes?
     return render_template(os.path.join(_BPNAME, 'index.html'),
-                            heading=_HEADING,
-                            uplink=url_for('dispatch'),
-                            uplink_help="Zeugs: Funktionen")
+                            heading=_HEADING)
 
 
 @bp.route('/closingdate', methods=['GET','POST'])

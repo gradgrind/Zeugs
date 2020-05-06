@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-05-04
+Last updated:  2020-05-05
 
 Flask Blueprint for updating pupil data.
 
@@ -130,13 +130,13 @@ def update():
         changes = []
         for line in updates:
             op, pdata = line[0], line[1]
-            if op == _CHANGE:
+            if op == PID_CHANGE:
                 f = line[2]
                 x = " || %s (%s -> %s)" % (f, line[3], pdata[f])
             else:
                 x = ""
             changes.append("%s %s: %s%s" % (op, pdata['CLASS'],
-                    RawPupilData.name(pdata), x))
+                    pdata.name(), x))
         return changes
 
     schoolyear = session['year']
@@ -154,10 +154,12 @@ def update():
             flash("Keine Aktualisierungsdaten", "Error")
             return redirect('bp_pupildata.upload')
         if changes:
-            updates = REPORT.wrap(delta.updateFromDelta, changes)
+            updates = REPORT.wrap(delta.updateFromClassDelta, changes)
             return render_template(os.path.join(_BPNAME, 'pupils_changed.html'),
                                 heading = _HEADING,
-                                changes = readable(updates))
+###TODO: revert to original when updateFromClassDelta is fixed.
+#                                changes = readable(updates))
+                                changes = [])
         else:
             return render_template(os.path.join(_BPNAME, 'no_pupils_changed.html'),
                                 heading = _HEADING)
@@ -171,8 +173,9 @@ def update():
         return redirect('bp_pupildata.upload')
 
     # Present the changes tagged with school-class.
+    cmap = [(k, readable(delta.cdelta[k])) for k in sorted(delta.cdelta)]
     session['pupildelta'] = delta
     return render_template(os.path.join(_BPNAME, 'pupils_update.html'),
                             form = form,
                             heading = _HEADING,
-                            changes = readable(delta.delta))
+                            kchanges = cmap)
