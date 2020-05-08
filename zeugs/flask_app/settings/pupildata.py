@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-05-05
+Last updated:  2020-05-08
 
 Flask Blueprint for updating pupil data.
 
@@ -36,18 +36,13 @@ import datetime, os
 
 from flask import (Blueprint, render_template, request, session,
         url_for, redirect, flash)
-#from flask import current_app as app
 
 from flask_wtf import FlaskForm
-#from wtforms import SelectField, TextAreaField
-#from wtforms.fields.html5 import DateField
-#from wtforms.validators import InputRequired, Optional
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
-#from wz_core.configuration import Dates
-#from wz_core.pupils import Pupils, Klass
 from wz_core.db import DBT
-from wz_compat.import_pupils import readRawPupils, DeltaRaw, PID_CHANGE
+from wz_compat.import_pupils import (readRawPupils, DeltaRaw,
+        PID_CHANGE, PID_REMOVE, PID_ADD)
 
 
 # Set up Blueprint
@@ -120,23 +115,21 @@ def update():
     A list of differences with checkboxes is displayed, so that some can
     be deselected. Submitting the form initiates the actual update.
     """
-#TODO: Differentiate between update and initialize ...
-# An initialisation would not need confirmation?
-#AND/OR: If there are a lot of changes, divide into classes?
-
     def readable(updates):
         """Convert the given changes-list into a human-readable form.
         """
+        fnames = DBT.pupilFields()
         changes = []
         for line in updates:
             op, pdata = line[0], line[1]
             if op == PID_CHANGE:
                 f = line[2]
-                x = " || %s (%s -> %s)" % (f, line[3], pdata[f])
-            else:
-                x = ""
-            changes.append("%s %s: %s%s" % (op, pdata['CLASS'],
-                    pdata.name(), x))
+                x = "FELD „%s“ (%s -> %s)" % (fnames[f], line[3], pdata[f])
+            elif op == PID_ADD:
+                x = "NEU"
+            elif op == PID_REMOVE:
+                x = "ABGANG"
+            changes.append("%s: %s" % (pdata.name(), x))
         return changes
 
     schoolyear = session['year']
@@ -155,13 +148,17 @@ def update():
             return redirect('bp_pupildata.upload')
         if changes:
             updates = REPORT.wrap(delta.updateFromClassDelta, changes)
-            return render_template(os.path.join(_BPNAME, 'pupils_changed.html'),
-                                heading = _HEADING,
-###TODO: revert to original when updateFromClassDelta is fixed.
-#                                changes = readable(updates))
-                                changes = [])
+            # <updates>: {klass -> [delta-item, ...]}
+            if updates:
+                cmap = [(k, readable(updates[k]))
+                        for k in sorted(updates)]
+                return render_template(os.path.join(_BPNAME,
+                        'pupils_changed.html'),
+                                    heading = _HEADING,
+                                    changes = cmap)
         else:
-            return render_template(os.path.join(_BPNAME, 'no_pupils_changed.html'),
+            return render_template(os.path.join(_BPNAME,
+                    'no_pupils_changed.html'),
                                 heading = _HEADING)
 
     # GET
@@ -179,3 +176,11 @@ def update():
                             form = form,
                             heading = _HEADING,
                             kchanges = cmap)
+
+#TODO
+@bp.route('/export', methods=['GET'])
+def export():
+    """View: Export the pupil database table for the current year as
+    an xlsx spreadsheet.
+    """
+    return "NYI"

@@ -8,9 +8,15 @@
     <p>Die folgenden Aktualisierungen wurden übernommen:
     </p>
 
-    {% for change in changes %}
     <ul>
-        <li>{{change}}</li>
-    </ul>
+    {% for k, clist in changes %}
+        <li><h3>Klasse {{ k }}</h3>
+            <ul>
+            {% for change in clist %}
+                <li>{{change}}</li>
+            {% endfor %}
+            </ul>
+        </li>
     {% endfor %}
+    </ul>
 {% endblock %}
