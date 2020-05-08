@@ -42,7 +42,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.db import DBT
 from wz_compat.import_pupils import (readRawPupils, DeltaRaw,
-        PID_CHANGE, PID_REMOVE, PID_ADD)
+        PID_CHANGE, PID_REMOVE, PID_ADD, exportPupils)
 
 
 # Set up Blueprint
@@ -177,10 +177,16 @@ def update():
                             heading = _HEADING,
                             kchanges = cmap)
 
-#TODO
+
 @bp.route('/export', methods=['GET'])
 def export():
     """View: Export the pupil database table for the current year as
     an xlsx spreadsheet.
     """
-    return "NYI"
+    schoolyear = session['year']
+    pdfBytes = REPORT.wrap(exportPupils, schoolyear, suppressok=True)
+    if pdfBytes:
+        session['filebytes'] = pdfBytes
+        return redirect(url_for('download',
+                dfile = 'Schueler-%d.xlsx' % schoolyear))
+    return redirect('bp_settings.index')
