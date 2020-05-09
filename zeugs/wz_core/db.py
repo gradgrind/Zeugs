@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-05-04
+Last updated:  2020-05-09
 
 This module handles access to an sqlite database.
 
@@ -79,7 +79,7 @@ class DBT:
 
 
     def __init__(self, schoolyear = None, mustexist = True,
-            exclusive = False):
+            exclusive = False, noreport = False):
         """If no school-year is supplied, use the "master" database.
         For year-databases only: if <mustexist> is true (default),
         a critical error will be reported if the database doesn't exist.
@@ -94,7 +94,10 @@ class DBT:
             dbexists = os.path.isfile(self.filepath)
             if not dbexists:
                 if mustexist:
-                    REPORT.Fail (_DBFILENOTFOUND, path = self.filepath)
+                    if noreport:
+                        raise FileNotFoundError
+                    else:
+                        REPORT.Fail (_DBFILENOTFOUND, path = self.filepath)
                 dirpath = os.path.dirname(self.filepath)
                 if not os.path.isdir(dirpath):
                     os.makedirs(dirpath)

@@ -2,7 +2,7 @@
 {% set uplink = url_for('bp_settings.index') %}
 {% set uplink_help = "Einstellungen" %}
 
-{% block title %}Neues Schuljahr einrichten{% endblock %}
+{% block title %}Neues Schuljahr anlegen{% endblock %}
 
 {% block content %}
     <p>Um die Einrichtung eines neuen Schuljahrs zu vereinfachen, können
@@ -12,18 +12,15 @@
     in die nächst höhere Klasse.
     </p>
 
+    {% if dbexists %}
+    <p style="color:#e00;">Gefahr von Datenverlust!
+    Es gibt schon Daten für {{ year }}. Legen Sie das Jahr erneut an
+    (Knopf anklicken) NUR, wenn Sie sicher sind, dass die Daten
+    überschrieben werden können.</p>
+    {% endif %}
+
     <form class="pure-form pure-form-aligned" method="POST">
         {{ form.csrf_token }}
-
-        {% if dbexists %}
-        <p>Es gibt schon Daten für {{ year }}. Um diese zu überschreiben,
-        muss das Kästchen angekreuzt werden:</p>
-        <div class="form-group">
-            <input id="OVERWRITE" name="OVERWRITE" type="checkbox">
-            <label for="OVERWRITE">Daten für {{ year }} überschreiben</label>
-<!-- Link to single report page, with term preset? -->
-        </div>
-        {% endif %}
 
         <p>Das Datum des ersten Schultags wird für den Eintritt in die
         Qualifikationsphase benötigt (11.Gym -> 12.Gym):

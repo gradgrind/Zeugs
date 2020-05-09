@@ -199,7 +199,7 @@ def migrate():
     schoolyear = session['year']
     newyear = schoolyear + 1
     try:
-        db = DBT(newyear)
+        db = DBT(newyear, noreport = True)
         # The next year exists already, which could be risky ...
     except:
         db = None
@@ -212,22 +212,14 @@ def migrate():
     if app.isPOST(form):
         ### POST
         DAY1 = request.form['DAY1_D']
-        overwrite = False
         if db:
-            if 'OVERWRITE' in request.form:
-                overwrite = True
-            else:
-                flash("Schuljahr %d ist schon (zum Teil?) angelegt" %
-                        newyear, "Warning")
-                return redirect(url_for('bp_settings.index'))
+            REPORT.wrap(REPORT.Warn, ("Schülertabelle %d wird"
+                    " überschrieben – mit möglichem Datenverlust") % newyear)
         else:
             db = DBT(newyear, mustexist = False)
         with db:
             db.setInfo('CALENDAR_FIRST_DAY', DAY1)
         if REPORT.wrap(migratePupils, newyear):
-            if overwrite:
-                flash("Schülertabelle %d wird überschrieben" % newyear,
-                        "Info")
             return redirect(url_for('bp_settings.index'))
 
     ### GET
