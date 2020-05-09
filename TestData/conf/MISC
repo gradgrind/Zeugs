@@ -1,5 +1,5 @@
 ############## MISC
-############## Version: 2020-04-15
+############## Version: 2020-05-09
 
 ### Einstellungen, die nicht woanders gehören.
 
@@ -22,20 +22,6 @@ MAXLOGFILES = 2
 
 # Wert setzen, falls leitende Nullen bei Klassennamen erscheinen sollen
 CLASS_LEADING_ZERO =
-
-# "Zwischenschnipsel" (ndl. "tussenvoegsel"), die besonderer Behandlung bei
-# der Sortierung von Namen bedürfen:
-TUSSENVOEGSEL =& von
-          & zu
-          & van
-          & v.
-          & den
-          & der
-          & de
-
-#? currently in migrate.py - DEPRECATED, see STREAMS below
-#STREAM_MAX_YEAR =& :12
-#                & Gym:13
 
 
 # ------------------------

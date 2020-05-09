@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-05-06
+wz_compat/import_pupils.py - last updated 2020-05-09
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -37,6 +37,11 @@ _BADCLASSNAME = "Ungültiger Klassenname: {name}"
 _BAD_DATE = "Ungültiges Datum: Feld {tag}, Wert {val} in:\n  {path}"
 _BADSCHOOLYEAR  = "Falsches Jahr in Tabelle {filepath}: {year} erwartet"
 _PUPIL_LEFT = "Abgemeldeter Schüler in Klasse {klass}: {name}"
+_NOFIRSTDAY = "Der erste Schultag ist nicht bekannt für Schuljahr {year}"
+_CHANGE_STREAM = "Ungültige Schülergruppe: {s0}. -> {s1}"
+_NO_QUALI_D = ("Klasse {klass}: Für {name} muss das Datum des Eintritts"
+        " in die Qualifikationsphase gesetzt werden")
+_BADNAME = "Ungültiger Schülername: {name}"
 
 # Info tag in spreadsheet table
 _SCHOOLYEAR = "Schuljahr"
@@ -55,22 +60,19 @@ from wz_core.db import DBT
 from wz_core.pupils import Pupils, PupilData, Klass
 # To read/write spreadsheet tables:
 from wz_table.dbtable import readDBTable, makeDBTable
+from wz_compat.grade_classes import klass2streams
 
-
-#TODO: master db
-# The calendar might also be in the db ... (json in INFO table?)
-
-#TODO: Add entry to Qualifikationsphase for new 12.Gym (see readRawPupils)
-# It might be more appropriate to change this entry in the PUPILS table
-# so that it is more general, e.g. XDATA, which could be json.
 
 def migratePupils(schoolyear):
     """Read the pupil data from the previous year and build a preliminary
     database table for pupils in the current (new) year, migrating the
     class names by incrementing the integer part.
     It assumes all class names start with a 2-digit year (Am.: grade) number.
-    Return the path to the (possibly newly created) database file.
+    Return the path to the database file.
     """
+    db = DBT(schoolyear)
+    with db:
+        startdate = db.getInfo('CALENDAR_FIRST_DAY')
     # Get pupil data from previous year
     pdb = Pupils(schoolyear-1)
     rows = []
@@ -80,7 +82,7 @@ def migratePupils(schoolyear):
             cnum = int(c_old[:2]) + 1
             ctag = c_old[2:]
         except:
-            REPORT.Fail(_BADCLASSNAME, klass=c_old)
+            REPORT.Fail(_BADCLASSNAME, klass = c_old)
         c_new = '%02d%s' % (cnum, ctag)
         for pdata in pdb.classPupils(Klass(c_old)):
             left = False
@@ -88,20 +90,30 @@ def migratePupils(schoolyear):
                 # If there is an exit date, assume the pupil has left.
                 left = True
             else:
+                pstream = pdata['STREAM']
                 try:
-                    mxy = MAXYEAR[pdata['STREAM']]
+                    mxy = MAXYEAR[pstream]
                 except:
                     mxy = MAXYEAR['']
                 if cnum > int (mxy):
                     left = True
             if left:
-                REPORT.Info(_PUPIL_LEFT, klass=c_old, name=pdata.name())
+                REPORT.Info(_PUPIL_LEFT, klass = c_old, name = pdata.name())
                 continue
             pdata['CLASS'] = c_new
+            vstreams = klass2streams(c_new)
+            if pstream not in vstreams:
+                if pstream:
+                    REPORT.Warn(_CHANGE_STREAM, s0 = pstream, s1 = vstreams[0])
+                pstream = vstreams[0]
+                pdata['STREAM'] = pstream
+            if c_new == '12' and pstream == 'Gym':
+                xdata = pdata.xdata()
+                xdata['QUALI_D'] = startdate
+                pdata.setXdata(**xdata)
             rows.append(pdata)
 
     # Create the database table PUPILS from the loaded pupil data.
-    db = DBT(schoolyear, mustexist = False)
     with db:
         db.clearTable('PUPILS')
     db.vacuum()
@@ -125,55 +137,29 @@ def _getFieldmap():
 # "zu", "van" "de": "tussenvoegsel". For sorting purposes these can be a
 # bit annoying because they are often ignored, e.g. "van Gogh" would be
 # sorted under "G".
-
-####++++++++++++++++++++++++++++++++++++++++++++++++####
-#### A surname splitter. This version regards the first capital letter as
-#### the start of the name for sorting purposes. Thus o'Brien is seen as
-#### ["o'", "Brien"], but O'Brien is seen as ["O'Brien"]!
-
-#### To handle confusing cases, a manual (re)ordering should be possible.
-
-#def usplit (name):
-#    i = 0
-#    for c in name:
-#        if c.isupper():
-#            if i == 0: return None, name
-#            if name [i-1] == ' ':
-#                return name [:i-1], name [i:]
-#            else:
-#                return name [:i], name [i:]
-#        i += 1
-#    print ('???', name)
-#    return None
-
-#print (' -->', usplit ('de Witt'))
-#print (' -->', usplit ('De Witt'))
-#print (' -->', usplit ("o'Riordan"))
-#print (' -->', usplit ("O'Riordan"))
-
-####------------------------------------------------####
-
-# This is a custom name splitter for raw data which has the lastname
-# prefixes at the end of the firstname(s). It uses a look-up table of
-# prefix "words".
-def tvSplitF (name):
-    """Split a "tussenvoegsel" from the end of the first names.
-    Return a tuple: (Actual first names, tussenvoegsel or <None>).
+def tvSplit(fnames, lname):
+    """Split off a "tussenvoegsel" from the end of the first-names,
+    <fnames>, or the start of the surname, <lname>.
+    Return a tuple: (
+            [core] first names,
+            tussenvoegsel or <None>,
+            [core] lastname
+        ).
     """
-    tvlist = list (CONF.MISC.TUSSENVOEGSEL)
-    ns = name.split ()
-    if len (ns) >= 1:
-        tv = []
-        i = 0
-        for s in reversed (ns):
-            if s in tvlist:
-                tv.insert (0, s)
-                i -= 1
-            else:
-                break
-        if i < 0:
-            return (" ".join (ns [:i]), " ".join (tv))
-    return (" ".join (ns), None)    # ensure normalized spacing
+    fn = []
+    tv = fnames.split()
+    while tv[0][0].isupper():
+        fn.append(tv.pop(0))
+        if not len(tv):
+            break
+    if not fn:
+        REPORT.Fail(_BADNAME, name = fnames + ' / ' + lname)
+    ln = lname.split()
+    while ln[0].islower():
+        if len(ln) == 1:
+            break
+        tv.append(ln.pop(0))
+    return (' '.join(fn), ' '.join(tv) or None, ' '.join(ln))
 
 
 
@@ -194,143 +180,6 @@ class MiniPupilData(dict):
 
 
 
-#TODO: use <startdate> to initialise QUALI_D field for 12.Gym (if
-# no other date is there already).
-def readRawPupils(schoolyear, filepath, startdate):
-    """Read in a table containing raw pupil data for the whole school
-    from the given file (ods or xlsx, the file ending can be omitted).
-    The names of date fields are expected to end with '_D'. Date values
-    are accepted in isoformat, YYYY-MM-DD (that is %Y-%m-%d for the
-    <datetime> module) or in the format specified for output, config
-    value MISC.DATEFORMAT.
-    If a pupil left the school before the beginning of the school year
-    (<startdate>, in iso-format) (s)he will be excluded from the list
-    built here.
-    Build a mapping:
-        {classname -> ordered list of <PupilData> instances}
-    The ordering of the pupil data fields in the <PupilData> instances
-    is determined ultimately by the config file TABLES/PUPILS_FIELDNAMES.
-    The fields supplied in the raw data are saved as the <fields>
-    attribute of the result. Fields which are not included in the raw
-    data are excluded, except for the sorting field, PSORT, which is
-    added here.
-    """
-    # An exception is raised if there is no file:
-    table = readDBTable(filepath)
-    try:
-        # If there is a year field, check it against <schoolyear>
-        _tyear = table.info[_SCHOOLYEAR]
-    except KeyError:
-        pass    # No year given in table
-    else:
-        try:
-            if int(_tyear) != schoolyear:
-                raise ValueError
-        except:
-            REPORT.Fail(_BADSCHOOLYEAR, filepath = table.filepath,
-                    year = schoolyear)
-
-    # Get ordered field list for the table.
-    # The config file has: internal name -> table name.
-    # All names are converted to upper case to enable case-free matching.
-    fieldMap = _getFieldmap()
-
-    # Read the (capitalised) column headers from this line
-    h_colix = {h.upper (): colix
-            for h, colix in table.headers.items ()}
-    # Reorder the table columns to suit the database table,
-    # collect date fields for format checking / conversion.
-    colmap = []
-    datefields = []
-    fields = []     # The fields supplied in the raw table
-    for f, fx in fieldMap.items():
-        try:
-            colmap.append(h_colix [fx])
-            fields.append(f)
-            if f.endswith('_D'):
-                datefields.append(f)
-        except:
-            # Field not present in raw data
-            colmap.append(None)
-            if f == 'PSORT':
-                fields.append(f)
-            else:
-                REPORT.Warn(_FIELDMISSING, field = f, path = filepath)
-
-    ### For sorting: use a translation table for non-ASCII characters
-    ttable = str.maketrans(dict(CONF.ASCII_SUB))
-    classes = UserDict()   # for the results: {class -> [row item]}
-    classes.fields = fields
-    ### Read the row data
-    ntuples = {}
-    dateformat = CONF.MISC.DATEFORMAT
-    for row in table:
-        rowdata = []
-        for col in colmap:
-            rowdata.append(None if col == None else row[col])
-        pdata = PupilData(rowdata)
-        # Check date fields
-        for f in datefields:
-            val = pdata[f]
-            if val:
-                try:
-                    datetime.date.fromisoformat(val)
-                except:
-                    try:
-                        pdata[f] = datetime.datetime.strptime(val,
-                                dateformat).date().isoformat()
-                    except:
-                        REPORT.Fail(_BAD_DATE, tag = f, val = val,
-                                path = filepath)
-
-        ## Exclude pupils who left before the start of the schoolyear
-        if pdata['EXIT_D'] and pdata['EXIT_D'] < startdate:
-            continue
-
-        ## Name fixing (if the input table doesn't have the PSORT field)
-        if not pdata['PSORT']:
-            firstnames, tv = tvSplitF(pdata['FIRSTNAMES'])
-            lastname = pdata['LASTNAME']
-            firstname = tvSplitF(pdata['FIRSTNAME'])[0]
-            if tv:
-                sortname = lastname + ' ' + tv + ' ' + firstname
-                pdata['FIRSTNAMES'] = firstnames
-                pdata['FIRSTNAME'] = firstname
-                pdata['LASTNAME'] = tv + ' ' + lastname
-            else:
-                sortname = lastname + ' ' + firstname
-            pdata['PSORT'] = sortname.translate(ttable)
-
-        klass = pdata['CLASS']
-        # Normalize class name
-        try:
-            if not klass[0].isdigit():
-                raise NameError
-            if len(klass) == 1:
-                k = '0' + klass
-                pdata['CLASS'] = k
-            else:
-                if klass[1].isdigit():
-                    k = klass
-                else:
-                    k = '0' + klass
-                    pdata['CLASS'] = k
-                if not (len(k) == 2 or k[2:].isalpha()):
-                    raise NameError
-        except:
-            REPORT.Fail(_BADCLASSNAME, name=klass)
-        try:
-            classes[k].append(pdata)
-        except:
-            classes[k] = [pdata]
-
-    for klass in classes:
-        # alphabetical sorting
-        classes[klass].sort(key=lambda pd: pd['PSORT'])
-
-    return classes
-
-
 # Handling updates to the PUPILS table is a two- or three-stage process.
 # First get a list of the changes:
 #  - New pid
@@ -343,9 +192,28 @@ PID_REMOVE = "---"
 PID_CHANGE = ">>>"
 _BADOP = "PUPILS operation must be %s, %s or %s: not {op}" % (PID_REMOVE,
         PID_CHANGE, PID_ADD)
-class DeltaRaw:
-    def __init__(self, schoolyear, rawdata):
-        """Compare the existing pupil data with the supplied raw data.
+class DeltaRaw(dict):
+    def __init__(self, schoolyear, filepath):
+        """Read in a table containing raw pupil data for the whole school
+        from the given file (ods or xlsx, the file ending can be omitted).
+        The names of date fields are expected to end with '_D'. Date values
+        are accepted in isoformat, YYYY-MM-DD (that is %Y-%m-%d for the
+        <datetime> module) or in the format specified for output, config
+        value MISC.DATEFORMAT.
+        If a pupil left the school before the beginning of the school year
+        (<startdate>, in iso-format) (s)he will be excluded from the list
+        built here.
+        Build a mapping:
+            {classname -> ordered list of <PupilData> instances}
+        The ordering of the pupil data fields in the <PupilData> instances
+        is determined ultimately by the config file TABLES/PUPILS_FIELDNAMES.
+        The fields supplied in the raw data are saved as the <fields>
+        attribute of the result. Fields which are not included in the raw
+        data are excluded, except for the sorting field, PSORT, which is
+        added here.
+
+        Compare the existing (in the database) pupil data with the
+        raw/new data in <self>.
         Create a list of differences, which can be used to perform an update.
         The differences can be of the following kinds:
             - a new pid
@@ -354,16 +222,131 @@ class DeltaRaw:
         The list is available as attribute <delta>.
         It is also available on a list-per-class basis as a mapping,
         attribute <cdelta>: {class -> list}
-        """
+                """
         self.schoolyear = schoolyear
-        self.fields = rawdata.fields    # fields to compare
+        db = DBT(schoolyear)
+        with db:
+            self.startdate = db.getInfo('CALENDAR_FIRST_DAY')
+        if not self.startdate:
+            REPORT.Fail(_NOFIRSTDAY, year = schoolyear)
+        # An exception is raised if there is no file:
+        table = readDBTable(filepath)
+        try:
+            # If there is a year field, check it against <schoolyear>
+            _tyear = table.info[_SCHOOLYEAR]
+        except KeyError:
+            pass    # No year given in table
+        else:
+            try:
+                if int(_tyear) != schoolyear:
+                    raise ValueError
+            except:
+                REPORT.Fail(_BADSCHOOLYEAR, filepath = table.filepath,
+                        year = schoolyear)
+
+        # Get ordered field list for the table.
+        # The config file has: internal name -> table name.
+        # All names are converted to upper case to enable case-free matching.
+        fieldMap = _getFieldmap()
+
+        # Read the (capitalised) column headers from this line
+        h_colix = {h.upper (): colix
+                for h, colix in table.headers.items ()}
+        # Reorder the table columns to suit the database table,
+        # collect date fields for format checking / conversion.
+        colmap = []
+        datefields = []
+        self.fields = []    # the fields supplied in the raw table
+        for f, fx in fieldMap.items():
+            try:
+                colmap.append(h_colix [fx])
+                self.fields.append(f)
+                if f.endswith('_D'):
+                    datefields.append(f)
+            except:
+                # Field not present in raw data
+                colmap.append(None)
+                if f == 'PSORT':
+                    self.fields.append(f)
+                else:
+                    REPORT.Warn(_FIELDMISSING, field = f, path = filepath)
+
+        ### For sorting: use a translation table for non-ASCII characters
+        ttable = str.maketrans(dict(CONF.ASCII_SUB))
+        ### Read the row data
+        ntuples = {}
+        dateformat = CONF.MISC.DATEFORMAT
+        for row in table:
+            rowdata = []
+            for col in colmap:
+                rowdata.append(None if col == None else row[col])
+            pdata = PupilData(rowdata)
+            # Check date fields
+            for f in datefields:
+                val = pdata[f]
+                if val:
+                    try:
+                        datetime.date.fromisoformat(val)
+                    except:
+                        try:
+                            pdata[f] = datetime.datetime.strptime(val,
+                                    dateformat).date().isoformat()
+                        except:
+                            REPORT.Fail(_BAD_DATE, tag = f, val = val,
+                                    path = filepath)
+
+            ## Exclude pupils who left before the start of the schoolyear
+            if pdata['EXIT_D'] and pdata['EXIT_D'] < self.startdate:
+                continue
+
+            ## Name fixing (if the input table doesn't have the PSORT field)
+            if not pdata['PSORT']:
+                firstnames, tv, lastname = tvSplit(pdata['FIRSTNAMES'],
+                        pdata['LASTNAME'])
+                firstname = tvSplit(pdata['FIRSTNAME'], 'X')[0]
+                if tv:
+                    sortname = lastname + ' ' + tv + ' ' + firstname
+                    pdata['FIRSTNAMES'] = firstnames
+                    pdata['FIRSTNAME'] = firstname
+                    pdata['LASTNAME'] = tv + ' ' + lastname
+                else:
+                    sortname = lastname + ' ' + firstname
+                pdata['PSORT'] = sortname.translate(ttable)
+
+            klass = pdata['CLASS']
+            # Normalize class name
+            try:
+                if not klass[0].isdigit():
+                    raise NameError
+                if len(klass) == 1:
+                    k = '0' + klass
+                    pdata['CLASS'] = k
+                else:
+                    if klass[1].isdigit():
+                        k = klass
+                    else:
+                        k = '0' + klass
+                        pdata['CLASS'] = k
+                    if not (len(k) == 2 or k[2:].isalpha()):
+                        raise NameError
+            except:
+                REPORT.Fail(_BADCLASSNAME, name=klass)
+            try:
+                self[k].append(pdata)
+            except:
+                self[k] = [pdata]
+
+        for klass in self:
+            # alphabetical sorting
+            self[klass].sort(key=lambda pd: pd['PSORT'])
+
+        ### Compare the new data with the existing data
         self.delta = []                 # the list of changes
         self.cdelta = {}                # class-indexed lists
-        db = DBT(schoolyear, mustexist = False)
         with db:
             rows = db.select('PUPILS')
         oldpdata = {pdata['PID']: pdata for pdata in rows}
-        for k, plistR in rawdata.items():
+        for k, plistR in self.items():
             for pdataR in plistR:
                 pid = pdataR['PID']
                 klass = pdataR['CLASS']
@@ -401,93 +384,107 @@ class DeltaRaw:
                 self.cdelta[klass] = [item]
 
 
-    def updateFromClassDelta(self, updates):
+    def updateFromClassDelta(self, updates = None):
         """Update the PUPILS table from the supplied raw pupil data.
         Only the fields in the delta list (<self.fields>) will be affected.
         <updates> is a list of class-index tags for the class-delta
         mapping, <self.cdelta>. Only these ones will be updated.
-        Return a mapping (<lines>) {klass -> delta-item}
+        Each entry has the form '<class>-<index>'.
+        Return a mapping (<lines>) {klass -> delta-item}.
         """
+        if updates != None:
+            umap = {}
+            for tag in updates:
+                try:
+                    klass, index = tag.rsplit('-', 1)
+                    i = int(index)
+                except:
+                    REPORT.Bug("Bad update tag: %s" % tag)
+                else:
+                    try:
+                        umap[klass].append(i)
+                    except:
+                        umap[klass] = [i]
+
         lines = {}
         # Sort into deletions, changes and additions
-        d, c, a = [], [], []
-        for tag in updates:
-            try:
-                klass, index = tag.rsplit('-', 1)
-                line = self.cdelta[klass][int(index)]
-            except:
-                REPORT.Bug("Bad update tag: %s" % tag)
-#            REPORT.Test("UPDATE: %s" % repr(line))
-            try:
-                lines[klass].append(line)
-            except:
-                lines[klass] = [line]
-
-            op, pdata = line[0:2]
-            if op == PID_REMOVE:
-                d.append(pdata['PID'])
-            elif op == PID_CHANGE:
-                f = line[2]
-                c.append((pdata, f))
-            elif op == PID_ADD:
-                a.append(pdata)
-            else:
-                REPORT.Bug(_BADOP, op = op)
+        d, c, a = [], {}, []
+        for klass, clist in self.cdelta.items():
+            if updates != None:
+                uk = umap.get(klass)
+                if not uk:
+                    continue
+            klines = []
+            i = 0
+            for line in clist:
+                if (updates == None) or (i in uk):
+                    klines.append(line)
+                    op, pdata = line[0:2]
+                    if op == PID_REMOVE:
+                        d.append(pdata['PID'])
+                    elif op == PID_CHANGE:
+                        pid = pdata['PID']
+                        try:
+                            c[pid][1].append(line[2])
+                        except:
+                            c[pid] = (pdata, [line[2]])
+                    elif op == PID_ADD:
+                        a.append(pdata)
+                    else:
+                        REPORT.Bug(_BADOP, op = op)
+                i += 1
+            if klines:
+                lines[klass] = klines
         db = DBT(self.schoolyear)
         with db:
             for pid in d:
                 db.deleteEntry('PUPILS', PID = pid)
         with db:
-            for pdata, f in c: # new value = pdata[f]
+            for pid, data in c.items():
+                pdata, flist = data
                 # <pupilEdit> returns a mapping of new field/value pairs
-                db.updateOrAdd('PUPILS', pupilEdit(pdata, f),
-                        update_only = True, PID = pdata['PID'])
+                changes = self.pupilEdit(pdata, flist)
+                db.updateOrAdd('PUPILS', changes,
+                        update_only = True, PID = pid)
         if a:
             with db:
                 # <pupilAdd> can modify/complete the <pdata> items
                 db.addRows('PUPILS', DBT.pupilFields(),
-                        [pupilAdd(pdata) for pdata in a])
+                        [self.pupilAdd(pdata) for pdata in a])
         return lines
 
 
-#DEPRECATED? Would need to adapt tests (below)
-    def updateFromDelta(self, updates = None):
-        """Update the PUPILS table from the supplied raw pupil data.
-        Only the fields in the delta list (<self.fields>) will be affected.
-        <updates> is a list of indexes into the delta list – the
-        updates to be applied (the others are ignored).
-        If <updates> is not supplied, all updates are applied.
+    def pupilAdd(self, pdata):
+        """Manipulate a <PupilData> instance before saving it to the database.
         """
-        if updates == None:
-            lines = self.delta
-        else:
-            lines = [self.delta[int(i)] for i in updates]
-        # Sort into deletions, changes and additions
-        d, c, a = [], [], []
-        for line in lines:
-            op, pdata = line[0:2]
-            pid = pdata['PID']
-            if op == PID_REMOVE:
-                d.append(pid)
-            elif op == PID_CHANGE:
-                f = line[2]
-                c.append((pid, f, pdata[f]))
-            elif op == PID_ADD:
-                a.append(pdata)
-            else:
-                REPORT.Bug(_BADOP, op = op)
-        db = DBT(self.schoolyear)
-        with db:
-            for pid in d:
-                db.deleteEntry('PUPILS', PID = pid)
-        with db:
-            for pid, f, val in c:
-                db.updateOrAdd('PUPILS', {f: val},
-                        update_only = True, PID = pid)
-        if a:
-            with db:
-                db.addRows('PUPILS', DBT.pupilFields(), a)
-        return lines
+        # Handle (conditionally) STREAM and XDATA (QUALI_D)
+        klass = pdata['CLASS']
+        stream = pdata['STREAM']
+        vstreams = klass2streams(klass)
+        if stream not in vstreams:
+            if stream:
+                REPORT.Warn(_CHANGE_STREAM, s0 = stream, s1 = vstreams[0])
+            stream = vstreams[0]
+            pdata['STREAM'] = stream
+        xdata = pdata.xdata()
+        if not xdata.get('QUALI_D'):
+            if klass == '12':
+                if stream == 'Gym':
+                    xdata['QUALI_D'] = self.startdate
+                    pdata.setXdata(**xdata)
+            elif klass == '13':
+                REPORT.Warn(_NO_QUALI_D, klass = klass, name = pdata.name())
+        return pdata
+
+
+    def pupilEdit(self, pdata, fieldlist):
+        """Tweak a pupil entry modification before saving it to the database.
+        Return a mapping: {field -> new value}.
+        <fieldlist> is a list of field names to be changed in the db –
+        the values are in <pdata>.
+        """
+        # No manipulation:
+        return {field: pdata[field] for field in fieldlist}
 
 
 
@@ -536,24 +533,6 @@ def exportPupils (schoolyear, filepath = None):
 
 
 
-def pupilAdd(pdata):
-    """Manipulate a <PupilData> instance before saving it to the database.
-    """
-# Handle (conditionally) STREAM and XDATA (QUALI_D)
-    return pdata    # No manipulation
-
-
-def pupilEdit(pdata, field):
-    """Tweak a pupil entry modification before saving it to the database.
-    Return a mapping: {field -> new value}.
-    <field> is the name of the field which specifies the desired change
-    (the value being in <pdata>.
-    """
-# Handle (conditionally) STREAM and XDATA (QUALI_D) ... PSORT if name changed
-    return {field: pdata[field]}    # No manipulation
-
-
-
 ##################### Test functions
 
 def test_01():
@@ -576,27 +555,29 @@ def test_03():
     """
     import shutil
     year = 2017
+    DAY1 = '2016-08-04'
     # Delete the year folder if it exists
     ypath = Paths.getYearPath(year)
     if os.path.exists(ypath):
         shutil.rmtree(ypath)
-    DAY1 = '2016-08-04'
     REPORT.Test ("Initialise PUPILS from raw data: %d" % year)
     _year0 = 2016
     _ypath0 = Paths.getYearPath(_year0)
     fpath = os.path.join(_ypath0, 'testfiles',
             'Pupil-Data', 'pupil_data_%d_raw' % year)
     REPORT.Test("FROM %s" % fpath)
-    rpd = readRawPupils(year, fpath, DAY1)
+    db = DBT(year, mustexist = False)
+    with db:
+        db.setInfo('CALENDAR_FIRST_DAY', DAY1)
+    rpd = DeltaRaw(year, fpath)
     REPORT.Test("RAW fields: %s\n" % repr(rpd.fields))
-    for klass in sorted (rpd):
-        REPORT.Test ("\n +++ Class %s" % klass)
-        for row in rpd [klass]:
-            REPORT.Test ("   --- %s" % repr (row))
+    for klass in sorted(rpd):
+        REPORT.Test("\n +++ Class %s" % klass)
+        for row in rpd[klass]:
+            REPORT.Test("   --- %s" % repr (row))
 
     REPORT.Test("\n\n *** DELTA ***\n")
-    delta = DeltaRaw(year, rpd)
-    for line in delta.delta:
+    for line in rpd.delta:
         op, pdata = line[0], line[1]
         if op == PID_CHANGE:
             f = line[2]
@@ -607,8 +588,7 @@ def test_03():
                 PupilData.name(pdata), x))
 
     REPORT.Test("\n\n *** saving ***\n")
-#TODO?
-    delta.updateFromDelta()
+    rpd.updateFromClassDelta()
 
     dbpath = DBT(year).filepath
     tmpdir = os.path.join(_ypath0, 'tmp')
@@ -618,20 +598,22 @@ def test_03():
 
 def test_04():
     year = 2017
+    DAY1 = '2016-08-04'
     REPORT.Test("Migrate pupils from %d to %d" % (year - 1, year))
+    db = DBT(year, mustexist = False)
+    with db:
+        db.setInfo('CALENDAR_FIRST_DAY', DAY1)
     REPORT.Test("Pupil table created in: " + migratePupils(year))
 
 def test_05():
     _year0 = 2016
     year = 2017
-    DAY1 = '2016-08-04'
     REPORT.Test("Update year %d with raw data" % year)
     fpath = os.path.join(Paths.getYearPath(_year0), 'testfiles',
             'Pupil-Data', 'pupil_data_%d_raw' % year)
     REPORT.Test("FROM %s" % fpath)
-    rpd = readRawPupils(year, fpath, DAY1)
+    delta = DeltaRaw(year, fpath)
     REPORT.Test("\n\n *** DELTA ***\n")
-    delta = DeltaRaw(year, rpd)
     for line in delta.delta:
         op, pdata = line[0], line[1]
         if op == PID_CHANGE:
@@ -643,8 +625,7 @@ def test_05():
                 PupilData.name(pdata), x))
 
     REPORT.Test("\n\n *** updating ***\n")
-#TODO?
-    delta.updateFromDelta()
+    delta.updateFromClassDelta()
 
 def test_06():
     """Export new year's data, delete the PUPILS table and import the
@@ -665,12 +646,9 @@ def test_06():
     with db:
         db.clearTable('PUPILS')
     db.vacuum()
-    DAY1 = '2016-08-04'
     REPORT.Test (" ... initialise PUPILS from saved data")
-    rpd = readRawPupils(year, fspath, DAY1)
-    delta = DeltaRaw(year, rpd)
-#TODO?
-    delta.updateFromDelta()
+    delta = DeltaRaw(year, fspath)
+    delta.updateFromClassDelta()
 
 def test_07():
     """Move new year to "tmp" folder.

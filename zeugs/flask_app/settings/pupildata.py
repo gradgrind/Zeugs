@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-05-08
+Last updated:  2020-05-09
 
 Flask Blueprint for updating pupil data.
 
@@ -41,8 +41,8 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.db import DBT
-from wz_compat.import_pupils import (readRawPupils, DeltaRaw,
-        PID_CHANGE, PID_REMOVE, PID_ADD, exportPupils)
+from wz_compat.import_pupils import (DeltaRaw, exportPupils,
+        PID_CHANGE, PID_REMOVE, PID_ADD)
 
 
 # Set up Blueprint
@@ -85,7 +85,7 @@ def upload():
         ])
 
     schoolyear = session['year']
-    # Get date of first school day
+    # Check date of first school day is set
     with DBT(schoolyear) as db:
         startdate = db.getInfo("CALENDAR_FIRST_DAY")
     if not startdate:
@@ -96,8 +96,8 @@ def upload():
     form = UploadForm()
     if form.validate_on_submit():
         # POST
-        rawdata = REPORT.wrap(readRawPupils, schoolyear, form.upload.data,
-                startdate, suppressok=True)
+        rawdata = REPORT.wrap(DeltaRaw, schoolyear, form.upload.data,
+                suppressok=True)
         if rawdata:
             session['rawpupildata'] = rawdata
             return redirect(url_for('bp_pupildata.update'))
@@ -162,10 +162,7 @@ def update():
                                 heading = _HEADING)
 
     # GET
-    rawdata = session.pop('rawpupildata', None)
-    if not rawdata:
-        return redirect('bp_pupildata.upload')
-    delta = REPORT.wrap(DeltaRaw, schoolyear, rawdata, suppressok=True)
+    delta = session.pop('rawpupildata', None)
     if not delta:
         return redirect('bp_pupildata.upload')
 
