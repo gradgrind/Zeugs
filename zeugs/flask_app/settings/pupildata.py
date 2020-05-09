@@ -36,13 +36,15 @@ import datetime, os
 
 from flask import (Blueprint, render_template, request, session,
         url_for, redirect, flash)
+from flask import current_app as app
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.db import DBT
+from wz_core.configuration import Dates
 from wz_compat.import_pupils import (DeltaRaw, exportPupils,
-        PID_CHANGE, PID_REMOVE, PID_ADD)
+        migratePupils, PID_CHANGE, PID_REMOVE, PID_ADD)
 
 
 # Set up Blueprint
@@ -187,3 +189,54 @@ def export():
         return redirect(url_for('download',
                 dfile = 'Schueler-%d.xlsx' % schoolyear))
     return redirect('bp_settings.index')
+
+
+@bp.route('/migrate', methods=['GET', 'POST'])
+def migrate():
+    """Initialise a new schoolyear.
+    At present only the pupils are transferred from the current year.
+    """
+    schoolyear = session['year']
+    newyear = schoolyear + 1
+    try:
+        db = DBT(newyear)
+        # The next year exists already, which could be risky ...
+    except:
+        db = None
+        DAY1 = None
+    else:
+        with db:
+            DAY1 = db.getInfo('CALENDAR_FIRST_DAY')
+
+    form = FlaskForm()
+    if app.isPOST(form):
+        ### POST
+        DAY1 = request.form['DAY1_D']
+        overwrite = False
+        if db:
+            if 'OVERWRITE' in request.form:
+                overwrite = True
+            else:
+                flash("Schuljahr %d ist schon (zum Teil?) angelegt" %
+                        newyear, "Warning")
+                return redirect(url_for('bp_settings.index'))
+        else:
+            db = DBT(newyear, mustexist = False)
+        with db:
+            db.setInfo('CALENDAR_FIRST_DAY', DAY1)
+        if REPORT.wrap(migratePupils, newyear):
+            if overwrite:
+                flash("Schülertabelle %d wird überschrieben" % newyear,
+                        "Info")
+            return redirect(url_for('bp_settings.index'))
+
+    ### GET
+    MIN_D, MAX_D = Dates.checkschoolyear(newyear)
+    return render_template(os.path.join(_BPNAME, 'migrate.html'),
+                            form = form,
+                            heading = _HEADING,
+                            year = newyear,
+                            dbexists = bool(db),
+                            DAY1_D = DAY1,
+                            MIN_D = MIN_D,
+                            MAX_D = MAX_D)
