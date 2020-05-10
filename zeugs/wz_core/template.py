@@ -4,7 +4,7 @@
 """
 wz_core/template.py
 
-Last updated:  2020-04-06
+Last updated:  2020-05-10
 
 Functions for template handling.
 
@@ -32,6 +32,7 @@ _NO_TEMPLATE = "Vorlage nicht gefunden oder fehlerhaft: {fname}"
 
 
 import os, re
+from collections import OrderedDict
 
 import jinja2
 
@@ -105,24 +106,28 @@ def getTemplateTags(template):
     return tags
 
 
-def pupilFields(tags):
+def getPupilFields(tags):
     """Find the pupil data fields needed for a report by inspecting the
     template.
     <tags> is a set of possible elements from '{{ ... }}' blocks.
-    Return a list of pairs: [(internal tag, display name), ...].
+    Return a mapping: {[ordered] internal tag -> display name}.
     """
     name = CONF.TABLES.PUPILS_FIELDNAMES
-    fields = []
+    fields = OrderedDict()
+    fset = set()
     for tag in tags:
         try:
             b, f = tag.split('.')
         except:
             continue
         if b == 'pupil' and f[0].isupper():
+            fset.add(f)
 # Note that all pupil data fields must start with a capital letter.
 # This allows other pupil-related info to be passed into the template.
 # One example (at present the only one?) is <pupil.grades>.
-            fields.append((f, name[f]))
+    for f in name:
+        if f in fset:
+            fields[f] = name[f]
     return fields
 
 

@@ -12,9 +12,6 @@
     verwalten. Wählen Sie eine Funktion:
     </p>
     <ul class="modules">
-        <li><a href="{{url_for('bp_settings.year')}}">
-            „Aktuelles“ Schuljahr verwalten / ändern
-        </a></li>
         <li><a href="{{url_for('bp_settings.subjects')}}">
             Fächertabellen verwalten
         </a></li>
@@ -24,8 +21,11 @@
         <li><a href="{{url_for('bp_pupildata.export')}}">
             Schülerdaten als xlsx-Tabelle herunterladen
         </a></li>
+        <li><a href="{{url_for('bp_settings.year')}}">
+            „Aktuelles“ Schuljahr verwalten / ändern
+        </a></li>
         <li><a href="{{url_for('bp_pupildata.migrate')}}">
-            Neues Schuljahr anlegen
+            Nächstes Schuljahr anlegen
         </a></li>
     </ul>
 {% endblock %}

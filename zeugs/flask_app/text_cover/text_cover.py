@@ -4,7 +4,7 @@
 """
 flask_app/text_cover/text_cover.py
 
-Last updated:  2020-04-09
+Last updated:  2020-05-10
 
 Flask Blueprint for text report cover sheets
 
@@ -41,8 +41,8 @@ from types import SimpleNamespace
 from wz_core.configuration import Dates
 from wz_core.db import DBT
 from wz_core.pupils import Pupils, Klass
-from wz_core.template import getTextTemplate, getTemplateTags, pupilFields
-from wz_compat.config import sortingName
+from wz_core.template import getTextTemplate, getTemplateTags, getPupilFields
+from wz_compat.config import tvSplit, sortingName
 from wz_text.coversheet import makeSheets, makeOneSheet
 
 _HEADING = "Textzeugnis"
@@ -143,18 +143,20 @@ def pupilview(klass, pid):
     schoolyear = session['year']
     template = getTextTemplate('Mantelbogen', _klass)
     tags = getTemplateTags(template)
-    _fields = dict(pupilFields(tags))
-    fields = [(f0, f1) for f0, f1 in CONF.TABLES.PUPILS_FIELDNAMES.items()
-            if f0 in _fields]
+    fields = getPupilFields(tags)
+    fields['FIRSTNAME'] = CONF.TABLES.PUPILS_FIELDNAMES.FIRSTNAME
     form = DateForm()
     if form.validate_on_submit():
         # POST
         _d = form.getDate()
-        pupil = SimpleNamespace (**{f: request.form[f] for f, _ in fields})
+        pupil = SimpleNamespace (**{f: request.form[f] for f in fields})
+        if not pupil.FIRSTNAME:
+            pupil.FIRSTNAME = pupil.FIRSTNAMES
         pdfBytes = makeOneSheet(schoolyear, _d, _klass, pupil)
+        firstname, tv, lastname = tvSplit(pupil.FIRSTNAME, pupil.LASTNAME)
         return send_file(io.BytesIO(pdfBytes),
                 attachment_filename = 'Mantel_%s.pdf' % sortingName(
-                        pupil.FIRSTNAMES, pupil.LASTNAME),
+                        firstname, tv, lastname),
                 mimetype = 'application/pdf',
                 as_attachment = True
         )
@@ -164,7 +166,7 @@ def pupilview(klass, pid):
     try:
         pdlist = p.classPupils(_klass)
         pdata = pdlist.pidmap[pid]
-        pupil = {f: (fname, pdata[f]) for f, fname in fields}
+        pupil = {f: (fname, pdata[f]) for f, fname in fields.items()}
     except:
         abort(404)
     return render_template(os.path.join(_BPNAME, 'text_cover_pupil.html'),

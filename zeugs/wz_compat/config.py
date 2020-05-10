@@ -4,7 +4,7 @@
 """
 wz_compat/config.py
 
-Last updated:  2020-01-08
+Last updated:  2020-05-10
 
 Functions for handling configuration for a particular location.
 
@@ -27,6 +27,10 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
+# Messages
+_BADNAME = "Ungültiger Schülername: {name}"
+
+
 import re
 
 
@@ -47,40 +51,45 @@ def printStream(stream):
 
 
 ####### Name Sorting #######
-def sortingName(firstname, lastname):
-    """Given first and last names, produce an ascii string which can be
-    used for sorting the people alphabetically. It uses <tvSplit> (below)
-    for handling last-name prefixes.
+def sortingName(firstname, tv, lastname):
+    """Given first name, "tussenvoegsel" and last name, produce an ascii
+    string which can be used for sorting the people alphabetically.
     """
-    tv, lastname = tvSplit (lastname)
     if tv:
         sortname = lastname + ' ' + tv + ' ' + firstname
     else:
         sortname = lastname + ' ' + firstname
     return asciify(sortname)
 
-# In dutch there is a word for those little lastname prefixes like "von",
+
+# In Dutch there is a word for those little lastname prefixes like "von",
 # "zu", "van" "de": "tussenvoegsel". For sorting purposes these can be a
 # bit annoying because they are often ignored, e.g. "van Gogh" would be
 # sorted under "G".
-def tvSplit (lastname):
-    """Split a "tussenvoegsel" from the beginning of the last name.
-    Return a tuple: (tussenvoegsel or <None>, "main" part of last name).
+def tvSplit(fnames, lname):
+    """Split off a "tussenvoegsel" from the end of the first-names,
+    <fnames>, or the start of the surname, <lname>.
+    Also ensure normalized spacing between names.
+    Return a tuple: (
+            first names without tussenvoegsel,
+            tussenvoegsel or <None>,
+            lastname without tussenvoegsel
+        ).
     """
-    tvlist = list (CONF.MISC.TUSSENVOEGSEL)
-    ns = lastname.split ()
-    if len (ns) >= 1:
-        tv = []
-        i = 0
-        for s in ns:
-            if s in tvlist:
-                tv.append (s)
-                i += 1
-            else:
-                break
-        if i > 0:
-            return (" ".join (tv), " ".join (ns [i:]))
-    return (None, " ".join (ns))    # ensure normalized spacing
+    fn = []
+    tv = fnames.split()
+    while tv[0][0].isupper():
+        fn.append(tv.pop(0))
+        if not len(tv):
+            break
+    if not fn:
+        REPORT.Fail(_BADNAME, name = fnames + ' / ' + lname)
+    ln = lname.split()
+    while ln[0].islower():
+        if len(ln) == 1:
+            break
+        tv.append(ln.pop(0))
+    return (' '.join(fn), ' '.join(tv) or None, ' '.join(ln))
 
 
 def asciify(string):
@@ -110,7 +119,4 @@ def asciify(string):
 
 ##################### Test functions
 def test_01 ():
-    REPORT.Test ('de Witt --> <%s> <%s>' % tvSplit ('de Witt'))
-    REPORT.Test ('De Witt --> <%s> <%s>' % tvSplit ('De Witt'))
-    REPORT.Test ("o'Riordan --> <%s> <%s>" % tvSplit ("o'Riordan"))
-    REPORT.Test ("O'Riordan --> <%s> <%s>" % tvSplit ("O'Riordan"))
+    return

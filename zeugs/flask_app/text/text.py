@@ -4,7 +4,7 @@
 """
 flask_app/text/text.py
 
-Last updated:  2020-05-05
+Last updated:  2020-05-10
 
 Flask Blueprint for text reports
 
@@ -119,7 +119,7 @@ def summary():
     if form.validate_on_submit():
         # POST
         user = session['user_id']
-        name = Users().name(user)
+        name = 'Admin' if user == 'X' else Users().name(user)
         if form.choice.data == 'teachers':
             pdfBytes = tSheets(session['year'],
                             name,

@@ -8,10 +8,11 @@
     <form class="pure-form pure-form-aligned widelabel" method="POST">
         {{ form.csrf_token }}
         <fieldset>
-            <p>Um die Eingabe der Textzeugnisse durch unprivilegierte Benutzer
-            zu ermöglichen, muss der Abgabetermin gesetzt werden. Dieser Termin
-            wird allerdings nicht vom Programm kontrolliert: Um Eingaben
-            zu sperren, muss das Datum auf Null gesetzt werden!
+            <p>Um die Eingabe der Textzeugnisse durch „normale“ Benutzer
+            zu ermöglichen, muss der Abgabetermin gesetzt werden. Die Einhaltung
+            dieser Termin wird allerdings nicht automatisch kontrolliert: Um
+            Eingaben zu sperren, muss das Datum auf „Null“ (kein Datum) gesetzt
+            werden!
             </p>
             <div class="pure-control-group">
                 {{ form.TEXT_CLOSING_D.label }}{{ form.TEXT_CLOSING_D }}

@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-05-09
+Last updated:  2020-05-10
 
 Flask Blueprint for updating pupil data.
 
@@ -135,11 +135,6 @@ def update():
         return changes
 
     schoolyear = session['year']
-#    delta = session.pop('pupildelta', None)
-#    if (not delta):
-#    if delta.schoolyear != schoolyear:
-#        flash("Das Schuljahr stimmt mit den Daten nicht überein", "Error")
-#        return redirect('bp_pupildata.upload')
     form = FlaskForm()
     if form.validate_on_submit():
         # POST
@@ -200,11 +195,13 @@ def migrate():
     newyear = schoolyear + 1
     try:
         db = DBT(newyear, noreport = True)
-        # The next year exists already, which could be risky ...
+        # The next year exists already, which could be risky ... should
+        # issue a warning (via <overwrite>).
     except:
-        db = None
+        overwrite = False
         DAY1 = None
     else:
+        overwrite = True
         with db:
             DAY1 = db.getInfo('CALENDAR_FIRST_DAY')
 
@@ -212,7 +209,7 @@ def migrate():
     if app.isPOST(form):
         ### POST
         DAY1 = request.form['DAY1_D']
-        if db:
+        if overwrite:
             REPORT.wrap(REPORT.Warn, ("Schülertabelle %d wird"
                     " überschrieben – mit möglichem Datenverlust") % newyear)
         else:
@@ -228,7 +225,7 @@ def migrate():
                             form = form,
                             heading = _HEADING,
                             year = newyear,
-                            dbexists = bool(db),
+                            dbexists = overwrite,
                             DAY1_D = DAY1,
                             MIN_D = MIN_D,
                             MAX_D = MAX_D)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-05-09
+wz_compat/import_pupils.py - last updated 2020-05-10
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -41,7 +41,6 @@ _NOFIRSTDAY = "Der erste Schultag ist nicht bekannt für Schuljahr {year}"
 _CHANGE_STREAM = "Ungültige Schülergruppe: {s0}. -> {s1}"
 _NO_QUALI_D = ("Klasse {klass}: Für {name} muss das Datum des Eintritts"
         " in die Qualifikationsphase gesetzt werden")
-_BADNAME = "Ungültiger Schülername: {name}"
 
 # Info tag in spreadsheet table
 _SCHOOLYEAR = "Schuljahr"
@@ -60,6 +59,7 @@ from wz_core.db import DBT
 from wz_core.pupils import Pupils, PupilData, Klass
 # To read/write spreadsheet tables:
 from wz_table.dbtable import readDBTable, makeDBTable
+from wz_compat.config import tvSplit, sortingName
 from wz_compat.grade_classes import klass2streams
 
 
@@ -132,34 +132,6 @@ def _getFieldmap():
     for f, val in DBT.pupilFields().items():
         fmap[f] = val.upper()
     return fmap
-
-# In Dutch there is a word for those little lastname prefixes like "von",
-# "zu", "van" "de": "tussenvoegsel". For sorting purposes these can be a
-# bit annoying because they are often ignored, e.g. "van Gogh" would be
-# sorted under "G".
-def tvSplit(fnames, lname):
-    """Split off a "tussenvoegsel" from the end of the first-names,
-    <fnames>, or the start of the surname, <lname>.
-    Return a tuple: (
-            [core] first names,
-            tussenvoegsel or <None>,
-            [core] lastname
-        ).
-    """
-    fn = []
-    tv = fnames.split()
-    while tv[0][0].isupper():
-        fn.append(tv.pop(0))
-        if not len(tv):
-            break
-    if not fn:
-        REPORT.Fail(_BADNAME, name = fnames + ' / ' + lname)
-    ln = lname.split()
-    while ln[0].islower():
-        if len(ln) == 1:
-            break
-        tv.append(ln.pop(0))
-    return (' '.join(fn), ' '.join(tv) or None, ' '.join(ln))
 
 
 
@@ -271,8 +243,6 @@ class DeltaRaw(dict):
                 else:
                     REPORT.Warn(_FIELDMISSING, field = f, path = filepath)
 
-        ### For sorting: use a translation table for non-ASCII characters
-        ttable = str.maketrans(dict(CONF.ASCII_SUB))
         ### Read the row data
         ntuples = {}
         dateformat = CONF.MISC.DATEFORMAT
@@ -305,13 +275,10 @@ class DeltaRaw(dict):
                         pdata['LASTNAME'])
                 firstname = tvSplit(pdata['FIRSTNAME'], 'X')[0]
                 if tv:
-                    sortname = lastname + ' ' + tv + ' ' + firstname
                     pdata['FIRSTNAMES'] = firstnames
                     pdata['FIRSTNAME'] = firstname
                     pdata['LASTNAME'] = tv + ' ' + lastname
-                else:
-                    sortname = lastname + ' ' + firstname
-                pdata['PSORT'] = sortname.translate(ttable)
+                pdata['PSORT'] = sortingName(firstname, tv, lastname)
 
             klass = pdata['CLASS']
             # Normalize class name
