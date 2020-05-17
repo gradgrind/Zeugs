@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-04-21
+Last updated:  2020-05-17
 
 Handle the data for grade reports.
 
@@ -42,6 +42,7 @@ _UNGROUPED_SID = ("Fach {sid} fehlt in den Fachgruppen (in GRADES.ORDERING)"
 _NO_TEMPLATE = "Keine Zeugnisvorlage für Klasse {ks}, Typ {rtype}"
 _GROUP_CHANGE = "Die Noten für {pname} ({pk}) sind für Gruppe {gk}"
 _WRONG_TERM = "Nicht aktuelles Halbjahr: '{term}'"
+_WRONG_YEAR = "Nicht aktuelles Schuljahr: '{year}'"
 _BAD_LOCK_VALUE = "Ungültige Sperrung: {val} for {group}"
 _BAD_IDATE_VALUE = "Ungültiges Ausstellungsdatum: {val} for {group}"
 _BAD_GDATE_VALUE = "Ungültiges Datum der Notenkonferenz: {val} for {group}"

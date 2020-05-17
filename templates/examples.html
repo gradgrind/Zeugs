@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+<!-- How to set the "up" button (defined in base.html) -->
+{% set uplink = url_for('bp_grades.issue_dates') %}
+{% set uplink_help = "Ausstellungsdatum" %}
+
+<!-- How to add local style elements -->
+{% block imports %}
+<style>
+    #upbtn { display: none; }    /* No "up" button */
+</style>
+{% endblock %}
+
+<!-- The subtitle / page title -->
+{% block title %}Startseite{% endblock %}
+
+<!-- The page content -->
+{% block content %}
+    <h3>Setion title
+    </h3>
+    <p>A list of links:
+    </p>
+    <ul class="modules">
+        <li><a href="{{url_for('bp_settings.subjects')}}">
+            Fächertabellen verwalten
+        </a></li>
+        <li><a href="{{url_for('bp_pupildata.upload')}}">
+            Schülerdaten aktualisieren
+        </a></li>
+    </ul>
+
+    <!-- A form -->
+    <form class="pure-form" method="POST">
+        {{ form.csrf_token }}
+
+        <!-- A list of checkboxes -->
+        <!-- The checked boxes are available in the POST handler
+        as a list of "value" strings via "name":
+        locks = request.form.getlist('locks') -->
+        {% for ks in klasses %}
+        <div class="form-group">
+            <input name="locks" type="checkbox" value="{{ks}}" checked>
+            <span class="menu-item">Klasse {{ks}}</span>
+        </div>
+        {% endfor %}
+        <!-- A checkbox can be optionally checked, or disabled:
+                {% if locked == 2 %}checked{% endif %}
+                {% if locked == 0 %}disabled{% endif %}
+        -->
+
+        <!-- A submit button. With "name" and "value", multiple
+        submit buttons can be used and distinguished by:
+        if request.form['action'] == 'lock' -->
+        <button type="submit" name="action" value="lock"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Sperren
+        </button>
+        <button type="submit" name="action" value="cancel"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Abbrechen
+        </button>
+
+
+        <!-- A group of form elements -->
+        <fieldset>
+        {% for ks, dates in klasses.items() %}
+            {% set locked = dates.LOCK %}
+            <legend>Klasse {{ ks }}</legend> <!-- like a group title -->
+            <div class="pure-control-group">
+                <!-- A date field with range and start value
+                ('YYYY-MM-DD'). Get the result using the "name" tag:
+                DATE_D = request.form[ks] # (also 'YYYY-MM-DD'). -->
+                <label for="{{ ks }}">Konferenzdatum</label>
+                <input id="{{ ks }}" name="{{ ks }}" type="date"
+                        min="{{ MIN_D }}" max="{{ MAX_D }}"
+                        value="{{ dates.GDATE_D }}"
+                        <!-- It can also be readonly ... -->
+                        {% if locked == 0 %}readonly{% endif %}>
+                        <!-- ... or required ... -->
+                        {% if not currentterm %}required{% endif %}>
+            </div>
+            <!-- A select field. Get the result using the "name" tag:
+            RTYPE = request.form['rtype'] -->
+            <div class="pure-control-group">
+                <label for="rtype">Zeugnistyp</label>
+                <select id="rtype" name="rtype">
+                {% for rtype in pdata.RTYPES %}
+                    <option {% if rtype == pdata.RTYPE %}selected{% endif %}>
+                        {{ rtype }}
+                    </option>
+                {% endfor %}
+                </select>
+            </div>
+        {% endfor %}
+        </fieldset>
+
+        <!-- A text area. Get the result using the "name" tag:
+        remarks = request.form.get('REMARKS') or None -->
+        <legend>Bemerkungen</legend>
+        <textarea id="REMARKS" name="REMARKS">{{ pdata.REMARKS }}</textarea>
+
+    </form>
+{% endblock %}

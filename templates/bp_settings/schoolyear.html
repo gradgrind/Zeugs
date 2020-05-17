@@ -6,38 +6,93 @@
 {% block title %}Schuljahr{% endblock %}
 
 {% block content %}
-    <p>Sie können ein anderes Schuljahr wählen, um Zugang zu alten Zeugnisdaten
-    zu erlangen.
+    <p>Hier können Sie ein anderes Schuljahr betrachten und bearbeiten
+    (aktuell: {{ session.get('year', '–––') }}). Manche Operationen
+    stehen allerdings für abgeschlossene Jahre nicht zur Verfügung.
     </p>
+    <p>Sie können hier auch ein neues Schuljahr anzulegen.
+    </p>
+    <p>Sehr alte Daten können Sie löschen – vorher sollten Sie aber
+    eine Sicherungskopie herunterladen und archivieren!
+    </p>
+    <p>Auf dieser Seite ist es auch möglich das <strong>offene</strong>
+    Schuljahr ({{ setyear or '–––' }}) abzuschließen und zum
+    nächsten zu wechseln, nachdem dieses angelegt wurde.
+    </p>
+<!-- If there are existing years to choose from: offer a choice (SELECT) -->
+    {% if years|length > 1 %}
     <form class="pure-form" method="POST">
         {{ form.csrf_token }}
+
         <fieldset>
-            <legend>Schuljahr wählen</legend>{{ form.YEAR }}
+            <h3>Schuljahr wählen</h3>
+            <p>Sie können ein anderes Schuljahr als „Betrachtungsjahr“
+            wählen, um Zugang zu alten Zeugnisdaten zu erlangen.
+            </p>
+            <p>Sie können aber auch ältere Schuljahre löschen,
+            wovon normalerweise abzuraten ist – da Daten verloren gehen.
+            </p>
+            <div class="form-group">
+                <label for="year">Schuljahr</label>
+                <select id="year" name="year">
+                {% for y in years %}
+                    <option {% if y == session.year %}selected{% endif %}>
+                        {{ y }}
+                    </option>
+                {% endfor %}
+                </select>
+            </div>
+
             <button type="submit" class="pure-button submit-button"
-                    style="margin: 0;">
-                Übernehmen
+                    style="margin: 0.5rem 1rem;" name="action" value="change">
+                Wechseln
+            </button>
+            <button type="submit" class="pure-button submit-button"
+                    style="margin: 0.5rem 1rem; background: #ff0000;"
+                    name="action" value="delete">
+                Löschen
+            </button>
+            <button type="submit" class="pure-button submit-button"
+                    style="margin: 0.5rem 1rem;"
+                    name="action" value="download">
+                Daten Herunterladen
             </button>
         </fieldset>
+        <hr>
     </form>
+    {% endif %}
 
-    <hr />
-    <p>Oder wählen Sie unten eine Einstellungsseite.
-    </p>
+    <!-- Add year after latest existing one, with optional migration -->
+    <form class="pure-form" method="POST">
+        {{ form.csrf_token }}
 
-    <ul class="pure-menu-list">
-        <li class="pure-menu-item">
-            <a class="pure-menu-link"
-                href="{{url_for('bp_settings.newyear')}}">
-                Neues Schuljahr anlegen
-            </a>
-        </li>
-        <li class="pure-menu-item">
-            <a class="pure-menu-link"
-                href="{{url_for('bp_pupildata.upload')}}">
-                Schülerdaten aktualisieren
-            </a>
-        </li>
-    </ul>
-
-
+        <fieldset>
+            <h3>Schuljahr anlegen</h3>
+            <p>Um ein neues Schuljahr anzulegen, ist es notwendig, das
+            Datum des ersten Schultags anzugeben.
+            </p>
+            <div class="form-group">
+                <label for="DAY1_D">Erster Schultag</label>
+                <input id="DAY1_D" name="day_1_D" type="date"
+                        min="{{ MIN_D }}" max="{{ MAX_D }}" required>
+            </div>
+            <p>Um die Einrichtung eines neuen Schuljahrs zu vereinfachen, können
+            manche Daten vom vorigen Jahr übernommen werden.
+            </p>
+            <p>Aktuell unterstützt ist die automatische Versetzung der Schüler
+            in die nächst höhere Klasse.
+            </p>
+            <div class="form-group">
+                <label for="migrate" class="pure-checkbox">
+                    <input type="checkbox" id="migrate"  name="migrate" checked>
+                    Daten übernehmen (wenn möglich)
+                </label>
+            </div>
+            <button type="submit" class="pure-button submit-button"
+                    style="margin: 0.5rem 1rem;" name="action" value="new_year">
+                Anlegen
+            </button>
+        </fieldset>
+        <hr>
+    </form>
 {% endblock %}

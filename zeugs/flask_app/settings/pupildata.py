@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-05-10
+Last updated:  2020-05-17
 
 Flask Blueprint for updating pupil data.
 
@@ -185,47 +185,3 @@ def export():
                 dfile = 'Schueler-%d.xlsx' % schoolyear))
     return redirect('bp_settings.index')
 
-
-@bp.route('/migrate', methods=['GET', 'POST'])
-def migrate():
-    """Initialise a new schoolyear.
-    At present only the pupils are transferred from the current year.
-    """
-    schoolyear = session['year']
-    newyear = schoolyear + 1
-    try:
-        db = DBT(newyear, noreport = True)
-        # The next year exists already, which could be risky ... should
-        # issue a warning (via <overwrite>).
-    except:
-        overwrite = False
-        DAY1 = None
-    else:
-        overwrite = True
-        with db:
-            DAY1 = db.getInfo('CALENDAR_FIRST_DAY')
-
-    form = FlaskForm()
-    if app.isPOST(form):
-        ### POST
-        DAY1 = request.form['DAY1_D']
-        if overwrite:
-            REPORT.wrap(REPORT.Warn, ("Schülertabelle %d wird"
-                    " überschrieben – mit möglichem Datenverlust") % newyear)
-        else:
-            db = DBT(newyear, mustexist = False)
-        with db:
-            db.setInfo('CALENDAR_FIRST_DAY', DAY1)
-        if REPORT.wrap(migratePupils, newyear):
-            return redirect(url_for('bp_settings.index'))
-
-    ### GET
-    MIN_D, MAX_D = Dates.checkschoolyear(newyear)
-    return render_template(os.path.join(_BPNAME, 'migrate.html'),
-                            form = form,
-                            heading = _HEADING,
-                            year = newyear,
-                            dbexists = overwrite,
-                            DAY1_D = DAY1,
-                            MIN_D = MIN_D,
-                            MAX_D = MAX_D)

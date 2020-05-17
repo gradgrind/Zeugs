@@ -4,7 +4,7 @@
 """
 flask_app/settings/settings.py
 
-Last updated:  2020-04-10
+Last updated:  2020-05-17
 
 Flask Blueprint for application settings.
 
@@ -27,23 +27,26 @@ Copyright 2020 Michael Towers
 """
 
 from flask import (Blueprint, render_template, session,
-        url_for, flash, redirect)
-#from flask import current_app as app
+        url_for, flash, redirect, request, send_file, make_response)
+from flask import current_app as app
 
 from flask_wtf import FlaskForm
-from wtforms import SelectField
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wtforms.fields.html5 import DateField
 from wtforms.validators import InputRequired, Optional
 
-import os, datetime
+import os, datetime, shutil
+from zipfile import ZipFile
+from io import BytesIO
 
 from wz_core.configuration import Paths, Dates
 from wz_core.db import DBT
 from wz_core.pupils import Pupils, Klass
+from wz_core.setup import newYear
 from wz_table.dbtable import readPSMatrix
 from wz_compat.grade_classes import choices2db
+from wz_compat.import_pupils import migratePupils
 
 
 _HEADING = "Einstellungen"
@@ -62,30 +65,162 @@ def index():
 
 @bp.route('/year', methods=['GET','POST'])
 def year():
-    class YearForm(FlaskForm):
-        YEAR = SelectField("Schuljahr", coerce=int)
-
-    schoolyear = session['year']
-    form = YearForm()
-    form.YEAR.choices = [(y, y) for y in Paths.getYears()]
-    if form.validate_on_submit():
+    # The start date of a new school-year must be after <setyear>. If no
+    # year is "set" (which should only be possible during set-up of
+    # the application), then no earlier than the beginning of the current
+    # school-year.
+    # Dates after the next school-year should also not be accepted.
+    years = Paths.getYears()        # List of available school-years
+    setyear = DBT().schoolyear      # Currently "open" school-year
+    thisyear = Dates.getschoolyear() # Current school-year
+    # <setyear> and <thisyear> will normally be the same
+    form = FlaskForm()
+    if app.isPOST(form):
         # POST
-        y = form.YEAR.data
-        if y != schoolyear:
-            schoolyear = y
-            session['year'] = y
-            flash("Schuljahr auf %d gesetzt." % y)
+        if request.form['action'] == 'new_year':
+            day_1 = request.form['day_1_D']
+            year_1 = Dates.getschoolyear(day_1)
+            if year_1 in years:
+                flash("Schuljahr %d ist schon angelegt" % year_1, "Warning")
+                return redirect(request.referrer)
+            db = DBT(year_1, mustexist = False)
+            with db:
+                db.setInfo('CALENDAR_FIRST_DAY', day_1)
+            if (year_1 - 1) in years:
+                # A data migration is possible
+                if request.form.get('migrate'):
+                    if REPORT.wrap(migratePupils, year_1):
+                        return redirect(url_for('bp_settings.index'))
+                    else:
+                        return redirect(request.referrer)
+            if REPORT.wrap(newYear, year_1):
+                return redirect(url_for('bp_settings.index'))
+            else:
+                return redirect(request.referrer)
+
+        else:
+            year = int(request.form['year'])
+            if request.form['action'] == 'change':
+                if year == session.get('year'):
+                    flash("Schuljahr (%d) nicht geändert." % year, "Info")
+                else:
+                    if year in years:
+                        session['year'] = year
+                        flash("Schuljahr auf %d gesetzt." % year, "Info")
+                return redirect(url_for('bp_settings.index'))
+
+            if request.form['action'] == 'delete':
+                return redirect(url_for('bp_settings.delete_year', year = year))
+
+            if request.form['action'] == 'download':
+                return redirect(url_for('bp_settings.dl_year', year = year))
+
+        abort(404)
 
     # GET
-    form.YEAR.default = schoolyear
+    # Possible new years:
+    #  - the one after <setyear>
+    #  - the current one (<thisyear>)
+    #  - the next one (<thisyear + 1>)
+    # Ones that already exist are excluded.
+    nextyear = thisyear + 1
+    MIN_D = None
+    if nextyear not in years:
+        MIN_D, MAX_D = Dates.checkschoolyear(nextyear)
+        if thisyear not in years:
+            MIN_D = Dates.day1(thisyear)
+    elif thisyear not in years:
+        MIN_D, MAX_D = Dates.checkschoolyear(thisyear)
+    if setyear:
+        nextset = setyear + 1
+        if nextset < thisyear and nextset not in years:
+            # A special case: the "open" year lies a while back
+            if MIN_D:
+                MIN_D = Dates.day1(nextset)
+            else:
+                MIN_D, MAX_D = Dates.checkschoolyear(nextset)
+    # If MIN_D is not set, no new year can be created.
     return render_template(os.path.join(_BPNAME, 'schoolyear.html'),
                             form=form,
-                            heading=_HEADING)
+                            heading=_HEADING,
+                            setyear = setyear,
+                            years = years,
+                            MIN_D = MIN_D,
+                            MAX_D = MAX_D)
 
 
-@bp.route('/newyear', methods=['GET','POST'])
-def newyear():
-    return "'newyear' not yet implemented"
+@bp.route('/delete_year/<int:year>', methods=['GET','POST'])
+def delete_year(year):
+    years = Paths.getYears()
+    if len(years) <= 1:
+        flash("Keine Jahre können gelöscht werden", "Error")
+        return redirect(url_for('bp_settings.year'))
+    setyear = DBT().schoolyear
+    if year == setyear:
+        flash("Das aktive Jahr kann nicht gelöscht werden", "Error")
+        return redirect(url_for('bp_settings.year'))
+    thisyear = Dates.getschoolyear()
+    if (thisyear - year < 3) and setyear > year:
+        flash("Nur ältere Daten können gelöscht werden", "Error")
+        return redirect(url_for('bp_settings.year'))
+
+    form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        if request.form['action'] == 'delete':
+            dpath = Paths.getYearPath(year)
+            if os.path.isdir(dpath):
+                shutil.rmtree(dpath)
+            flash("Die Daten für %d wurden gelöscht" % year, "Info")
+            session['year'] = setyear
+        return redirect(url_for('bp_settings.year'))
+
+    # GET
+    return render_template(os.path.join(_BPNAME, 'delete_year.html'),
+                            form=form,
+                            heading=_HEADING,
+                            setyear = setyear,
+                            year = year)
+
+
+@bp.route('/dl_year', methods=['GET'])
+@bp.route('/dl_year/<int:year>', methods=['GET'])
+def dl_year(year = None):
+    if not year:
+        year = session.get('year')
+        if not year:
+            flash("Kein Schuljahr zum Herunterladen", "Error")
+            return redirect(url_for('bp_settings.year'))
+    ### Prepare a zip-archive of the year for downloading
+    ## Get all file paths
+    directory = Paths.getYearPath(year)
+    if not os.path.isdir(directory):
+        flash("Keine Daten für %d" % year, "Error")
+        return redirect(url_for('bp_settings.year'))
+    # Initialize empty file paths list
+    file_paths = []
+    ## Crawl through directory and subdirectories
+    for root, directories, files in os.walk(directory):
+        for filename in files:
+            # join the two strings in order to form the full filepath.
+            filepath = os.path.join(root, filename)
+            file_paths.append(filepath)
+    ## Write files to zipfile
+    memory_file = BytesIO()
+    with ZipFile(memory_file, 'w') as zipm:
+        # writing each file one by one
+        for ifile in file_paths:
+            zipm.write(ifile)
+    memory_file.seek(0)
+    response = make_response(send_file(
+        memory_file,
+        attachment_filename = 'Daten_%d.zip' % year,
+        mimetype = 'application/zip',
+        as_attachment=True
+    ))
+    # Prevent caching:
+    response.headers['Cache-Control'] = 'max-age=0'
+    return response
 
 
 @bp.route('/calendar', methods=['GET','POST'])

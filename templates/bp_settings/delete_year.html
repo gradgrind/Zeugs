@@ -1,0 +1,33 @@
+<!-- Set school-year -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_settings.index') %}
+{% set uplink_help = "Einstellungen" %}
+
+{% block title %}Schuljahr löschen{% endblock %}
+
+{% block content %}
+    <p>Aktuelles Schuljahr: {{ setyear }}
+    </p>
+    <p style="color:#e00;">Gefahr von Datenverlust!
+    Wenn Sie der Löschung zustimmen, werden alle Daten für {{ year }}
+    unwiederbringlich gelöscht.
+    </p>
+    <p><a href="{{ url_for('bp_settings.dl_year', year=year) }}">
+        Über diesen Link</a>
+    können Sie die Jahresdaten herunterladen, um sie extern zu sichern.
+    </p>
+    <form class="pure-form" method="POST">
+        {{ form.csrf_token }}
+
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem; background: #ff0000;"
+                name="action" value="delete">
+            Daten für {{ year }} löschen
+        </button>
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;"
+                name="action" value="cancel">
+            Abbrechen
+        </button>
+    </form>
+{% endblock %}
