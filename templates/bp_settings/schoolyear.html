@@ -55,14 +55,26 @@
             <button type="submit" class="pure-button submit-button"
                     style="margin: 0.5rem 1rem;"
                     name="action" value="download">
-                Daten Herunterladen
+                Daten herunterladen
             </button>
         </fieldset>
         <hr>
     </form>
+    {% elif years %}
+    <form class="pure-form" method="POST">
+        {{ form.csrf_token }}
+
+        <input type="hidden" name="year" value="{{ years[0] }}">
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;"
+                name="action" value="download">
+            Daten für {{ years[0] }} herunterladen
+        </button>
+    </form>
     {% endif %}
 
     <!-- Add year after latest existing one, with optional migration -->
+    {% if MIN_D %}
     <form class="pure-form" method="POST">
         {{ form.csrf_token }}
 
@@ -95,4 +107,5 @@
         </fieldset>
         <hr>
     </form>
+    {% endif %}
 {% endblock %}
