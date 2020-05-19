@@ -10,10 +10,18 @@
 {% block content %}
     <p><strong>Zeugs</strong> unterstützt Sie bei der Erstellung der Zeugnisse.
     </p>
-    <p>Hier sollte die Dokumentation abrufbar sein ...
+    <p>TODO: Hier sollte die Dokumentation abrufbar sein ...
     </p>
-    <p>Über die Navigation gelangen Sie zu Informationen über die verschiedenen
+    {% if session.get('user_id') %}
+    <p>Ihr Benutzerkennwort erscheint oben rechts in der Untertitel-Leiste.
+    Um sich abzumelden, klicken Sie darauf.
+    Die zur Verfügung stehenden Funktionen erreichen Sie über die
+    Navigation (links).
+    </p>
+    {% else %}
+    <p>Über die Navigation (?) gelangen Sie zu Informationen über die verschiedenen
     Module. Um mit dem Programm zu arbeiten, müssen Sie sich
     <a href="{{url_for('bp_auth.login')}}">anmelden</a>.
     </p>
+    {% endif %}
 {% endblock %}

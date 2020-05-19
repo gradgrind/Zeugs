@@ -4,7 +4,7 @@
 """
 flask_app/auth/auth.py
 
-Last updated:  2020-04-09
+Last updated:  2020-05-19
 
 Flask Blueprint for user authentication (login).
 
@@ -32,7 +32,7 @@ Copyright 2019-2020 Michael Towers
 import os, time
 
 from flask import (Blueprint, g, redirect, render_template, request,
-        session, url_for, current_app
+        session, url_for, current_app, flash
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -96,7 +96,7 @@ def dologin(user, perms):
             os.remove(ff)
 
     # Set the school-year to the current one:
-    session['year'] = DBT().schoolyear
+    session['year'] =  DBT().schoolyear
     return True
 
 
@@ -105,7 +105,7 @@ def login():
     try:
         endpoint = session['redirect_login']
     except KeyError:
-        endpoint = 'dispatch'
+        endpoint = 'index'
     try:
         zeugs_user = os.environ['ZEUGS_USER']
     except KeyError:

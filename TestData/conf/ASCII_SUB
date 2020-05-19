@@ -1,5 +1,5 @@
 ############## ASCII_SUB
-############## Version: 2019-01-08
+############## Version: 2020-05-18
 
 ### Ersatz-Zeichen für Dateinamen, die vom Programm erstellt werden, damit nur
 ### ASCII-Zeichen verwendet werden. Andere Nicht-ASCII-Zeichen werden durch
@@ -13,7 +13,11 @@
 Ü = UE
 ø = oe
 ô = o
+ó = o
 é = e
 è = e
+# Latin:
 ë = e
+# Cyrillic (sieht wie das letzte Zeichen aus, ist aber anders!):
+ё = e
 ñ = n

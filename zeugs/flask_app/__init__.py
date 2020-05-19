@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-04-09
+Last updated:  2020-05-19
 
 The Flask application: zeugs front-end.
 
@@ -28,7 +28,8 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
-import os, sys, datetime, io
+import os, sys, datetime, io, builtins
+builtins.active_year =  None
 
 from flask import (Flask, render_template, request, redirect, session,
         send_from_directory, url_for, flash, make_response, send_file)
@@ -37,6 +38,7 @@ from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
 
 from wz_core.configuration import init, Paths
+from wz_core.db import DBT
 
 ZEUGS_BASE = os.environ['ZEUGS_BASE']
 
@@ -191,6 +193,10 @@ def create_app(test_config=None):
 ##        response.cache_control.must_revalidate = True
 #        return response
 
+    DBT()   # set up <builtins.active_year>
+    @app.template_global()
+    def activeYear():
+        return active_year
 
     @app.route('/', methods=['GET'])
     def index():

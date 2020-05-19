@@ -208,12 +208,11 @@ def dl_year(year = None):
     ## Write files to zipfile
     memory_file = BytesIO()
     with ZipFile(memory_file, 'w') as zipm:
-        # writing each file one by one
-#TODO: Remove root paths!
+        # Write each file one by one, remove root paths!
         l = len(directory)
         for ifile in file_paths:
             zipm.write(ifile, str(year) + ifile[l:])
-    memory_file.seek(0)
+    memory_file.seek(0)     # Reset reading position (important!)
     response = make_response(send_file(
         memory_file,
         attachment_filename = 'Daten_%d.zip' % year,

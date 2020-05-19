@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-05-09
+Last updated:  2020-05-19
 
 This module handles access to an sqlite database.
 
@@ -55,11 +55,13 @@ GRADES_LOG_UNIQUE = [('KEYTAG', 'SID')]
 ABI_SUBJECTS_FIELDS = ('PID', 'SUBJECTS')
 ABI_SUBJECTS_UNIQUE = ['PID']
 
-import os, sqlite3
+import os, sqlite3, builtins
 
 from .configuration import Paths, Dates
 
 
+#TODO: Don't automatically create a year if there is none(?).
+#TODO: When the active year is switched, update builtins.active_year
 class DBT:
     """Database access with the possibility of some transaction
     management. The instances should be used as context managers, using
@@ -128,13 +130,17 @@ class DBT:
                 try:
                     y = Paths.getYears()[0]
                 except:
-                    # Create a database for the current year
-                    y = Dates.getschoolyear()
-                    DBT(y, mustexist = False)
-                with self:
-                    self.setInfo('_SCHOOLYEAR', str(y))
+#                    # Create a database for the current year
+#                    y = Dates.getschoolyear()
+#                    DBT(y, mustexist = False)
+                    y = None
+                    with self:
+                        self.setInfo('_SCHOOLYEAR', y)
+                else:
+                    with self:
+                        self.setInfo('_SCHOOLYEAR', str(y))
                 self.schoolyear = y
-
+            builtins.active_year = self.schoolyear
 
     ########### Make the objects usable as context managers ###########
     def __enter__(self):

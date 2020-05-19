@@ -56,7 +56,9 @@
         </div>
 
         <div class="topitem topyear">
-            <label>{{session.get('year', '')}}</label>
+            {% set year = session.get('year', '') %}
+            <label {% if year != activeYear() %}style="color: #e00;"
+                {% endif %}>{{ year }}</label>
         </div>
     </div>
 
