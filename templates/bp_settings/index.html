@@ -9,19 +9,21 @@
 
 {% block content %}
     <p>Hier können Sie verschiedene Einstellungen und allgemeine Daten
-    verwalten. Wählen Sie eine Funktion:
+    verwalten.
+    </p>
+    <p> Wählen Sie eine Funktion:
     </p>
     <ul class="modules">
-        <li><a href="{{url_for('bp_settings.subjects')}}">
+        <li><a href="{{ url_for('bp_settings.subjects') }}">
             Fächertabellen verwalten
         </a></li>
-        <li><a href="{{url_for('bp_pupildata.upload')}}">
+        <li><a href="{{ url_for('bp_pupildata.upload') }}">
             Schülerdaten aktualisieren
         </a></li>
-        <li><a href="{{url_for('bp_pupildata.export')}}">
+        <li><a href="{{ url_for('bp_pupildata.export') }}">
             Schülerdaten als xlsx-Tabelle herunterladen
         </a></li>
-        <li><a href="{{url_for('bp_settings.year')}}">
+        <li><a href="{{ url_for('bp_settings.year') }}">
             „Aktuelles“ Schuljahr verwalten / ändern
         </a></li>
     </ul>

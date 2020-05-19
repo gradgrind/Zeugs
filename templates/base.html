@@ -72,7 +72,7 @@
             {% block title %}{% endblock %}
             {% with uid = session.get('user_id') %}
                 {% if uid %}
-                <a href="{{url_for('bp_auth.logout')}}" class="zbtn tooltip"
+                <a href="{{url_for('bp_auth.logout_user')}}" class="zbtn tooltip"
                         style="right: 0">
                     <span style="font-size: 1rem; font-weight: normal;">{{uid}}</span>
                     <span class="tooltiptext" style="right: 105%;">Abmelden</span>

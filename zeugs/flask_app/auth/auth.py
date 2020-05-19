@@ -127,8 +127,8 @@ def login():
     return render_template(os.path.join(_BPNAME, 'login.html'), form=form)
 
 
-@bp.route('/logout')
-def logout():
+@bp.route('/logout_user')
+def logout_user():
     session.clear()
     return redirect(url_for('index'))
 

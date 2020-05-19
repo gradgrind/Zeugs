@@ -32,7 +32,9 @@ import os, sys, datetime, io, builtins
 builtins.active_year =  None
 
 from flask import (Flask, render_template, request, redirect, session,
-        send_from_directory, url_for, flash, make_response, send_file)
+        send_from_directory, url_for, flash, make_response, send_file,
+        abort
+    )
 from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
@@ -41,6 +43,13 @@ from wz_core.configuration import init, Paths
 from wz_core.db import DBT
 
 ZEUGS_BASE = os.environ['ZEUGS_BASE']
+
+# USER LEVELS: values chosen such that comparisons work logically ...
+NO_USER = 0
+NORMAL_USER = 1
+ADMIN_USER = 2
+X_USER = 3
+
 
 ERROR_TYPES = {
     -1: "Test",     # Test
@@ -168,20 +177,20 @@ def create_app(test_config=None):
 #        print ("--->", request_endpoint)
 #        print (" @@@", request_path)
 
-        if request_endpoint in (None, 'index', 'bp_auth.login', 'static', 'zeugs_data'):
+        if request_endpoint in (None, 'bp_auth.login', 'static', 'zeugs_data'):
             return None
-        if request_endpoint.startswith('bp_info.'):
+        if (request_endpoint.endswith('index')
+                or request_endpoint.endswith('_info')):
             return None
-#        print ("SESSION:", session)
-        perms = session.get('permission', '')
-#        print("ACCESS:", perms, request_endpoint, request_path)
-#TODO: more elaborate access controls ...
-        if 's' in perms:
+        perms = access()
+#TODO: Maybe 'x' can do more than 's'?
+        if perms >= ADMIN_USER: return None
+        if not perms:
+            session['redirect_login'] = request_endpoint
+            return redirect(url_for('bp_auth.login'))
+        if request_endpoint.endswith('_user'):
             return None
-        if 'u' in perms and request_path.startswith ('/user/'):
-            return None
-        session['redirect_login'] = request_endpoint
-        return redirect(url_for('bp_auth.login'))
+        abort(404)
 
 
 #    # No caching at all for API endpoints.
@@ -193,10 +202,23 @@ def create_app(test_config=None):
 ##        response.cache_control.must_revalidate = True
 #        return response
 
+#@app.context_processor? (see templating docs for flask)
+
+    @app.template_global()
+    def access():
+        perms = session.get('permission')
+        if perms:
+            if 'x' in perms: return X_USER
+            if 's' in perms: return ADMIN_USER
+            return NORMAL_USER
+        return NO_USER
+
+
     DBT()   # set up <builtins.active_year>
     @app.template_global()
     def activeYear():
         return active_year
+
 
     @app.route('/', methods=['GET'])
     def index():
