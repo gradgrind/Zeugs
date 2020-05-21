@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-05-19
+Last updated:  2020-05-21
 
 This module handles access to an sqlite database.
 
@@ -54,6 +54,8 @@ GRADES_LOG_UNIQUE = [('KEYTAG', 'SID')]
 
 ABI_SUBJECTS_FIELDS = ('PID', 'SUBJECTS')
 ABI_SUBJECTS_UNIQUE = ['PID']
+
+TEACHERS_UNIQUE = ['TID']
 
 import os, sqlite3, builtins
 
@@ -108,6 +110,7 @@ class DBT:
             self._dbcon.row_factory = sqlite3.Row
             if not dbexists:
                 self._init()
+#            self._init()
 
         else:
             # The "master" database for the application.
@@ -177,6 +180,9 @@ class DBT:
             if not self.tableExists('GRADES_LOG'):
                 self.makeTable('GRADES_LOG', GRADES_LOG_FIELDS,
                         pk = 'ID', index = GRADES_LOG_UNIQUE)
+            if not self.tableExists('TEACHERS'):
+                self.makeTable('TEACHERS', CONF.TABLES.TEACHER_FIELDNAMES,
+                        index = TEACHERS_UNIQUE)
             # Make indexes for (CLASS, PSORT) and PID. One might
             # consider using WITHOUT ROWID.
             if not self.tableExists('PUPILS'):

@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-05-19
+Last updated:  2020-05-21
 
 Flask Blueprint for updating teacher data.
 
@@ -41,14 +41,21 @@ from flask import current_app as app
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 
-from wz_core.db import DBT
-from wz_core.configuration import Dates
+#from wz_core.db import DBT
+#from wz_core.configuration import Dates
+from wz_core.teachers import readTeacherTable, exportTeachers
 
 
 # Set up Blueprint
 _BPNAME = 'bp_teacherdata'
 bp = Blueprint(_BPNAME,             # internal name of the Blueprint
         __name__)                   # allows the current package to be found
+
+
+@bp.route('/', methods=['GET'])
+def index():
+    return render_template(os.path.join(_BPNAME, 'index.html'),
+                            heading=_HEADING)
 
 
 ### Upload a table containing all necessary information about the teachers.
@@ -67,35 +74,29 @@ def upload():
     form = UploadForm()
     if form.validate_on_submit():
         # POST
-
-#TODO ...
-
-
-        rawdata = REPORT.wrap(DeltaRaw, schoolyear, form.upload.data,
+        fpath = REPORT.wrap(readTeacherTable, schoolyear, form.upload.data,
                 suppressok=True)
-        if rawdata:
-            session['rawpupildata'] = rawdata
-            return redirect(url_for('bp_pupildata.update'))
+        if fpath:
+            flash("Die Daten der Lehrkräfte wurden von '%s' aktualisiert"
+                    % fpath, "Info")
+            return redirect(url_for('bp_settings.index'))
 
     # GET
-    return render_template(os.path.join(_BPNAME, 'pupils_upload.html'),
+    return render_template(os.path.join(_BPNAME, 'teachers_upload.html'),
                             heading=_HEADING,
                             form=form)
 
 
-
-
-#TODO
 @bp.route('/export', methods=['GET'])
 def export():
     """View: Export the teacher database table for the current year as
     an xlsx spreadsheet.
     """
     schoolyear = session['year']
-    pdfBytes = REPORT.wrap(exportTeachers, schoolyear, suppressok=True)
-    if pdfBytes:
-        session['filebytes'] = pdfBytes
+    xlsxBytes = REPORT.wrap(exportTeachers, schoolyear, suppressok=True)
+    if xlsxBytes:
+        session['filebytes'] = xlsxBytes
         return redirect(url_for('download',
                 dfile = 'Lehrer-%d.xlsx' % schoolyear))
-    return redirect('bp_settings.index')
+    return redirect(url_for('bp_settings.index'))
 

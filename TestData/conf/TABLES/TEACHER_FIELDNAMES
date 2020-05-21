@@ -1,10 +1,10 @@
 ############## TABLES/TEACHER_FIELDNAMES
-############## Version: 2019-12-08
+############## Version: 2020-05-21
 
 ### Feldnamen der Lehrertabelle
 
 ## Programminterne Bezeichnung für die Lehrkraft (erste Spalte!):
-#tid = %id
+TID = Kürzel
 
 ## Name der Lehrkraft (für Zeugnisse):
 NAME = Lehrkraft

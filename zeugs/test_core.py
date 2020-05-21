@@ -3,13 +3,13 @@
 """
 test_core.py
 
-Last updated:  2019-12-14
+Last updated:  2020-05-21
 
 Run some tests on the modules in the wz_core package.
 
 
 =+LICENCE=============================
-Copyright 2019 Michael Towers
+Copyright 2019-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -63,6 +63,3 @@ if __name__ == '__main__':
 
     from wz_core import pupils
     runTests (pupils)
-
-    from wz_core import teachers
-    runTests (teachers)

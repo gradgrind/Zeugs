@@ -3,7 +3,7 @@
 """
 wz_core/teachers.py
 
-Last updated:  2020-02-10
+Last updated:  2020-05-21
 
 Access to the list of teachers.
 
@@ -28,13 +28,17 @@ Copyright 2017-2020 Michael Towers
 ### Messages
 #_MISSINGDBFIELD = "Feld fehlt in Lehrer-Tabelle {filepath}:\n  {field}"
 _UNKNOWNTEACHER = "Unbekannte Lehrkraft. Kürzel: {tid}"
+_BADSCHOOLYEAR  = "Falsches Jahr in Tabelle {filepath}: {year} erwartet"
 
+_TEACHER_TABLE_TITLE = "Lehrkräfte"
+_SCHOOLYEAR = "Schuljahr"
 
 from collections import OrderedDict
 
 from wz_core.configuration import Paths
-# To read teacher table:
-from wz_table.dbtable import dbTable#, readDBTable
+from wz_core.db import DBT
+# To read/write spreadsheet tables:
+from wz_table.dbtable import dbTable, makeDBTable
 
 
 class TeacherData (OrderedDict):
@@ -90,6 +94,78 @@ class TeacherData (OrderedDict):
         return False
 
 
+def readTeacherTable(schoolyear, filepath):
+    """Read in a table containing the information about the teachers/users
+    needed by the application.
+    The data is transferred to the TEACHERS table of the database,
+    replacing all previous data.
+    The table headers (field names) are translated according to the
+    configuration file CONF.TABLES.TEACHER_FIELDNAMES.
+    The (internal) names of date fields are expected to end with '_D'.
+    Date values are accepted in isoformat, YYYY-MM-DD (that is %Y-%m-%d
+    for the <datetime> module) or in the format specified for output,
+    config value MISC.DATEFORMAT.
+    """
+    fields = CONF.TABLES.TEACHER_FIELDNAMES
+    # An exception is raised if there is no file:
+    table = dbTable(filepath, fields)
+    fpath = table.filepath or filepath.filename
+    try:
+        # If there is a year field, check it against <schoolyear>
+        _tyear = table.info[_SCHOOLYEAR]
+    except KeyError:
+        pass    # No year given in table
+    else:
+        try:
+            if int(_tyear) != schoolyear:
+                raise ValueError
+        except:
+            REPORT.Fail(_BADSCHOOLYEAR, filepath = fpath,
+                    year = schoolyear)
+    # Add all entries to database table
+    with DBT(schoolyear) as db:
+        db.clearTable('TEACHERS')
+        # <pupilAdd> can modify/complete the <pdata> items
+        db.addRows('TEACHERS', fields,
+                [[tdata[f] for f in fields] for tdata in table.values()])
+    return fpath
+
+
+def exportTeachers(schoolyear, filepath = None):
+    """Export the teacher data for the given year to a spreadsheet file,
+    (.xlsx) formatted as a 'dbtable'.
+    If <filepath> is supplied, it must be the full path, but the
+    file-type ending is not required. The full path to the spreadsheet
+    file, including the file-type ending, is returned.
+    If no filepath is given, return the spreadsheet as a <bytes> object.
+    """
+    if filepath:
+        # Ensure folder exists
+        folder = os.path.dirname(filepath)
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
+
+    db = DBT(schoolyear)
+    classes = {}
+    with db:
+        rrows = db.select('TEACHERS', order = 'SHORTNAME')
+    # The fields of the pupils table (in the database):
+    fields = CONF.TABLES.TEACHER_FIELDNAMES
+    rows = []
+    for vrow in rrows:
+        values = []
+        for f in fields:
+            try:
+                values.append(vrow[f])
+            except KeyError:
+                values.append(None)
+        rows.append(vrow)
+    rows.append(None)
+
+    return makeDBTable(filepath, _TEACHER_TABLE_TITLE, fields.values(),
+            rows, [(_SCHOOLYEAR, schoolyear)])
+
+
 
 class Users:
     """Handle user table for front-end (access control, etc.).
@@ -115,13 +191,19 @@ class Users:
 
 ##################### Test functions
 _testyear = 2016
-def test_1 ():
+def test_1():
+    filepath = Paths.getYearPath (_testyear, 'FILE_TEACHERDATA')
+    fpath = readTeacherTable(_testyear, filepath)
+    REPORT.Test("Table from %s entered into database (TEACHERS) for %d"
+            % (fpath, _testyear))
+
+def test_2 ():
     REPORT.Test ("Teachers: ID and name")
     tmap = TeacherData (_testyear)
     for tid in tmap:
         REPORT.Test ("  id - name: %s - %s" % (tid, tmap.getTeacherName (tid)))
 
-def test_2 ():
+def test_3 ():
     tmap = TeacherData (_testyear)
     for tid in 'AM', 'nn', 'RP', 'MT':
         REPORT.Test ("\nTeacher %s: %s" % (tid, tmap [tid]))

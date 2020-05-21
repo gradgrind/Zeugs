@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-05-19
+Last updated:  2020-05-21
 
 The Flask application: zeugs front-end.
 
@@ -262,6 +262,9 @@ def create_app(test_config=None):
 
     from .settings import pupildata
     app.register_blueprint(pupildata.bp, url_prefix='/pupils')
+
+    from .settings import teacherdata
+    app.register_blueprint(teacherdata.bp, url_prefix='/teachers')
 
 
     ### Handle download link for generated files.

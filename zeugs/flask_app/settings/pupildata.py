@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-05-17
+Last updated:  2020-05-21
 
 Flask Blueprint for updating pupil data.
 
@@ -178,10 +178,10 @@ def export():
     an xlsx spreadsheet.
     """
     schoolyear = session['year']
-    pdfBytes = REPORT.wrap(exportPupils, schoolyear, suppressok=True)
-    if pdfBytes:
-        session['filebytes'] = pdfBytes
+    xlsxBytes = REPORT.wrap(exportPupils, schoolyear, suppressok=True)
+    if xlsxBytes:
+        session['filebytes'] = xlsxBytes
         return redirect(url_for('download',
                 dfile = 'Schueler-%d.xlsx' % schoolyear))
-    return redirect('bp_settings.index')
+    return redirect(url_for('bp_settings.index'))
 

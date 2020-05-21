@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% set uplink = url_for('bp_settings.index') %}
+{% set uplink_help = "Einstellungen" %}
+
+{% block title %}Tabelle der Lehrerdaten einlesen{% endblock %}
+
+{% block content %}
+    <p>Selektieren Sie hier die Datei (Lehrertabelle) zum Einlesen.
+    </p>
+    <form class="pure-form pure-form-aligned" method="POST"
+            enctype="multipart/form-data">
+        {{ form.csrf_token }}
+        <div class="uploaddiv">
+            {{ form.upload.label }}{{ form.upload }}
+        </div>
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">Einlesen</button>
+    </form>
+{% endblock %}

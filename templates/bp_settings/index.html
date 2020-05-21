@@ -11,7 +11,7 @@
     <p>Hier können Sie verschiedene Einstellungen und allgemeine Daten
     verwalten.
     </p>
-    <p> Wählen Sie eine Funktion:
+    <p>Wählen Sie eine Funktion:
     </p>
     <ul class="modules">
         <li><a href="{{ url_for('bp_settings.subjects') }}">
@@ -25,6 +25,9 @@
         </a></li>
         <li><a href="{{ url_for('bp_settings.year') }}">
             „Aktuelles“ Schuljahr verwalten / ändern
+        </a></li>
+        <li><a href="{{ url_for('bp_teacherdata.index') }}">
+            Lehrerdaten verwalten
         </a></li>
     </ul>
 {% endblock %}

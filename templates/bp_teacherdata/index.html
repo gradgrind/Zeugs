@@ -1,0 +1,22 @@
+<!-- Manage teacher data -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_settings.index') %}
+{% set uplink_help = "Einstellungen" %}
+
+{% block title %}Lehrkräfte Verwalten{% endblock %}
+
+
+{% block content %}
+    <p>Wählen Sie eine Funktion:
+    </p>
+    <ul class="modules">
+        <li><a href="{{ url_for('bp_teacherdata.export') }}">
+            Lehrerdaten als xlsx-Tabelle erstellen
+        </a></li>
+    </ul>
+    <ul class="modules">
+        <li><a href="{{ url_for('bp_teacherdata.upload') }}">
+            Lehrerdaten von einer Tabelle aktualisieren
+        </a></li>
+    </ul>
+{% endblock %}
