@@ -1,0 +1,4 @@
+### System users with their permissions and hashed passwords, '|'-separated
+# Empty lines and lines starting with '#' are ignored
+
+X|xs|pbkdf2:sha256:150000$FBFrARME$44d1322bb4b836e65b430013576bb000b0b93586111cf0fae6b467040b1a00cb

@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-05-21
+Last updated:  2020-05-22
 
 The Flask application: zeugs front-end.
 
@@ -43,13 +43,6 @@ from wz_core.configuration import init, Paths
 from wz_core.db import DBT
 
 ZEUGS_BASE = os.environ['ZEUGS_BASE']
-
-# USER LEVELS: values chosen such that comparisons work logically ...
-NO_USER = 0
-NORMAL_USER = 1
-ADMIN_USER = 2
-X_USER = 3
-
 
 ERROR_TYPES = {
     -1: "Test",     # Test
@@ -182,13 +175,13 @@ def create_app(test_config=None):
         if (request_endpoint.endswith('index')
                 or request_endpoint.endswith('_info')):
             return None
-        perms = access()
+        perms = session.get('permission')
 #TODO: Maybe 'x' can do more than 's'?
-        if perms >= ADMIN_USER: return None
         if not perms:
             session['redirect_login'] = request_endpoint
             return redirect(url_for('bp_auth.login'))
-        if request_endpoint.endswith('_user'):
+        if 's' in perms: return None
+        if 'u' in perms and request_endpoint.endswith('_user'):
             return None
         abort(404)
 
@@ -203,16 +196,6 @@ def create_app(test_config=None):
 #        return response
 
 #@app.context_processor? (see templating docs for flask)
-
-    @app.template_global()
-    def access():
-        perms = session.get('permission')
-        if perms:
-            if 'x' in perms: return X_USER
-            if 's' in perms: return ADMIN_USER
-            return NORMAL_USER
-        return NO_USER
-
 
     DBT()   # set up <builtins.active_year>
     @app.template_global()

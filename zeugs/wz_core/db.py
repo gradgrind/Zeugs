@@ -34,6 +34,8 @@ _DBMULTIPLERECORDS  = ("Es wurde mehr als ein passender Datensatz gefunden:\n"
 _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
                     " da sie schon existiert")
 _NODB = "Keine Daten für Schuljahr {year}"
+_PW_NEEDED = "Bitte das Passwort für Sonderbenutzer '{user}' setzen!"
+
 
 ### Field names for the grade table.
 # Note that the stream should be recorded as this can change in the
@@ -125,6 +127,16 @@ class DBT:
             if not dbexists:
                 with self:
                     self.makeTable('INFO', ('K', 'V'), index=['K'])
+                    pwpath = Paths.getUserFolder('PWinit')
+                    with open(pwpath, 'r', encoding = 'utf-8') as fhi:
+                        while True:
+                            line = fhi.readline()
+                            if not line:
+                                break
+                            pwh = line.strip()
+                            if pwh and pwh[0] != '#':
+                                u, p, h = pwh.split('|', 2)
+                                self.setInfo('PW_' + u, '%s|%s' % (p, h))
             try:
                 with self:
                     self.schoolyear = int(self.getInfo('_SCHOOLYEAR'))

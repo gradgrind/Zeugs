@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
+### python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_table/spreadsheet.py
 
-Last updated:  2019-12-26
+Last updated:  2020-05-21
 
 Spreadsheet file reader, returning all cells as strings.
 
@@ -12,7 +12,7 @@ Currently Excel files (.xlsx) and Open Document files (.ods) are supported.
 Dates are returned as strings in the format 'yyyy-mm-dd'.
 
 =+LICENCE=============================
-Copyright 2017-2019 Michael Towers
+Copyright 2017-2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.

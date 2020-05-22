@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-05-17
+Last updated:  2020-05-22
 
 Handle the data for grade reports.
 
@@ -73,7 +73,7 @@ from wz_core.configuration import Paths, Dates
 from wz_core.db import DBT, GRADES_INFO_FIELDS
 from wz_core.pupils import Pupils, Klass
 from wz_core.courses import CourseTables
-from wz_core.teachers import Users
+from wz_core.teachers import User
 from wz_core.template import getGradeTemplate, getTemplateTags, TemplateError
 from wz_compat.gradefunctions import Manager
 from wz_compat.grade_classes import (gradeGroups, validTermTag,
@@ -353,20 +353,18 @@ class GradeData:
                 self.pdata)
         # First set up <utest>, which is true if the user must be
         # checked when entering a new grade.
-        if (not user) or user == 'X':
-            utest = False
+        if not user:
             user = 'X'
-        else:
-            try:
-                perms = Users().permission(user)
-                if 's' in perms:
-                    utest = False
-                elif 'u' in perms:
-                    utest = True
-                else:
-                    raise ValueError
-            except:
-                REPORT.Fail(_INVALID_USER, user = user)
+        try:
+            perms = User(user).perms
+            if 's' in perms:
+                utest = False
+            elif 'u' in perms:
+                utest = True
+            else:
+                raise ValueError
+        except:
+            REPORT.Fail(_INVALID_USER, user = user)
         timestamp = self.timestamp()
         with self.db:
             ### Handle grades-info

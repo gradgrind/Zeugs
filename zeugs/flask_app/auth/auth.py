@@ -4,7 +4,7 @@
 """
 flask_app/auth/auth.py
 
-Last updated:  2020-05-19
+Last updated:  2020-05-21
 
 Flask Blueprint for user authentication (login).
 
@@ -26,9 +26,6 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
-
-#TODO: Check imports
-
 import os, time
 
 from flask import (Blueprint, g, redirect, render_template, request,
@@ -40,9 +37,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, StopValidation
 
-from wz_table.dbtable import dbTable
-from wz_core.configuration import Paths
-from wz_core.teachers import Users
+from wz_core.teachers import User
 from wz_core.db import DBT
 
 
@@ -58,14 +53,15 @@ _BADPW = "Falsches Passwort"
 class LoginForm(FlaskForm):
     USER = StringField('Benutzername', validators=[DataRequired()])
     def validate_USER(form, field):
-        if not Users().valid(field.data):
+        udata = User(field.data)
+        if not udata.valid:
             raise StopValidation(_BADUSER)
 
     PASSWORD = PasswordField('Passwort', validators=[DataRequired()])
     def validate_PASSWORD(form, field):
         user = form.USER.data
         try:
-            pwhash = Users().getHash(user)
+            pwhash = User(u).pwh
         except:
             return
         if not check_password_hash(pwhash, field.data):
@@ -96,8 +92,9 @@ def dologin(user, perms):
             os.remove(ff)
 
     # Set the school-year to the current one:
-    session['year'] =  DBT().schoolyear
-    return True
+    year = DBT().schoolyear
+    session['year'] =  year
+    return bool(year)
 
 
 @bp.route('/login', methods=('GET', 'POST'))
@@ -111,14 +108,20 @@ def login():
     except KeyError:
         pass
     else:
-        if dologin(*zeugs_user.split('/')):
-            return redirect(url_for(endpoint))
+        u = User(zeugs_user)
+        if u.valid:
+            if dologin(zeugs_user, u.perms):
+                return redirect(url_for(endpoint))
+            else:
+                return redirect(url_for('bp_settings.newyear'))
         else:
-            return redirect(url_for('bp_settings.newyear'))
+            flash("ZEUGS_USER ist fehlerhaft", "Fail")
+            return redirect(url_for('index'))
+
     form = LoginForm()
     if form.validate_on_submit():
         tid = form.USER.data
-        permission = Users().permission(tid)
+        permission = User(tid).perms
         if not dologin(tid, permission):
             # No school-years known
             return redirect(url_for('bp_settings.newyear'))

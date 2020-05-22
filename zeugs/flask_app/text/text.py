@@ -1,10 +1,10 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 flask_app/text/text.py
 
-Last updated:  2020-05-10
+Last updated:  2020-05-22
 
 Flask Blueprint for text reports
 
@@ -40,7 +40,7 @@ from wtforms.validators import InputRequired, Optional
 
 from wz_core.configuration import Dates
 from wz_core.db import DBT
-from wz_core.teachers import Users
+from wz_core.teachers import User
 from wz_text.summary import tSheets, ksSheets
 
 # Filenames for downloading
@@ -119,7 +119,7 @@ def summary():
     if form.validate_on_submit():
         # POST
         user = session['user_id']
-        name = 'Admin' if user == 'X' else Users().name(user)
+        name = User(user).name
         if form.choice.data == 'teachers':
             pdfBytes = tSheets(session['year'],
                             name,

@@ -3,7 +3,7 @@
 """
 wz_core/teachers.py
 
-Last updated:  2020-05-21
+Last updated:  2020-05-22
 
 Access to the list of teachers.
 
@@ -27,13 +27,11 @@ Copyright 2017-2020 Michael Towers
 
 ### Messages
 #_MISSINGDBFIELD = "Feld fehlt in Lehrer-Tabelle {filepath}:\n  {field}"
-_UNKNOWNTEACHER = "Unbekannte Lehrkraft. Kürzel: {tid}"
+_UNKNOWN_TEACHER = "Unbekannte Lehrkraft. Kürzel: {tid}"
 _BADSCHOOLYEAR  = "Falsches Jahr in Tabelle {filepath}: {year} erwartet"
 
 _TEACHER_TABLE_TITLE = "Lehrkräfte"
 _SCHOOLYEAR = "Schuljahr"
-
-from collections import OrderedDict
 
 from wz_core.configuration import Paths
 from wz_core.db import DBT
@@ -41,57 +39,49 @@ from wz_core.db import DBT
 from wz_table.dbtable import dbTable, makeDBTable
 
 
-class TeacherData (OrderedDict):
-    """Manage the teacher list. This data is read in from a table in
-    the file <TEACHERDATA_FILENAME>.
-    """
-    def __init__ (self, schoolyear):
-        """Build a representation of the teacher table.
+class TeacherData:
+    def __init__(self, schoolyear):
+        self.db = DBT(schoolyear)
+
+
+    def checkTeacher(self, tid, report = True):
+        """Return <True> if the teacher-id is valid.
+        Otherwise return <False>; also report an error if <report> is true.
         """
-        filepath = Paths.getYearPath (schoolyear, 'FILE_TEACHERDATA')
-        # An exception is raised if there is no file:
-        super ().__init__ (dbTable(filepath, CONF.TABLES.TEACHER_FIELDNAMES))
-
-#############################
-#        super ().__init__ ()
-#        table = readDBTable (filepath)
-#
-## Not presently used
-##        self.info = table.info
-#
-#        # Associate the headers with columns indexes.
-#        colmap = {}
-#        for f, f1 in CONF.TABLES.TEACHER_FIELDNAMES.items ():
-#            try:
-#                colmap [f] = table.headers [f1]
-#            except:
-#                # Field not present
-#                REPORT.Warn (_MISSINGDBFIELD, filepath=filepath,
-#                        field=f1)
-#
-#        ### Read the row data
-#        for row in table:
-#            rowdata = {}
-#            for f, col in colmap.items ():
-#                rowdata [f] = row [col]
-#            self [row [0]] = rowdata
-
-
-    def getTeacherName (self, tid):
-        """Return the teacher's name as it should appear in a report,
-        as a single string. If there is no name, return a default string.
-        If <tid> is not defined, an exception will occur.
-        """
-        name = self [tid] ['NAME']
-        return name or ("?%s?" % tid)
-
-
-    def checkTeacher (self, tid, report=True):
-        if tid in self:
-            return True
+        with self.db:
+            if self.db.select1('TEACHERS', TID = tid):
+                return True
         if report:
-            REPORT.Error (_UNKNOWNTEACHER, tid=tid)
+            REPORT.Error(_UNKNOWN_TEACHER, tid = tid)
         return False
+
+
+    def getTeacherName(self, tid):
+        """Return the teacher's name as it should appear in a report,
+        as a single string.
+        """
+        return self[tid]['NAME']
+
+
+    def __iter__(self):
+        """Allow a class instance to act as an iterator over sorted
+        teacher-ids.
+        """
+        with self.db:
+            rows = self.db.select('TEACHERS', order = 'SHORTNAME')
+        for r in rows:
+            yield r['TID']
+
+
+    def __getitem__(self, tid):
+        """Access a teacher's data using teacher-id as key.
+        """
+        with self.db:
+            row = self.db.select1('TEACHERS', TID = tid)
+        if row:
+            return row
+        raise KeyError(_UNKNOWN_TEACHER.format(tid = tid))
+
 
 
 def readTeacherTable(schoolyear, filepath):
@@ -167,43 +157,66 @@ def exportTeachers(schoolyear, filepath = None):
 
 
 
-class Users:
+class User:
     """Handle user table for front-end (access control, etc.).
-    This probably uses the latest teachers table.
+    This uses the active teachers table for the main data, but
+    there can also be system users in the "master" db.
     """
-    def __init__(self):
-        fpath = Paths.getUserFolder('users')
-        self.udb = dbTable(fpath, CONF.TABLES.TEACHER_FIELDNAMES)
+    def __init__(self, tid):
+        db0 = DBT()
+        with db0:
+            val = db0.getInfo('PW_' + tid)
+            if val:
+                self.valid = 'SYSTEM'
+                self.perms, self.pwh = val.split('|', 1)
+                self.name = 'Admin_' + tid
+                return
+        year = db0.schoolyear
+        if year:
+            try:
+                row = TeacherData(year)[tid]
+            except KeyError:
+                pass
+            else:
+                self.valid = 'USER'
+                self.perms = row['PERMISSION']
+                self.pwh = row['PASSWORD']
+                self.name = row['NAME']
+                return
+        self.valid = None
 
-    def valid(self, tid):
-        return tid in self.udb
-
-    def getHash(self, tid):
-        return self.udb[tid]['PASSWORD']
-
-    def permission(self, tid):
-        return self.udb[tid]['PERMISSION']
-
-    def name(self, tid):
-        return self.udb[tid]['NAME']
 
 
 
 ##################### Test functions
 _testyear = 2016
-def test_1():
+def test_01():
     filepath = Paths.getYearPath (_testyear, 'FILE_TEACHERDATA')
     fpath = readTeacherTable(_testyear, filepath)
     REPORT.Test("Table from %s entered into database (TEACHERS) for %d"
             % (fpath, _testyear))
 
-def test_2 ():
-    REPORT.Test ("Teachers: ID and name")
-    tmap = TeacherData (_testyear)
-    for tid in tmap:
-        REPORT.Test ("  id - name: %s - %s" % (tid, tmap.getTeacherName (tid)))
+def test_02():
+    REPORT.Test ("Teachers: ID and name\n------------------------\n")
+    teachers = TeacherData(_testyear)
+    for tid in teachers:
+        REPORT.Test("  %s: %s" % (tid, teachers.getTeacherName(tid)))
 
-def test_3 ():
-    tmap = TeacherData (_testyear)
+def test_03():
+    teachers = TeacherData(_testyear)
     for tid in 'AM', 'nn', 'RP', 'MT':
-        REPORT.Test ("\nTeacher %s: %s" % (tid, tmap [tid]))
+        REPORT.Test ("\nTeacher %s: %s" % (tid, dict(teachers[tid])))
+
+def test_04():
+    REPORT.Test("User login data\n")
+    for uid in 'X', 'Test', 'KA', 'MT':
+        u = User(uid)
+        if u.valid:
+            REPORT.Test("&&& %s: %s / %s / %s ..." % (uid, u.name,
+                    u.perms, u.pwh[:32]))
+        else:
+            REPORT.Test("&&& %s: invalid" % uid)
+
+def test_05():
+    REPORT.Test("Unknown teacher:")
+    TeacherData(_testyear)['DUMMY']

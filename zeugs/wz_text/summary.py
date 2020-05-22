@@ -1,9 +1,9 @@
-# python >= 3.7
+### python >= 3.7
 # -*- coding: utf-8 -*-
 """
 wz_text/summary.py
 
-Last updated:  2020-02-09
+Last updated:  2020-05-21
 
 Prepare checklists of classes/subjects for the teachers.
 Prepare checklists of subjects/teachers for the classes.
