@@ -4,7 +4,7 @@
 """
 wz_core/db.py
 
-Last updated:  2020-05-21
+Last updated:  2020-05-22
 
 This module handles access to an sqlite database.
 
@@ -112,7 +112,7 @@ class DBT:
             self._dbcon.row_factory = sqlite3.Row
             if not dbexists:
                 self._init()
-#            self._init()
+            self._init()
 
         else:
             # The "master" database for the application.
@@ -136,6 +136,7 @@ class DBT:
                             pwh = line.strip()
                             if pwh and pwh[0] != '#':
                                 u, p, h = pwh.split('|', 2)
+                                # Save the value for use by teachers::User
                                 self.setInfo('PW_' + u, '%s|%s' % (p, h))
             try:
                 with self:

@@ -135,9 +135,7 @@ def exportTeachers(schoolyear, filepath = None):
         if not os.path.isdir(folder):
             os.makedirs(folder)
 
-    db = DBT(schoolyear)
-    classes = {}
-    with db:
+    with DBT(schoolyear) as db:
         rrows = db.select('TEACHERS', order = 'SHORTNAME')
     # The fields of the pupils table (in the database):
     fields = CONF.TABLES.TEACHER_FIELDNAMES
@@ -184,6 +182,21 @@ class User:
                 self.name = row['NAME']
                 return
         self.valid = None
+
+
+
+def migrateTeachers(toyear):
+    """Copy the teachers table from the previous year.
+    """
+    with DBT(toyear - 1) as db:
+        rrows = db.select('TEACHERS', order = 'SHORTNAME')
+    # The fields of the pupils table (in the database):
+    fields = CONF.TABLES.TEACHER_FIELDNAMES
+    # Add all entries to database table
+    with DBT(toyear) as db:
+        db.clearTable('TEACHERS')
+        db.addRows('TEACHERS', fields,
+                [[tdata[f] for f in fields] for tdata in rrows])
 
 
 

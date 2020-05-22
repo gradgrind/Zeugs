@@ -222,7 +222,6 @@ def create_app(test_config=None):
     def zeugs_data(filename):
         """Serve images (etc.?) from the data area.
         """
-        _dir = os.path.join(ZEUGS_DATA, *CONF.PATHS.DIR_TEMPLATES)
         return send_from_directory(os.path.join(ZEUGS_DATA,
                 *CONF.PATHS.DIR_TEMPLATES),
                                filename)

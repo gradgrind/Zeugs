@@ -4,7 +4,7 @@
 """
 flask_app/settings/settings.py
 
-Last updated:  2020-05-17
+Last updated:  2020-05-22
 
 Flask Blueprint for application settings.
 
@@ -44,6 +44,7 @@ from wz_core.configuration import Paths, Dates
 from wz_core.db import DBT
 from wz_core.pupils import Pupils, Klass
 from wz_core.setup import newYear
+from wz_core.teachers import migrateTeachers
 from wz_table.dbtable import readPSMatrix
 from wz_compat.grade_classes import choices2db
 from wz_compat.import_pupils import migratePupils
@@ -86,15 +87,21 @@ def year():
             db = DBT(year_1, mustexist = False)
             with db:
                 db.setInfo('CALENDAR_FIRST_DAY', day_1)
-            if (year_1 - 1) in years:
+            lastyear = year_1 - 1
+            if lastyear in years:
                 # A data migration is possible
                 if request.form.get('migrate'):
-                    if REPORT.wrap(migratePupils, year_1):
-                        return redirect(url_for('bp_settings.index'))
-                    else:
+                    if not REPORT.wrap(migratePupils, year_1,
+                            suppressok = True):
                         return redirect(request.referrer)
+                    flash("Schüler versetzt von %d" % lastyear, "Info")
+                    if not REPORT.wrap(migrateTeachers, year_1,
+                            suppressok = True):
+                        return redirect(request.referrer)
+                    flash("Lehrerdaten von %d übernommen" % lastyear, "Info")
+
             if REPORT.wrap(newYear, year_1):
-                return redirect(url_for('bp_settings.index'))
+                return redirect(url_for('bp_settings.new_year'))
             else:
                 return redirect(request.referrer)
 
@@ -147,6 +154,12 @@ def year():
                             years = years,
                             MIN_D = MIN_D,
                             MAX_D = MAX_D)
+
+
+#TODO
+@bp.route('/new_year', methods=['GET'])
+def new_year():
+    return "New year added: still need things to do (links)"
 
 
 @bp.route('/delete_year/<int:year>', methods=['GET','POST'])

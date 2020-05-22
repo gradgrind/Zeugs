@@ -4,7 +4,7 @@
 """
 flask_app/text_cover/text_cover.py
 
-Last updated:  2020-05-10
+Last updated:  2020-05-22
 
 Flask Blueprint for text report cover sheets
 
@@ -27,7 +27,7 @@ Copyright 2019-2020 Michael Towers
 """
 
 from flask import (Blueprint, render_template, request, session,
-        send_file, url_for, flash, abort)
+        send_file, url_for, flash, abort, redirect)
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
@@ -58,12 +58,15 @@ class DateForm(FlaskForm):
         with DBT(schoolyear) as db:
             _date = db.getInfo('TEXT_DATE_OF_ISSUE')
         if not _date:
-            _date = Dates.getCalendar(schoolyear).get('END')
+            # Check date of last school day is set
+            with DBT(schoolyear) as db:
+                _date = db.getInfo("CALENDAR_LAST_DAY")
             if not _date:
-                flash("Schuljahresende ('END') fehlt im Kalender für %d"
-                        % schoolyear, 'Error')
-                _date = Dates.today()
+                flash("Sie müssen den letzten Schultag setzen.")
+                session['nextpage'] = request.path
+                return url_for('bp_settings.calendar')
         self.DATE_D.data = datetime.date.fromisoformat(_date)
+        return None
 
 
 # Set up Blueprint
@@ -85,7 +88,10 @@ def index():
             db.setInfo('TEXT_DATE_OF_ISSUE', _date)
 
     # GET
-    form.defaultIssueDate(schoolyear)
+    red = form.defaultIssueDate(schoolyear)
+    if red:
+        return redirect(red)
+
     p = Pupils(schoolyear)
     _kmap = CONF.TEXT.REPORT_TEMPLATES['Mantelbogen']
     klasses = []
@@ -120,7 +126,9 @@ def klassview(klass):
         flash("Keine Schüler gewählt", "Warning")
 
     # GET
-    form.defaultIssueDate(schoolyear)
+    red = form.defaultIssueDate(schoolyear)
+    if red:
+        return redirect(red)
     p = Pupils(schoolyear)
     pdlist = p.classPupils(_klass)
     return render_template(os.path.join(_BPNAME, 'text_cover_klass.html'),
@@ -161,7 +169,9 @@ def pupilview(klass, pid):
                 as_attachment = True
         )
     # GET
-    form.defaultIssueDate(schoolyear)
+    red = form.defaultIssueDate(schoolyear)
+    if red:
+        return redirect(red)
     p = Pupils(schoolyear)
     try:
         pdlist = p.classPupils(_klass)

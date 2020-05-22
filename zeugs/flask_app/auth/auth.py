@@ -4,7 +4,7 @@
 """
 flask_app/auth/auth.py
 
-Last updated:  2020-05-21
+Last updated:  2020-05-22
 
 Flask Blueprint for user authentication (login).
 
@@ -108,15 +108,18 @@ def login():
     except KeyError:
         pass
     else:
-        u = User(zeugs_user)
-        if u.valid:
-            if dologin(zeugs_user, u.perms):
-                return redirect(url_for(endpoint))
+        if current_app.config['ENV'] == 'development':
+            u = User(zeugs_user)
+            if u.valid:
+                if dologin(zeugs_user, u.perms):
+                    return redirect(url_for(endpoint))
+                else:
+                    return redirect(url_for('bp_settings.year'))
             else:
-                return redirect(url_for('bp_settings.newyear'))
+                flash("ZEUGS_USER ist fehlerhaft", "Bug")
         else:
-            flash("ZEUGS_USER ist fehlerhaft", "Fail")
-            return redirect(url_for('index'))
+            flash("ZEUGS_USER ist nur gültig in 'development'-Modus", "Bug")
+        return redirect(url_for('index'))
 
     form = LoginForm()
     if form.validate_on_submit():
@@ -124,7 +127,7 @@ def login():
         permission = User(tid).perms
         if not dologin(tid, permission):
             # No school-years known
-            return redirect(url_for('bp_settings.newyear'))
+            return redirect(url_for('bp_settings.year'))
     if session.get('user_id'):
         return redirect(url_for(endpoint))
     return render_template(os.path.join(_BPNAME, 'login.html'), form=form)
