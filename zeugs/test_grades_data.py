@@ -1,16 +1,15 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-test_grades_data.py
+test_teachergrades.py
 
-Last updated:  2020-04-03
+Last updated:  2020-05-23
 
-Run some tests on the modules in the wz_grades package.
-Here some test on the gradedata module (basic structural things).
+Run some tests on the wz_grades.teachergrades module.
 
 
 =+LICENCE=============================
-Copyright 2019-2020 Michael Towers
+Copyright 2020 Michael Towers
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,5 +33,5 @@ from test_core import testinit, runTests
 if __name__ == '__main__':
     testinit ()
 
-    from wz_grades import gradedata
-    runTests (gradedata)
+    from wz_grades import teachergrades
+    runTests (teachergrades)

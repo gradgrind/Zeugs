@@ -3,7 +3,7 @@
 """
 wz_core/teachers.py
 
-Last updated:  2020-05-22
+Last updated:  2020-05-23
 
 Access to the list of teachers.
 
@@ -182,6 +182,7 @@ class User:
                 self.name = row['NAME']
                 return
         self.valid = None
+        self.perms = None
 
 
 

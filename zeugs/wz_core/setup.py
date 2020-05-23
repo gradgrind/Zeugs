@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/setup.py - last updated 2020-05-17
+wz_core/setup.py - last updated 2020-05-22
 
 Adding a new school-year.
 
@@ -26,7 +26,9 @@ Copyright 2020 Michael Towers
 _YEAR_INIT = "Schuljahr {year} wurde eingerichtet"
 
 
+#TODO
 def newYear(year):
     """
     """
     REPORT.Info(_YEAR_INIT, year = year)
+    return True

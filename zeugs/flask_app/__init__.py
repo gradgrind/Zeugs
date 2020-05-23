@@ -6,7 +6,7 @@
 """
 flask_app/__init__.py
 
-Last updated:  2020-05-22
+Last updated:  2020-05-23
 
 The Flask application: zeugs front-end.
 
@@ -167,8 +167,8 @@ def create_app(test_config=None):
         session.modified = True     # to hinder session expiry
         request_endpoint = request.endpoint
         request_path = request.path
-#        print ("--->", request_endpoint)
-#        print (" @@@", request_path)
+#        print ("--->", request_endpoint, flush=True)
+#        print (" @@@", request_path, flush=True)
 
         if request_endpoint in (None, 'bp_auth.login', 'static', 'zeugs_data'):
             return None

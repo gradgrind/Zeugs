@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-05-19
+Last updated:  2020-05-23
 
 Flask Blueprint for grade reports (modular)
 
@@ -26,8 +26,6 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
-#TODO: current term/year setting -> "Settings"
-
 from .grades_base import bp, _HEADING, _BPNAME
 from wz_grades.gradedata import CurrentTerm
 
@@ -36,6 +34,7 @@ from flask import render_template, session
 # "Sub-modules"
 from .grades_term import *
 from .grades_single import *
+from .grades_user import *
 
 
 @bp.route('/', methods=['GET'])
@@ -55,6 +54,14 @@ def index():
                             heading = _HEADING,
                             term0 = term0,
                             nextterm = nextterm)
+
+
+#TODO
+@bp.route('/index_info', methods=['GET'])
+def index_info():
+    return "Grade documentation: TODO"
+    render_template(os.path.join(_BPNAME, 'index_info.html'),
+                                heading = _HEADING)
 
 
 

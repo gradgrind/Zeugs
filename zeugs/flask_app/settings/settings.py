@@ -66,6 +66,12 @@ def index():
 
 @bp.route('/year', methods=['GET','POST'])
 def year():
+    def makeNewYear(year, migrate):
+        if migrate:
+            migratePupils(year)
+            migrateTeachers(year)
+        newYear(year)
+        return True
     # The start date of a new school-year must be after <setyear>. If no
     # year is "set" (which should only be possible during set-up of
     # the application), then no earlier than the beginning of the current
@@ -90,17 +96,10 @@ def year():
             lastyear = year_1 - 1
             if lastyear in years:
                 # A data migration is possible
-                if request.form.get('migrate'):
-                    if not REPORT.wrap(migratePupils, year_1,
-                            suppressok = True):
-                        return redirect(request.referrer)
-                    flash("Schüler versetzt von %d" % lastyear, "Info")
-                    if not REPORT.wrap(migrateTeachers, year_1,
-                            suppressok = True):
-                        return redirect(request.referrer)
-                    flash("Lehrerdaten von %d übernommen" % lastyear, "Info")
-
-            if REPORT.wrap(newYear, year_1):
+                migrate = request.form.get('migrate')
+            else:
+                migrate = False
+            if REPORT.wrap(makeNewYear, year_1, migrate):
                 return redirect(url_for('bp_settings.new_year'))
             else:
                 return redirect(request.referrer)

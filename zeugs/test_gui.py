@@ -3,7 +3,7 @@
 """
 test_gui.py
 
-Last updated:  2020-05-21
+Last updated:  2020-05-23
 
 Gui-wrapper for the flask server and browser starter.
 
@@ -30,7 +30,7 @@ import os, platform, subprocess, threading, webbrowser
 from queue import Queue, Empty
 
 # tkinter must be installed, e.g. deb package python3-tk
-from tkinter import Tk, scrolledtext, Button, PhotoImage
+from tkinter import Tk, ttk, scrolledtext, Button, PhotoImage, StringVar
 
 
 class RunExtern:
@@ -110,8 +110,13 @@ class Window(Tk):
         self.text = scrolledtext.ScrolledText(self, width=80, height=25)
         self.text.grid(column=0, row=0, columnspan=3, sticky="nsew")
 
-        btn = Button(self, text="Start Browser", command=self.visit, width=12)
-        btn.grid(column=2, row=1, sticky="e")
+        self.chk = ttk.Checkbutton(self, text="Autologin")
+        self.chk.state(['!alternate'])
+        self.chk.state(['selected'])
+        self.chk.grid(column=0, row=1, sticky="w")
+
+        self.btn_go = Button(self, text="Start", command=self.go, width=12)
+        self.btn_go.grid(column=2, row=1, sticky="e")
 
         btn = Button(self, text="Quit", command=self.quit, width=12)
         btn.grid(column=1, row=1, sticky="e")
@@ -123,7 +128,13 @@ class Window(Tk):
 
         self.program = program
         self.protocol("WM_DELETE_WINDOW", self.quit)
+
+
+    def go(self):
+        if self.chk.instate(['selected']):
+            xenv["ZEUGS_USER"] = "X"
         self.program.start(self)
+        self.btn_go["state"] = "disabled"
         self.wait(1000, self.visit)
 
 
@@ -154,7 +165,7 @@ xenv = {
     "FLASK_ENV": "development",
     "FLASK_RUN_PORT": PORT,
     "ZEUGS_BASE": basedir,
-    "ZEUGS_USER": "X"
+#    "ZEUGS_USER": "X"
 }
 
 pexec = os.path.join(basedir, "venv", "bin", "python")
