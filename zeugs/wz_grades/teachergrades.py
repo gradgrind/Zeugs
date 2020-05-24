@@ -3,7 +3,7 @@
 """
 wz_grades/teachergrades.py
 
-Last updated:  2020-05-23
+Last updated:  2020-05-24
 
 Manage teacher-class access to grade information.
 
@@ -41,7 +41,7 @@ from wz_compat.grade_classes import gradeGroups
 
 class TeacherGradeGroups(dict):
     def __init__(self, schoolyear, term = None):
-        """Build a mapping: {tid -> {group-name -> {sid, ...}}}.
+        """Build a mapping: {tid -> {group-name -> {{sid -> sname, ...}}}.
         Only subjects are included for which grades are expected.
         """
         super().__init__()
@@ -51,23 +51,25 @@ class TeacherGradeGroups(dict):
             REPORT.Fail(_NOT_CURRENT_TERM)
         self.term = termdata.TERM
         self.schoolyear = schoolyear
+        self.courses = CourseTables(schoolyear)
+
         # Only look at predefined grade groups
         self.kslist = gradeGroups(self.term)
-        courses = CourseTables(schoolyear)
         for ks in self.kslist:
             ksname = str(ks)
-            sid2tids = courses.classSubjects(ks, 'GRADE')
+            sid2tids = self.courses.classSubjects(ks, 'GRADE')
             for sid, tids in sid2tids.items():
+                sname = tids.subject
                 for tid in tids:
                     try:
                         tmap = self[tid]
                     except:
-                        self[tid] = {ksname: {sid}}
+                        self[tid] = {ksname: {sid: sname}}
                         continue
                     try:
-                        tmap[ksname].add(sid)
+                        tmap[ksname][sid] = sname
                     except:
-                        tmap[ksname] = {sid}
+                        tmap[ksname] = {sid: sname}
 
 
     def groupSubjectGrades(self, group, sid):
@@ -75,11 +77,16 @@ class TeacherGradeGroups(dict):
         """
         pupils = Pupils(self.schoolyear)
         grades = []
-        for pdata in pupils.classPupils(group):
+        for pdata in pupils.classPupils(Klass(group)):
             gdata = GradeData(self.schoolyear, self.term, pdata)
             grade = gdata.getGrade(sid)
-            grades.append([pdata['PID'], pdata.name(), grade, gdata.user])
+#            grades.append([pdata['PID'], pdata.name(), grade, gdata.user])
+            grades.append((gdata, grade))
         return grades
+
+
+    def getGradeCourses(self, group):
+        return self.courses.classSubjects(Klass(group), 'GRADE')
 
 
 # So far I have assumed that multiple teachers are handled "manually".

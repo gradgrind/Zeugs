@@ -4,7 +4,7 @@
 """
 wz_grades/gradedata.py
 
-Last updated:  2020-05-22
+Last updated:  2020-05-24
 
 Handle the data for grade reports.
 
@@ -342,7 +342,9 @@ class GradeData:
         acts like an administrator.
         If <xfields> is supplied, it must be a mapping with values for
         the GRADES_INFO fields.
+        Return a list of sids which failed because of changed user.
         """
+        failed_sids = []
         # Read all subjects for the class/group
         courses = CourseTables(self.schoolyear)
         sid2tlist = courses.classSubjects(Klass.fromKandS(
@@ -450,14 +452,16 @@ class GradeData:
                     # Check that it is really a permissible change
                     if utest and (user != user0):
                         # User permissions inadequate
+                        failed_sids.append(sid)
                         REPORT.Error(_LAST_USER, user0 = user0,
-                                sid = sid, pname = pdata.name())
+                                sid = sid, pname = self.pdata.name())
                         continue
                 # Prepend a new grade entry
                 self.db.updateOrAdd('GRADES_LOG',
                         {'GRADE': '%s\n%s' % (g1, gentry)},
                         update_only = True,
                         KEYTAG = self.KEYTAG, SID = sid)
+        return failed_sids
 
 
 

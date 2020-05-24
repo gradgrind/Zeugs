@@ -1,0 +1,48 @@
+<!-- Edit grades for a single subject for all pupils in a class/group -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.group_select', group=group)
+                    if session.get('admin_grades')
+                    else url_for('bp_grades.group_user') %}
+{% set uplink_help = "Notensatz wählen" %}
+
+{% block title %}Noten: {{ sname }}{% endblock %}
+
+{% block content %}
+    {% set user = session.user_id %}
+    <h3>für Klasse {{ group }}, {{ term }}. Halbjahr</h3>
+
+    <p>Solange diese Seite zugänglich ist, können Sie auch nach dem
+    Abgabetermin Noten eingeben.???</p>
+
+    <form class="pure-form pure-form-aligned widelabel" method="POST">
+        {{ form.csrf_token }}
+
+        <fieldset>
+        {% for gdata, grade in grades %}
+            {% set pdata = gdata.pdata %}
+            {% set ptag = 'P_' + pdata.PID %}
+            {% set gx = grade or '?' %}
+            <div class="pure-control-group">
+                <label for="{{ ptag }}">{{ pdata.name() }}</label>
+                <select id="{{ ptag }}" name="{{ ptag }}">
+                {% for g in (gdata.validGrades() + ('?',)) %}
+                    <option {% if g == gx %}selected{% endif %}>
+                        {{ g }}
+                    </option>
+                {% endfor %}
+                </select>
+                {% if grade and gdata.user != user %}
+                <span style="display: inline-block; padding-left: 1em;">
+                    [{{ gdata.user }}]
+                </span>
+                {% endif %}
+            </div>
+        {% endfor %}
+        </fieldset>
+        <hr />
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Speichern
+        </button>
+    </form>
+{% endblock %}

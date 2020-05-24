@@ -1,0 +1,24 @@
+<!-- Admin only: select subject (for group) for grade editing -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.group_admin') %}
+{% set uplink_help = "Gruppe wählen" %}
+
+{% block title %}Fach wählen{% endblock %}
+
+{% block content %}
+    {% set group = session.admin_grades %}
+    <h3>{{ term }}. Halbjahr, Klasse/Gruppe {{ group }}</h3>
+    <p>Sie können Noten für die folgenden Fächer eingeben.
+    Noten können nur für das „aktuelle“ Halbjahr eingegeben werden.
+     TODO: Something about the closing date.<br>
+    </p>
+    <legend>Wählen Sie ein Fach:</legend>
+    <ul class="modules">
+        {% for sid, tlist in subjects.items() %}
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_grades.subject_user', group=group, sid=sid) }}">
+            <span>{{ tlist.subject }}</span>
+        </a></li>
+        {% endfor %}
+    </ul>
+{% endblock %}

@@ -5,23 +5,22 @@
 {% block title %}Notensatz wählen{% endblock %}
 
 {% block content %}
+    <h3>{{ term }}. Halbjahr</h3>
     <p>Sie können Noten für die folgenden Klassen/Gruppen eingeben.
-    Noten können nur zum „aktuellen“ Halbjahr eingegeben werden.
+    Noten können nur für das „aktuelle“ Halbjahr eingegeben werden.
     Falls der Eingabetermin schon vorbei ist, kontaktieren Sie bitte
     den Administrator.
      TODO: Something about the closing date.<br>
-     Prettier alignment?<br>
-     Full subject names?
     </p>
 
     <legend>Wählen Sie Gruppe und Fach:</legend>
     <ul class="modules">
         {% for ks, sids in groups.items() %}
-            {% for sid in sids %}
+            {% for sid, sname in sids.items() %}
             <li><a class="pure-menu-link"
                     href="{{ url_for('bp_grades.subject_user', group=ks, sid=sid) }}">
-                <span style="display: inline-block; width: 8em;">{{ ks }}</span>
-                <span>{{ sid }}</span>
+                <span style="display: inline-block; width: 7em;">{{ ks }}</span>
+                <span>{{ sname }}</span>
             </a></li>
             {% endfor %}
         {% endfor %}

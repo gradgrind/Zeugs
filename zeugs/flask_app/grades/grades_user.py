@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_user.py
 
-Last updated:  2020-05-23
+Last updated:  2020-05-24
 
 Flask Blueprint for handling user acces to grades, especially for
 entering/editing grades.
@@ -42,7 +42,7 @@ import datetime, os
 
 from flask import (Blueprint, render_template, request, session,
         url_for, abort, redirect, flash, make_response)
-#from flask import current_app as app
+from flask import current_app as app
 
 from flask_wtf import FlaskForm
 #from wtforms import SelectField, TextAreaField
@@ -61,170 +61,137 @@ from flask_wtf import FlaskForm
 #        getGradeData, GradeReportData, singleGrades2db)
 #from wz_compat.grade_classes import gradeGroups
 #from wz_compat.gradefunctions import gradeCalc
-from wz_core.teachers import User
+#from wz_core.teachers import User
 from wz_grades.teachergrades import TeacherGradeGroups
 
 
-#TODO: List group + subject for all possibilities
 @bp.route('/group_user', methods=['GET'])
 def group_user():
-    tidmap = REPORT.wrap(getTeacherGradeGroups, suppressok = True)
-#    schoolyear = session['year']
-#    tidmap = REPORT.wrap(TeacherGradeGroups, schoolyear, suppressok = True)
-#    if not tidmap:
-#        return redirect(url_for('bp_grades.index'))
-
-#TODO: Maybe if the user is an admin (perm 's'), there can be an extra
-# link - to a group selection page.
-# For 'normal' teachers there can be a list of class/subject links.
-
-
-#    if user:
-#        uperms = User(user).perms
-#        if uperms:
-#            if 's' in uperms:
-#                # Show all subjects for all teachers
-#                gset = set()
-#                for ks2sids in tidmap.values():
-#                    gset.update(ks2sids)
-#                groups = sorted(gset)
-#            elif 'u' in uperms:
-#                groups = sorted(tidmap.get(user, []))
-
-    if tidmap.ugroups or tidmap.sgroups:
-        return render_template(os.path.join(_BPNAME, 'index_user.html'),
-                            heading = _HEADING,
-                            groups = tidmap.ugroups,
-                            sgroups = tidmap.sgroups)
-    flash("Keine Zeugnisgruppen für %s" % (user or "'?'"), "Warning")
-    return redirect(url_for('bp_grades.index'))
-
-
+    """Present the user with a choice of pupil-group/subject pairs.
+    Only those for which the user is (at least jointly) responsible
+    will be shown. However, note that teachers are allocated to classes
+    and not streams, so some groups may be shown for which the teacher
+    is not responsible.
+    """
+    session.pop('admin_grades', None)   # Flag "own grades"
     schoolyear = session['year']
-    tidmap = TeacherGradeGroups(schoolyear)
-    ugroups = None
-    user = session.get('user_id')
-    if user:
-        uperms = User(user).perms
-        if uperms:
-            if 'u' in uperms:
-                try:
-                    ugroups = tidmap[user]
-                except:
-                    pass
-    if ugroups:
-        return render_template(os.path.join(_BPNAME, 'index_user.html'),
-                            heading = _HEADING,
-                            groups = ugroups)
+    tidmap = REPORT.wrap(TeacherGradeGroups, schoolyear, suppressok = True)
+    if tidmap:
+        ugroups = None
+        user = session.get('user_id')
+        if user:
+            uperms = session.get('permission')
+            if uperms:
+                if 'u' in uperms:
+                    try:
+                        ugroups = tidmap[user]
+                    except:
+                        pass
+        if ugroups:
+            return render_template(os.path.join(_BPNAME, 'index_user.html'),
+                                heading = _HEADING,
+                                term = tidmap.term,
+                                groups = ugroups)
 
-    flash("Keine Zeugnisgruppen für %s" % (user or "'?'"), "Warning")
+        flash("Keine Zeugnisgruppen für %s" % (user or "'?'"), "Warning")
     return redirect(url_for('bp_grades.index'))
 
 
-#TODO
 @bp.route('/group_admin', methods=['GET'])
 def group_admin():
-    return "group_admin TODO"
+    uperms = session.get('permission')
+    if not (uperms and 's' in uperms):
+        abort(404)
+    schoolyear = session['year']
+    tidmap = REPORT.wrap(TeacherGradeGroups, schoolyear, suppressok = True)
+    if tidmap:
+        return render_template(os.path.join(_BPNAME, 'group_admin.html'),
+                        heading = _HEADING,
+                        term = tidmap.term,
+                        groups = tidmap.kslist)
+    return redirect(url_for('bp_grades.index'))
 
 
+@bp.route('/group_select/<group>', methods=['GET'])
+def group_select(group):
+    uperms = session.get('permission')
+    if not (uperms and 's' in uperms):
+        abort(404)
+    schoolyear = session['year']
+    tidmap = REPORT.wrap(TeacherGradeGroups, schoolyear, suppressok = True)
+    if tidmap:
+        sid2tids = tidmap.getGradeCourses(group)
+        session['admin_grades'] = group  # Flag "anyone's grades"
+        return render_template(os.path.join(_BPNAME, 'subject_admin.html'),
+                        heading = _HEADING,
+                        term = tidmap.term,
+                        subjects = sid2tids)
+    return redirect(url_for('bp_grades.index'))
 
-#TODO
-@bp.route('/subject_user/<group>/<sid>', methods=['GET'])
+
+@bp.route('/subject_user/<group>/<sid>', methods=['GET', 'POST'])
 def subject_user(group, sid):
-    return "subject_user: TODO (%s: %s)" % (group, sid)
+    def getGrades():
+        tidmap = TeacherGradeGroups(schoolyear)
+        tidmap.grades = tidmap.groupSubjectGrades(group, sid)
+        return tidmap
+
     schoolyear = session['year']
-    sid2tids = courses.classSubjects(ks, 'GRADE')
-    for sid, tids in sid2tids.items():
-        for tid in tids:
-            pass
-    user = session.get('user_id')
-    if user:
-        uperms = User(user).perms
-        if uperms:
-            if 's' in uperms:
-                # Show all subjects for all teachers
-                gset = set()
-                for ks2sids in tidmap.values():
-                    gset.update(ks2sids)
-                groups = sorted(gset)
-            elif 'u' in uperms:
-                groups = sorted(tidmap.get(user, []))
-
-
-# Add to TeacherGradeGroups?
-def getTeacherGradeGroups():
-    schoolyear = session['year']
-    tidmap = TeacherGradeGroups(schoolyear)
-    ugroups, sgroups = None, None
-    user = session.get('user_id')
-    if user:
-        uperms = User(user).perms
-        if uperms:
-            if 'u' in uperms:
-                try:
-                    ugroups = tidmap[user]
-                except:
-                    pass
-            if 's' in uperms:
-                sgroups = tidmap.kslist
-
-    tidmap.ugroups = ugroups
-    tidmap.sgroups = sgroups
-    return tidmap
-
-
-
-@bp.route('/editgrades/<ks>/<sid>', methods=['GET', 'POST'])
-def editgrades(ks, sid):
-    """View: edit the grades for a class/group in a particular subject.
-    Only the "current" term is available – and then only until the
-    grades for the group in question are locked.
-    Respect editing permissions for the user.
-    """
-    schoolyear = session['year']
+    tidmap = REPORT.wrap(getGrades, suppressok = True)
+    if not tidmap:
+        return redirect(request.referrer)
     try:
-        curterm = CurrentTerm(schoolyear)   # check year
-        term = curterm.TERM
-    except CurrentTerm.NoTerm:
+        user = session['user_id']
+        uperms = session['permission']
+    except:
         abort(404)
-#TODO: For a normal user, the year should be automatically correct.
-# An admin user could, however, change the year ... How to deal with that?
-
-#TODO
-
-    tid = session['user_id']
-    klass_stream = Klass(ks)
-    courses = CourseTables(schoolyear)
-    sid2tlist = courses.classSubjects(klass_stream, 'GRADE')
-    tlist0 = sid2tlist.get(sid)
-    if not tlist0:
-        abort(404)
-    perms = session['permission']
-    if 's' in perms:
-        admin = True
-    elif 'u' in perms and tid in tlist0:
-        admin = False
+    if 's' in uperms:
+        sname = tidmap.courses.subjectName(sid)
     else:
-        flash("Sie ({tid}) unterrichten nicht {sid} in {ks}".format(
-                tid = tid, sid = sid, ks = ks), "Error")
-        return redirect(url_for('bp_user_grades.index'))
+        if 'u' not in uperms:
+            abort(404)
+        try:
+            tmap = tidmap[user]
+            sname = tmap[group][sid]
+        except:
+            abort(404)
 
+    form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        count, ecount = 0, 0
+        for gdata, grade in tidmap.grades:
+            pdata = gdata.pdata
+            pid = pdata['PID']
+            g = request.form['P_' + pid]
+            if g == '?':
+                if grade:
+                    flash("Eine Note kann nicht auf '?' gestzt werden: %s"
+                            % pdata.name(), "Error")
+                    ecount += 1
+            elif g != grade:
+                if REPORT.wrap(gdata.updateGrades, {sid: g}, user = user,
+                        suppressok = True) == []:
+                    flash("NEW GRADE for %s: %s" % (pdata.name(), g), "Info")
+                    count += 1
+                else:
+                    ecount += 1
+        if count:
+            flash("%d Note(n) geändert" % count, "Info")
+        if ecount:
+            flash("Mit Fehlern abgeschlossen", "Error")
+        if count or ecount:
+            return redirect(request.path)
+        flash("Keine Noten geändert im Fach %s" % sname, "Info")
+        return redirect(url_for('bp_grades.group_select', group = group)
+                if session.get('admin_grades')
+                else url_for('bp_grades.group_user'))
 
-#TODO
-
-
-    # Get pupil/grade list: [(pid, pname, {subject -> grade}), ...]
-    pglist = db2grades(schoolyear, termn, klass_stream)
-
-    showlist = []
-    for pid, pname, gmap in pglist:
-        # Get tlist from {sid -> <TeacherList> instance OR <None>}
-#pupilFilter is gone!
-        tlist = pupilFilter(schoolyear, sid2tlist, pid).get(sid)
-        if tlist:
-            grade = gmap.get(sid)
-#TODO: getLastTid
-            owner = getLastTid(schoolyear, termn, klass_stream, sid)
-            editable = admin or (tid in tlist and (not owner or tid == owner))
-
-
+    # GET
+    return render_template(os.path.join(_BPNAME, 'subject_grades.html'),
+                        heading = _HEADING,
+                        form = form,
+                        group = group,
+                        term = tidmap.term,
+                        sname = sname,
+                        grades = tidmap.grades)

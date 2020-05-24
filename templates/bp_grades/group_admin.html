@@ -1,0 +1,24 @@
+<!-- Admin only: select group for grade editing -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_grades.index') %}
+{% set uplink_help = "Notenzeugnisse" %}
+
+{% block title %}Gruppe wählen{% endblock %}
+
+{% block content %}
+    <h3>{{ term }}. Halbjahr</h3>
+    <p>Sie können Noten für die folgenden Klassen/Gruppen eingeben.
+    Noten können nur für das „aktuelle“ Halbjahr eingegeben werden.
+     TODO: Something about the closing date.<br>
+    </p>
+
+    <legend>Wählen Sie Gruppe:</legend>
+    <ul class="modules">
+        {% for ks in groups %}
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_grades.group_select', group=ks) }}">
+            <span>Klasse/Gruppe {{ ks }}</span>
+        </a></li>
+        {% endfor %}
+    </ul>
+{% endblock %}
