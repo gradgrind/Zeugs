@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-flask_app/settings/pupildata.py
+flask_app/settings/teacherdata.py
 
-Last updated:  2020-05-21
+Last updated:  2020-05-25
 
 Flask Blueprint for updating teacher data.
 
@@ -99,4 +99,20 @@ def export():
         return redirect(url_for('download',
                 dfile = 'Lehrer-%d.xlsx' % schoolyear))
     return redirect(url_for('bp_settings.index'))
+
+
+#TODO
+@bp.route('/edit/<tid>', methods=['GET', 'POST'])
+def edit(tid):
+    return "bp_teacherdata.edit(%s): TODO" % tid
+
+
+#TODO
+@bp.route('/new', methods=['GET', 'POST'])
+def new():
+    form = FlaskForm()
+    return render_template(os.path.join(_BPNAME, 'edit_teacher.html'),
+                            heading=_HEADING,
+                            form=form)
+
 

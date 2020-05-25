@@ -1,0 +1,75 @@
+<!-- Edit teacher data (Admin only) -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_settings.index') %}
+{% set uplink_help = "Einstellungen" %}
+
+#TODO: Use for editing existing teacher AND for entering new teacher?
+
+{% block title %}Daten einer Lehrkraft / Neue Lehrkraft{% endblock %}
+
+{% block content %}
+    <p>Hier können Sie einzelne Felder ändern, aber auch die (Daten der)
+    Lehrkraft aus der Datenbank entfernen.
+    </p>
+
+    LINK TO CHANGE PASSWORD?
+
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+
+TODO: initialize fields
+
+        <fieldset>
+            <div class="pure-control-group">
+                <label for="tid">Kürzel</label>
+                <input type="text" id="tid" name ="tid"
+                        placeholder="HM" value="{{ TID }}"
+                    required>
+            </div>
+            <p>Der Name, der in den Zeugnissen erscheint:</p>
+            <div class="pure-control-group">
+                <label for="tname">Name</label>
+                <input type="text" id="tname" name ="tname"
+                        placeholder="Hans Müller" value="{{ NAME }}"
+                    required>
+            </div>
+            <p>Eine Kurzform des Namen, der in Dateinamen benutzt wird
+            und für Sortierzwecke sinnvoll ist (Nachnamen zuerst, usw.):
+            </p>
+            <div class="pure-control-group">
+                <label for="ttag">Kurzname</label>
+                <input type="text" id="ttag" name ="ttag"
+                        placeholder="Mueller H" value="{{ SHORTNAME }}"
+                    required>
+            </div>
+            <div class="pure-control-group">
+                <label for="mail">E-Mail</label>
+                <input type="email" id="mail" name ="mail"
+                        placeholder="h.mueller@mail.org" value="{{ MAIL }}"
+                    required>
+            </div>
+        </fieldset>
+        <fieldset><legend>Berechtigungen</legend>
+            <div class="pure-controls">
+                <label for="perm_u" class="pure-checkbox">
+                    <input type="checkbox" id="perm_u" name="perm_u">
+                    Eigene Zeugnisse bearbeiten
+                </label>
+                <label for="perm_s" class="pure-checkbox">
+                    <input type="checkbox" id="perm_s" name="perm_s">
+                    Zeugnis-Verwaltung
+                </label>
+                <label for="perm_x" class="pure-checkbox">
+                    <input type="checkbox" id="perm_x" name="perm_x">
+                    Erweiterte Zugriffsrechte (?)
+                </label>
+            </div>
+        </fieldset>
+
+        <hr>
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Speichern
+        </button>
+    </form>
+{% endblock %}

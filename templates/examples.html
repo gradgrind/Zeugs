@@ -16,7 +16,7 @@
 
 <!-- The page content -->
 {% block content %}
-    <h3>Setion title
+    <h3>Section title
     </h3>
     <p>A list of links:
     </p>
@@ -77,7 +77,7 @@
                         min="{{ MIN_D }}" max="{{ MAX_D }}"
                         value="{{ dates.GDATE_D }}"
                         <!-- It can also be readonly ... -->
-                        {% if locked == 0 %}readonly{% endif %}>
+                        {% if locked == 0 %}readonly{% endif %}
                         <!-- ... or required ... -->
                         {% if not currentterm %}required{% endif %}>
             </div>
@@ -102,4 +102,33 @@
         <textarea id="REMARKS" name="REMARKS">{{ pdata.REMARKS }}</textarea>
 
     </form>
+
+
+    <form class="pure-form pure-form-aligned">
+        <fieldset>
+            <div class="pure-control-group">
+                <label for="aligned-name">Username</label>
+                <input type="text" id="aligned-name" name ="user" placeholder="Username" />
+                <span class="pure-form-message-inline">This is a required field.</span>
+            </div>
+            <div class="pure-control-group">
+                <label for="aligned-password">Password</label>
+                <input type="password" id="aligned-password" name ="pw" placeholder="Password" />
+            </div>
+            <div class="pure-control-group">
+                <label for="aligned-email">Email Address</label>
+                <input type="email" id="aligned-email" name ="email" placeholder="Email Address" />
+            </div>
+            <div class="pure-control-group">
+                <label for="aligned-foo">Supercalifragilistic Label</label>
+                <input type="text" id="aligned-foo" name ="foo" placeholder="Enter something here..." />
+            </div>
+            <div class="pure-controls">
+                <label for="aligned-cb" class="pure-checkbox">
+                    <input type="checkbox" id="aligned-cb" name="cb" /> I&#x27;ve read the terms and conditions</label>
+                <button type="submit" class="pure-button pure-button-primary">Submit</button>
+            </div>
+        </fieldset>
+    </form>
+
 {% endblock %}

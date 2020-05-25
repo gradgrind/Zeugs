@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades_user.py
 
-Last updated:  2020-05-24
+Last updated:  2020-05-25
 
 Flask Blueprint for handling user acces to grades, especially for
 entering/editing grades.
@@ -27,8 +27,6 @@ Copyright 2020 Michael Towers
 =-LICENCE========================================
 """
 
-#TODO!
-
 from .grades_base import bp, _HEADING, _BPNAME
 
 
@@ -45,23 +43,7 @@ from flask import (Blueprint, render_template, request, session,
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
-#from wtforms import SelectField, TextAreaField
-#from wtforms.fields.html5 import DateField
-#from wtforms.validators import InputRequired, Optional #, Length
-#from flask_wtf.file import FileField, FileRequired, FileAllowed
 
-#from wz_core.configuration import Dates
-#from wz_core.courses import CourseTables
-#from wz_core.pupils import Pupils, Klass
-#from wz_grades.gradedata import db2grades
-
-#from wz_core.db import DBT
-#from wz_table.dbtable import readPSMatrix
-#from wz_grades.gradedata import (grades2db, db2grades,
-#        getGradeData, GradeReportData, singleGrades2db)
-#from wz_compat.grade_classes import gradeGroups
-#from wz_compat.gradefunctions import gradeCalc
-#from wz_core.teachers import User
 from wz_grades.teachergrades import TeacherGradeGroups
 
 

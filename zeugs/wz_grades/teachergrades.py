@@ -3,7 +3,7 @@
 """
 wz_grades/teachergrades.py
 
-Last updated:  2020-05-24
+Last updated:  2020-05-25
 
 Manage teacher-class access to grade information.
 
@@ -94,49 +94,6 @@ class TeacherGradeGroups(dict):
 # association of teachers with sub-groups (streams) is possible at present.
 # IF some further association of pupils to a particular teacher were to
 # be implemented, it would need to be handled here, too ...
-
-#DEPRECATED
-def tGradeGroups(schoolyear, term = None):
-    """Build a mapping: {tid -> {group-name -> {sid, ...}}}.
-    Only subjects are included for which grades are expected.
-    """
-    try:
-        termdata = CurrentTerm(schoolyear, term)
-    except CurrentTerm.NoTerm:
-        REPORT.Fail(_NOT_CURRENT_TERM)
-    # Only look at predefined grade groups
-    kslist = gradeGroups(termdata.TERM)
-    courses = CourseTables(schoolyear)
-    tidmap = {}
-    for ks in kslist:
-        ksname = str(ks)
-        sid2tids = courses.classSubjects(ks, 'GRADE')
-        for sid, tids in sid2tids.items():
-            for tid in tids:
-                try:
-                    tmap = tidmap[tid]
-                except:
-                    tidmap[tid] = {ksname: {sid}}
-                    continue
-                try:
-                    tmap[ksname].add(sid)
-                except:
-                    tmap[ksname] = {sid}
-    return tidmap
-
-
-#DEPRECATED
-def groupSubjectGrades(schoolyear, term, group, sid):
-    """Get grades for all pupils in a group and subject.
-    """
-    pupils = Pupils(schoolyear)
-    grades = []
-    for pdata in pupils.classPupils(group):
-        gdata = GradeData(schoolyear, term, pdata)
-        grade = gdata.getGrade(sid)
-        grades.append([pdata['PID'], pdata.name(), grade])
-    return grades
-
 
 
 

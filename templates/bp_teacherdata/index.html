@@ -10,13 +10,17 @@
     <p>Wählen Sie eine Funktion:
     </p>
     <ul class="modules">
-        <li><a href="{{ url_for('bp_teacherdata.export') }}">
-            Lehrerdaten als xlsx-Tabelle erstellen
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_teacherdata.new') }}">
+            <span>Neue Lehrkraft eingeben</span>
         </a></li>
-    </ul>
-    <ul class="modules">
-        <li><a href="{{ url_for('bp_teacherdata.upload') }}">
-            Lehrerdaten von einer Tabelle aktualisieren
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_teacherdata.export') }}">
+            <span>Lehrerdaten als xlsx-Tabelle erstellen</span>
+        </a></li>
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_teacherdata.upload') }}">
+            <span>Lehrerdaten von einer Tabelle aktualisieren</span>
         </a></li>
     </ul>
 {% endblock %}
