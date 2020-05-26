@@ -4,7 +4,7 @@
 """
 flask_app/settings/teacherdata.py
 
-Last updated:  2020-05-25
+Last updated:  2020-05-26
 
 Flask Blueprint for updating teacher data.
 
@@ -104,7 +104,13 @@ def export():
 #TODO
 @bp.route('/edit/<tid>', methods=['GET', 'POST'])
 def edit(tid):
-    return "bp_teacherdata.edit(%s): TODO" % tid
+    form = FlaskForm()
+    return render_template(os.path.join(_BPNAME, 'edit_teacher.html'),
+                            heading = _HEADING,
+                            form = form,
+                            tdata = {"TID": tid, "NAME": "Hans Müller",
+                                    "SHORTNAME": "Mueller H",
+                                    "MAIL": "h.mueller@mail.org"})
 
 
 #TODO
@@ -112,7 +118,18 @@ def edit(tid):
 def new():
     form = FlaskForm()
     return render_template(os.path.join(_BPNAME, 'edit_teacher.html'),
-                            heading=_HEADING,
-                            form=form)
+                            heading = _HEADING,
+                            form = form,
+                            tdata = None)
 
+#TODO
+@bp.route('/pw_user/<tid>', methods=['GET', 'POST'])
+def pw_user(tid):
+    return "bp_settings.pw_user(%s): TODO" % tid
+
+
+#TODO
+@bp.route('/delete/<tid>', methods=['GET', 'POST'])
+def delete(tid):
+    return "bp_settings.delete(%s): TODO" % tid
 

@@ -10,6 +10,11 @@
     <p>Wählen Sie eine Funktion:
     </p>
     <ul class="modules">
+<!-- TODO: missing page to select teacher -->
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_teacherdata.edit', tid='KA') }}">
+            <span>Daten einer Lehrkraft ändern</span>
+        </a></li>
         <li><a class="pure-menu-link"
                 href="{{ url_for('bp_teacherdata.new') }}">
             <span>Neue Lehrkraft eingeben</span>

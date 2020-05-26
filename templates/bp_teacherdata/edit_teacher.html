@@ -1,36 +1,62 @@
 <!-- Edit teacher data (Admin only) -->
 {% extends "base.html" %}
-{% set uplink = url_for('bp_settings.index') %}
-{% set uplink_help = "Einstellungen" %}
+{% set uplink = url_for('bp_teacherdata.index') %}
+{% set uplink_help = "Lehrkräfte" %}
 
 #TODO: Use for editing existing teacher AND for entering new teacher?
 
-{% block title %}Daten einer Lehrkraft / Neue Lehrkraft{% endblock %}
+{% block title %}
+    {% if tdata.TID %}Persönliche Daten
+    {% else %}Neue Lehrkraft
+    {% endif %}
+{% endblock %}
 
 {% block content %}
-    <p>Hier können Sie einzelne Felder ändern, aber auch die (Daten der)
-    Lehrkraft aus der Datenbank entfernen.
+    {% if tdata.TID %}
+    <h3>{{ tdata.NAME }}</h3>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+            <li class="pure-menu-item">
+                <a href="{{ url_for('bp_teacherdata.pw_user', tid=TID) }}"
+                        class="pure-menu-link">
+                    Passwort ändern
+                </a>
+            </li>
+            <li class="pure-menu-item">
+                <a href="{{ url_for('bp_teacherdata.delete', tid=TID) }}"
+                        class="pure-menu-link">
+                    Diese Lehrkraft aus der Datenbank entfernen
+                </a>
+            </li>
+        </ul>
+    </div>
+    <hr>
+
+    <p>Hier können Sie einzelne Felder ändern.
+    Klicken Sie dann auf „Speichern“, um die Änderung(en) zu
+    übernehmen.
     </p>
-
-    LINK TO CHANGE PASSWORD?
-
+    {% else %}
+    <p>Um eine neue Lehrkraft anzumelden, müssen alle Felder ausgefüllt
+    werden. Klicken Sie dann auf „Speichern“, um die Eingaben zu
+    übernehmen.
+    </p>
+    {% endif %}
     <form class="pure-form pure-form-aligned" method="POST">
         {{ form.csrf_token }}
-
-TODO: initialize fields
 
         <fieldset>
             <div class="pure-control-group">
                 <label for="tid">Kürzel</label>
                 <input type="text" id="tid" name ="tid"
-                        placeholder="HM" value="{{ TID }}"
+                        placeholder="HM" value="{{ tdata.TID }}"
                     required>
             </div>
             <p>Der Name, der in den Zeugnissen erscheint:</p>
             <div class="pure-control-group">
                 <label for="tname">Name</label>
                 <input type="text" id="tname" name ="tname"
-                        placeholder="Hans Müller" value="{{ NAME }}"
+                        placeholder="Hans Müller" value="{{ tdata.NAME }}"
                     required>
             </div>
             <p>Eine Kurzform des Namen, der in Dateinamen benutzt wird
@@ -39,16 +65,19 @@ TODO: initialize fields
             <div class="pure-control-group">
                 <label for="ttag">Kurzname</label>
                 <input type="text" id="ttag" name ="ttag"
-                        placeholder="Mueller H" value="{{ SHORTNAME }}"
+                        placeholder="Mueller H" value="{{ tdata.SHORTNAME }}"
                     required>
             </div>
             <div class="pure-control-group">
                 <label for="mail">E-Mail</label>
                 <input type="email" id="mail" name ="mail"
-                        placeholder="h.mueller@mail.org" value="{{ MAIL }}"
+                        placeholder="h.mueller@mail.org" value="{{ tdata.MAIL }}"
                     required>
             </div>
         </fieldset>
+
+TODO: initialize checkboxes
+
         <fieldset><legend>Berechtigungen</legend>
             <div class="pure-controls">
                 <label for="perm_u" class="pure-checkbox">
@@ -59,10 +88,12 @@ TODO: initialize fields
                     <input type="checkbox" id="perm_s" name="perm_s">
                     Zeugnis-Verwaltung
                 </label>
+                {% if 'x' in session.permission %}
                 <label for="perm_x" class="pure-checkbox">
                     <input type="checkbox" id="perm_x" name="perm_x">
-                    Erweiterte Zugriffsrechte (?)
+                    Erweiterte Zugriffsrechte
                 </label>
+                {% endif %}
             </div>
         </fieldset>
 
