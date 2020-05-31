@@ -1,0 +1,67 @@
+<!-- Change password for teacher -->
+{% extends "base.html" %}
+{% if 's' in session.permission %}
+  {% set uplink = url_for('bp_teacherdata.index_s') %}
+{% else %}
+  {% set uplink = url_for('bp_settings.index') %}
+{% endif %}
+{% set uplink_help = "Lehrkräfte" %}
+
+{% block title %}
+    Passwort ändern
+{% endblock %}
+
+{% block content %}
+    <h3>{{ tdata.NAME }}</h3>
+
+    <p>Das Passwort muss folgende Kriterien erfüllen:</p>
+    <ul>
+        <li>{{ pwdata.pw_length[2] }}</li>
+        <li>{{ pwdata.pw_spaces }}</li>
+      {% for chk in pwdata.pw_chars %}
+        <li>{{ chk[2] }}</li>
+      {% endfor %}
+    </ul>
+    <hr>
+
+    <p>Geben Sie das neue Passwort zweimal ein (um Fehler zu vermeiden).
+    </p>
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+
+        <fieldset>
+            <div class="pure-control-group">
+                <label for="pwd1">Neues Passwort:</label>
+                <input type="password" id="pwd1" name="pwd1">
+            </div>
+            <div class="pure-control-group">
+                <label for="pwd2">Wiederholung:</label>
+                <input type="password" id="pwd2" name="pwd2">
+            </div>
+
+          {% if ownpw %}
+            <p>Geben Sie auch Ihr aktuelles Passwort zur Sicherheit ein:</p>
+            <div class="pure-control-group">
+                <label for="{{ form.PASSWORD.id }}">Altes Passwort:</label>
+                {{ form.PASSWORD }}
+                {% for error in form.PASSWORD.errors %}
+                <span>[{{ error }}]</span>
+                {% endfor %}
+            </div>
+          {% else %}
+            <p>Geben Sie auch Ihr eigenes Passwort zur Sicherheit ein:</p>
+            <div class="pure-control-group">
+                <label for="{{ form.PASSWORD.id }}">Eigenes Passwort:</label>
+                {{ form.PASSWORD }}
+                {% for error in form.PASSWORD.errors %}
+                <span>[{{ error }}]</span>
+                {% endfor %}
+            </div>
+          {% endif %}
+
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Passwort Ändern
+        </button>
+    </form>
+{% endblock %}

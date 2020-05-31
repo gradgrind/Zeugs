@@ -14,20 +14,34 @@
     <p>Wählen Sie eine Funktion:
     </p>
     <ul class="modules">
-        <li><a href="{{ url_for('bp_settings.subjects') }}">
+      {% if 'u' in session.permission %}
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_teacherdata.pw_user', tid=session.user_id) }}">
+            <span>Passwort ändern</span>
+        </a></li>
+        <hr>
+      {% endif %}
+      {% if 's' in session.permission %}
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_settings.subjects') }}">
             Fächertabellen verwalten
         </a></li>
-        <li><a href="{{ url_for('bp_pupildata.upload') }}">
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_pupildata.upload') }}">
             Schülerdaten aktualisieren
         </a></li>
-        <li><a href="{{ url_for('bp_pupildata.export') }}">
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_pupildata.export') }}">
             Schülerdaten als xlsx-Tabelle herunterladen
         </a></li>
-        <li><a href="{{ url_for('bp_settings.year') }}">
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_settings.year') }}">
             „Aktuelles“ Schuljahr verwalten / ändern
         </a></li>
-        <li><a href="{{ url_for('bp_teacherdata.index') }}">
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_teacherdata.index_s') }}">
             Lehrerdaten verwalten
         </a></li>
+      {% endif %}
     </ul>
 {% endblock %}

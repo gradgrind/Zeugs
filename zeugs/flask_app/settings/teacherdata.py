@@ -28,11 +28,7 @@ Copyright 2020 Michael Towers
 
 _HEADING = "Lehrkräfte"   # page heading
 
-# Messages
-# ---
-
-
-import datetime, os
+import os
 
 from flask import (Blueprint, render_template, request, session,
         url_for, redirect, flash)
@@ -40,10 +36,12 @@ from flask import current_app as app
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
+from werkzeug.security import generate_password_hash
 
-#from wz_core.db import DBT
-#from wz_core.configuration import Dates
+from wz_core.db import DBT
 from wz_core.teachers import TeacherData, readTeacherTable, exportTeachers
+from ..auth.passwords import Password
+from ..auth.auth import AuthenticationForm, PasswordStrength
 
 
 # Set up Blueprint
@@ -53,9 +51,19 @@ bp = Blueprint(_BPNAME,             # internal name of the Blueprint
 
 
 @bp.route('/', methods=['GET'])
-def index():
+def index_s():
     return render_template(os.path.join(_BPNAME, 'index.html'),
                             heading=_HEADING)
+
+
+def checkyear():
+    thisyear = DBT().schoolyear
+    schoolyear = session['year']
+    if schoolyear == thisyear:
+        return schoolyear
+    flash("Lehrerdaten können nur im aktiven Schuljahr (%d) geändert werden"
+            % thisyear, "Error")
+    return None
 
 
 ### Upload a table containing all necessary information about the teachers.
@@ -70,7 +78,9 @@ def upload():
             FileAllowed(['xlsx', 'ods'], 'Lehrertabelle')
         ])
 
-    schoolyear = session['year']
+    schoolyear = checkyear()
+    if not schoolyear:
+        return redirect(url_for('bp_settings.index'))
     form = UploadForm()
     if form.validate_on_submit():
         # POST
@@ -105,7 +115,9 @@ def export():
 def choose():
     """View: choose the teacher whose data is to be updated.
     """
-    schoolyear = session['year']
+    schoolyear = checkyear()
+    if not schoolyear:
+        return redirect(url_for('bp_settings.index'))
     teachers = TeacherData(schoolyear)
     tlist = []
     for tid in teachers:
@@ -119,7 +131,9 @@ def choose():
 
 @bp.route('/edit/<tid>', methods=['GET', 'POST'])
 def edit(tid):
-    schoolyear = session['year']
+    schoolyear = checkyear()
+    if not schoolyear:
+        return redirect(url_for('bp_settings.index'))
     try:
         teachers = TeacherData(schoolyear)
         tdata = teachers[tid]
@@ -181,6 +195,8 @@ def newTeacher(teachers, tid, data):
         return False
     teachers.new(tid, data)
     for f, v in data.items():
+        if len(v) > 30:
+            v = v[:26] + " ..."
         flash("%s: %s = '%s'" % (tid, f, v), "Info")
     flash("Neue Lehrkraft (%s)" % data['NAME'], "Info")
     return True
@@ -188,23 +204,25 @@ def newTeacher(teachers, tid, data):
 
 @bp.route('/new', methods=['GET', 'POST'])
 def new():
+    schoolyear = checkyear()
+    if not schoolyear:
+        return redirect(url_for('bp_settings.index'))
     form = FlaskForm()
     if app.isPOST(form):
         # POST
-        flash("TODO")
         data = {}
         data['PERMISSION'] = 'us' if request.form.get('perm_s') else 'u'
         for field in 'NAME', 'SHORTNAME', 'MAIL':
             data[field] = request.form[field]
-#TODO: generate a random password
-        pw = "Secret"
-#TODO: make hash
-        pwhash = pw+"§§§"
-        # This is not really an error, it's just for the colour!
-        flash("PASSWORT: %s (abschreiben!)" % pw, "Error")
+        # Generate a random password
+        pw = Password(12).get()
+        pwhash = generate_password_hash(pw)
         data['PASSWORD'] = pwhash
-        teachers = TeacherData(session['year'])
-        if newTeacher(teachers, request.form['TID'], data):
+        teachers = TeacherData(schoolyear)
+        tid = request.form['TID']
+        if newTeacher(teachers, tid, data):
+            # This is not really an error, it's just for the colour:
+            flash("PASSWORT für %s (abschreiben!): %s" % (tid, pw), "Error")
             return redirect(url_for('bp_teacherdata.index'))
 
     # GET
@@ -214,16 +232,61 @@ def new():
                             tdata = None)
 
 
-#TODO
 @bp.route('/pw_user/<tid>', methods=['GET', 'POST'])
 def pw_user(tid):
-    return "bp_settings.pw_user(%s): TODO" % tid
+    schoolyear = checkyear()
+    if not schoolyear:
+        return redirect(url_for('bp_settings.index'))
+    try:
+        teachers = TeacherData(schoolyear)
+        tdata = teachers[tid]
+    except:
+        abort(404)
+    uid = session['user_id']
+    if uid == tid:
+        ownpw = True
+    else:
+        perms = session['permission']
+        if not ('s' in perms or 'x' in perms):
+            abort(404)
+        ownpw = False
+
+    form = AuthenticationForm()
+    if form.validate_on_submit():
+        # POST
+        pwd1 = request.form['pwd1']
+        pwd2 = request.form['pwd2']
+        if pwd1 == pwd2:
+            # Check password strength
+            fails = PasswordStrength(pwd1).fail
+            if fails:
+                for f in fails:
+                    flash(f, "Warning")
+                flash("Ungültiges Passwort", "Error")
+            else:
+                pwhash = generate_password_hash(pwd1)
+                data = {'PASSWORD': pwhash}
+                teachers.update(tid, data)
+                flash("Passwort geändert für %s" % tid, "Info")
+                return redirect(url_for('bp_settings.index'))
+        else:
+            flash("Die neuen Passwörter stimmen nicht überein", "Error")
+
+    # GET
+    return render_template(os.path.join(_BPNAME, 'pw_user.html'),
+                            heading = _HEADING,
+                            form = form,
+                            tdata = tdata,
+                            ownpw = ownpw,
+                            pwdata = PasswordStrength)
 
 
 @bp.route('/delete/<tid>', methods=['GET', 'POST'])
 def delete(tid):
+    schoolyear = checkyear()
+    if not schoolyear:
+        return redirect(url_for('bp_settings.index'))
     try:
-        schoolyear = session['year']
         teachers = TeacherData(schoolyear)
         tdata = teachers[tid]
     except:
@@ -232,7 +295,7 @@ def delete(tid):
     if app.isPOST(form):
         # POST
         teachers.remove(tid)
-        flash("Lehrkraft mit Kürzel %s wurde von der Datenbank entfernt"
+        flash("Lehrkraft mit Kürzel %s wurde aus der Datenbank entfernt"
                 % tid, "Info")
         return redirect(url_for('bp_teacherdata.choose'))
 

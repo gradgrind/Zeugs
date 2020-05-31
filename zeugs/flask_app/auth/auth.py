@@ -4,7 +4,7 @@
 """
 flask_app/auth/auth.py
 
-Last updated:  2020-05-22
+Last updated:  2020-05-31
 
 Flask Blueprint for user authentication (login).
 
@@ -26,7 +26,7 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
-import os, time
+import os, time, re
 
 from flask import (Blueprint, g, redirect, render_template, request,
         session, url_for, current_app, flash
@@ -137,6 +137,52 @@ def login():
 def logout_user():
     session.clear()
     return redirect(url_for('index'))
+
+
+
+# For use by other modules
+class AuthenticationForm(FlaskForm):
+    PASSWORD = PasswordField(validators=[DataRequired()])
+    def validate_PASSWORD(form, field):
+        user = session['user_id']
+        pwhash = User(user).pwh
+        if not check_password_hash(pwhash, field.data):
+            raise StopValidation(_BADPW)
+
+
+special_characters = r'!$%&/()=?+_#*,.;:<>@-'
+class PasswordStrength:
+    pw_length = (8, 16, "Das Passwort muss eine Länge von 8 – 16 Zeichen haben.")
+    # Note that the '-' is at the end to avoid the need for a backslash:
+    pw_chars = [
+            ('a-z', 2, "Das Passwort muss mindestens zwei Kleinbuchstaben (a – z) haben."),
+            ('A-Z', 2, "Das Passwort muss mindestens zwei Großbuchstaben (A – Z) haben."),
+            ('0-9', 2, "Das Passwort muss mindestens zwei Ziffern (0 – 9) haben."),
+            # Note that the '-' is at the end to avoid the need for a backslash:
+            (special_characters, 2,
+                    "Das Passwort muss mindestens zwei Sonderzeichen haben: %s"
+                    % special_characters)
+        ]
+    pw_spaces = "Das Passwort darf keine Leerzeichen enthalten."
+    pw_illegal = "Das Passwort darf folgende Zeichen nicht enthalten: %s"
+
+    def __init__(self, pw):
+        """Do a basic check on the strength of a password.
+        """
+        self.fail = []
+        if re.search("\s", pw):
+            self.fail.append(self.pw_spaces)
+            return fail
+        if (len(pw) < self.pw_length[0] or len(pw) > self.pw_length[1]):
+            self.fail.append(self.pw_length[2])
+            return fail
+        pn = pw
+        for ch, n, msg in self.pw_chars:
+            pn, n1 = re.subn('[%s]' % ch, '', pn)
+            if n1 < n:
+                self.fail.append(msg)
+        if pn:
+            self.fail.append(self.pw_illegal % pn)
 
 
 """
