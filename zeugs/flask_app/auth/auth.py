@@ -51,18 +51,19 @@ _BADUSER = "Ungültiger Benutzername"
 _BADPW = "Falsches Passwort"
 
 class LoginForm(FlaskForm):
-    USER = StringField('Benutzername', validators=[DataRequired()])
+    USER = StringField(validators=[DataRequired()])
     def validate_USER(form, field):
         udata = User(field.data)
         if not udata.valid:
             raise StopValidation(_BADUSER)
 
-    PASSWORD = PasswordField('Passwort', validators=[DataRequired()])
+    PASSWORD = PasswordField(validators=[DataRequired()])
     def validate_PASSWORD(form, field):
         user = form.USER.data
         try:
-            pwhash = User(u).pwh
+            pwhash = User(user).pwh
         except:
+            # Will be handled by <validate_USER>
             return
         if not check_password_hash(pwhash, field.data):
             raise StopValidation(_BADPW)

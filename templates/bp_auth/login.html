@@ -18,24 +18,33 @@
     Falls Sie Hilfe oder neue Zugangsdaten brauchen, kontaktieren
     Sie den Administrator:
     </p>
-    <p id="adminmail">Anton Admin: <a href="mailto:aa@schule.de">aa@schule.de</a>
+    <p style="padding-left: 3rem; padding-bottom: 2rem; color: #00e;">
+        Anton Admin: <a href="mailto:aa@schule.de">aa@schule.de</a>
     </p>
-    <form id="dataform" class="pure-form" method="POST">
+    <form class="pure-form pure-form-aligned" method="POST">
         {{ form.csrf_token }}
-        <div class="form2">
-            {{ form.USER.label }}{{ form.USER(autofocus=true) }}
+        <fieldset>
+            <div class="pure-control-group">
+                <label for="{{ form.USER.id }}">Benutzername:</label>
+                {{ form.USER(autofocus=true) }}
+            </div>
+            <div>
                 {% for error in form.USER.errors %}
                 <span>[{{ error }}]</span>
                 {% endfor %}
-            {{ form.PASSWORD.label }}{{ form.PASSWORD }}
+            </div>
+            <div class="pure-control-group">
+                <label for="{{ form.PASSWORD.id }}">Passwort:</label>
+                {{ form.PASSWORD }}
+            </div>
+            <div>
                 {% for error in form.PASSWORD.errors %}
                 <span>[{{ error }}]</span>
                 {% endfor %}
-<!--            {{ form.submit }}-->
-        </div>
+            </div>
         <hr />
         <button type="submit" class="pure-button submit-button"
-                style="margin: 0;">
+                style="margin: 0.5rem 1rem;">
             Einloggen
         </button>
     </form>
