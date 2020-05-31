@@ -125,9 +125,6 @@ def edit(tid):
         tdata = teachers[tid]
     except:
         abort(404)
-#TODO
-    # There need be only one x-user ('X'), which is handled separately
-    # from the teachers.
     form = FlaskForm()
     if app.isPOST(form):
         # POST
@@ -154,7 +151,7 @@ def edit(tid):
             # tid changed: create a new entry, checking that the new tid
             # doesn't exist, then delete the old one.
             # First ensure all fields are there:
-            for field in 'NAME', 'SHORTNAME', 'MAIL', 'PASSWORD':
+            for field in 'NAME', 'SHORTNAME', 'MAIL', 'PERMISSION', 'PASSWORD':
                 if field not in changes:
                     changes[field] = tdata[field]
             if newTeacher(teachers, tidx, changes):
@@ -180,7 +177,7 @@ def edit(tid):
 
 def newTeacher(teachers, tid, data):
     if teachers.checkTeacher(tid, report = False):
-        flash("Kürzel %s is schon vergeben", "Error")
+        flash("Kürzel %s ist schon vergeben" % tid, "Error")
         return False
     teachers.new(tid, data)
     for f, v in data.items():
@@ -189,14 +186,33 @@ def newTeacher(teachers, tid, data):
     return True
 
 
-#TODO: remember password!
 @bp.route('/new', methods=['GET', 'POST'])
 def new():
     form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        flash("TODO")
+        data = {}
+        data['PERMISSION'] = 'us' if request.form.get('perm_s') else 'u'
+        for field in 'NAME', 'SHORTNAME', 'MAIL':
+            data[field] = request.form[field]
+#TODO: generate a random password
+        pw = "Secret"
+#TODO: make hash
+        pwhash = pw+"§§§"
+        # This is not really an error, it's just for the colour!
+        flash("PASSWORT: %s (abschreiben!)" % pw, "Error")
+        data['PASSWORD'] = pwhash
+        teachers = TeacherData(session['year'])
+        if newTeacher(teachers, request.form['TID'], data):
+            return redirect(url_for('bp_teacherdata.index'))
+
+    # GET
     return render_template(os.path.join(_BPNAME, 'edit_teacher.html'),
                             heading = _HEADING,
                             form = form,
                             tdata = None)
+
 
 #TODO
 @bp.route('/pw_user/<tid>', methods=['GET', 'POST'])
@@ -206,7 +222,6 @@ def pw_user(tid):
 
 @bp.route('/delete/<tid>', methods=['GET', 'POST'])
 def delete(tid):
-    return "bp_settings.delete(%s): TODO" % tid
     try:
         schoolyear = session['year']
         teachers = TeacherData(schoolyear)
