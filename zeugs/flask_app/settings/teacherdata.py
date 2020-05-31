@@ -4,7 +4,7 @@
 """
 flask_app/settings/teacherdata.py
 
-Last updated:  2020-05-26
+Last updated:  2020-05-31
 
 Flask Blueprint for updating teacher data.
 
@@ -43,7 +43,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 #from wz_core.db import DBT
 #from wz_core.configuration import Dates
-from wz_core.teachers import readTeacherTable, exportTeachers
+from wz_core.teachers import TeacherData, readTeacherTable, exportTeachers
 
 
 # Set up Blueprint
@@ -89,7 +89,7 @@ def upload():
 
 @bp.route('/export', methods=['GET'])
 def export():
-    """View: Export the teacher database table for the current year as
+    """View: export the teacher database table for the current year as
     an xlsx spreadsheet.
     """
     schoolyear = session['year']
@@ -101,19 +101,95 @@ def export():
     return redirect(url_for('bp_settings.index'))
 
 
-#TODO
+@bp.route('/choose', methods=['GET'])
+def choose():
+    """View: choose the teacher whose data is to be updated.
+    """
+    schoolyear = session['year']
+    teachers = TeacherData(schoolyear)
+    tlist = []
+    for tid in teachers:
+        tdata = teachers[tid]
+        if tdata['PERMISSION']:
+            tlist.append((tdata['TID'], tdata['NAME']))
+    return render_template(os.path.join(_BPNAME, 'choose_teacher.html'),
+                            heading = _HEADING,
+                            tlist = tlist)
+
+
 @bp.route('/edit/<tid>', methods=['GET', 'POST'])
 def edit(tid):
+    schoolyear = session['year']
+    try:
+        teachers = TeacherData(schoolyear)
+        tdata = teachers[tid]
+    except:
+        abort(404)
+#TODO
+    # There need be only one x-user ('X'), which is handled separately
+    # from the teachers.
     form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        changes = {}
+        # A normal user (generally a teacher) has permission 'u', an
+        # administrator 'us'.
+        perms = tdata['PERMISSION']
+        if request.form.get('perm_s'):
+            if 's' not in perms:
+                changes['PERMISSION'] = 'u'
+        elif 's' in perms:
+            changes['PERMISSION'] = 'us'
+
+        for field in 'TID', 'NAME', 'SHORTNAME', 'MAIL':
+            newval = request.form[field]
+            if newval:
+                if newval != tdata[field]:
+                    changes[field] = newval
+            else:
+                badfields.append(field)
+        # update database
+        tidx = changes.pop('TID', None)
+        if tidx:
+            # tid changed: create a new entry, checking that the new tid
+            # doesn't exist, then delete the old one.
+            # First ensure all fields are there:
+            for field in 'NAME', 'SHORTNAME', 'MAIL', 'PASSWORD':
+                if field not in changes:
+                    changes[field] = tdata[field]
+            if newTeacher(teachers, tidx, changes):
+                teachers.remove(tid)
+                flash("Kürzel %s wurde gelöscht" % tid, "Info")
+                return redirect(url_for('bp_teacherdata.choose'))
+        elif changes:
+            teachers.update(tid, changes)
+            for f, v in changes.items():
+                flash("%s: %s ist jetzt '%s'" % (tid, f, v), "Info")
+            flash("Daten für %s wurden aktualisiert"
+                    % request.form['NAME'], "Info")
+            return redirect(url_for('bp_teacherdata.choose'))
+        else:
+            flash("%s: keine Änderungen" % tdata['NAME'], "Info")
+
+    # GET
     return render_template(os.path.join(_BPNAME, 'edit_teacher.html'),
                             heading = _HEADING,
                             form = form,
-                            tdata = {"TID": tid, "NAME": "Hans Müller",
-                                    "SHORTNAME": "Mueller H",
-                                    "MAIL": "h.mueller@mail.org"})
+                            tdata = tdata)
 
 
-#TODO
+def newTeacher(teachers, tid, data):
+    if teachers.checkTeacher(tid, report = False):
+        flash("Kürzel %s is schon vergeben", "Error")
+        return False
+    teachers.new(tid, data)
+    for f, v in data.items():
+        flash("%s: %s = '%s'" % (tid, f, v), "Info")
+    flash("Neue Lehrkraft (%s)" % data['NAME'], "Info")
+    return True
+
+
+#TODO: remember password!
 @bp.route('/new', methods=['GET', 'POST'])
 def new():
     form = FlaskForm()
@@ -128,8 +204,25 @@ def pw_user(tid):
     return "bp_settings.pw_user(%s): TODO" % tid
 
 
-#TODO
 @bp.route('/delete/<tid>', methods=['GET', 'POST'])
 def delete(tid):
     return "bp_settings.delete(%s): TODO" % tid
+    try:
+        schoolyear = session['year']
+        teachers = TeacherData(schoolyear)
+        tdata = teachers[tid]
+    except:
+        abort(404)
+    form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        teachers.remove(tid)
+        flash("Lehrkraft mit Kürzel %s wurde von der Datenbank entfernt"
+                % tid, "Info")
+        return redirect(url_for('bp_teacherdata.choose'))
 
+    # GET
+    return render_template(os.path.join(_BPNAME, 'delete_teacher.html'),
+                            heading = _HEADING,
+                            form = form,
+                            tdata = tdata)

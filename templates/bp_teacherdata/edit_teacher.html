@@ -1,9 +1,7 @@
-<!-- Edit teacher data (Admin only) -->
+<!-- Edit teacher data / new teacher (Admin only) -->
 {% extends "base.html" %}
-{% set uplink = url_for('bp_teacherdata.index') %}
-{% set uplink_help = "Lehrkräfte" %}
-
-#TODO: Use for editing existing teacher AND for entering new teacher?
+{% set uplink = url_for('bp_teacherdata.choose') %}
+{% set uplink_help = "Lehrkraft wählen" %}
 
 {% block title %}
     {% if tdata.TID %}Persönliche Daten
@@ -17,13 +15,13 @@
     <div class="pure-menu">
         <ul class="pure-menu-list">
             <li class="pure-menu-item">
-                <a href="{{ url_for('bp_teacherdata.pw_user', tid=TID) }}"
+                <a href="{{ url_for('bp_teacherdata.pw_user', tid=tdata.TID) }}"
                         class="pure-menu-link">
                     Passwort ändern
                 </a>
             </li>
             <li class="pure-menu-item">
-                <a href="{{ url_for('bp_teacherdata.delete', tid=TID) }}"
+                <a href="{{ url_for('bp_teacherdata.delete', tid=tdata.TID) }}"
                         class="pure-menu-link">
                     Diese Lehrkraft aus der Datenbank entfernen
                 </a>
@@ -48,14 +46,14 @@
         <fieldset>
             <div class="pure-control-group">
                 <label for="tid">Kürzel</label>
-                <input type="text" id="tid" name ="tid"
+                <input type="text" id="tid" name ="TID"
                         placeholder="HM" value="{{ tdata.TID }}"
                     required>
             </div>
             <p>Der Name, der in den Zeugnissen erscheint:</p>
             <div class="pure-control-group">
                 <label for="tname">Name</label>
-                <input type="text" id="tname" name ="tname"
+                <input type="text" id="tname" name ="NAME"
                         placeholder="Hans Müller" value="{{ tdata.NAME }}"
                     required>
             </div>
@@ -64,36 +62,27 @@
             </p>
             <div class="pure-control-group">
                 <label for="ttag">Kurzname</label>
-                <input type="text" id="ttag" name ="ttag"
+                <input type="text" id="ttag" name ="SHORTNAME"
                         placeholder="Mueller H" value="{{ tdata.SHORTNAME }}"
                     required>
             </div>
             <div class="pure-control-group">
                 <label for="mail">E-Mail</label>
-                <input type="email" id="mail" name ="mail"
+                <input type="email" id="mail" name ="MAIL"
                         placeholder="h.mueller@mail.org" value="{{ tdata.MAIL }}"
                     required>
             </div>
         </fieldset>
 
-TODO: initialize checkboxes
-
-        <fieldset><legend>Berechtigungen</legend>
+        <fieldset><legend>Administratorrechte</legend>
+            <p>Ein Administrator hat Zugriff auf alle Daten, kann
+            Tabellen und Zeugnisse erstellen, usw.</p>
             <div class="pure-controls">
-                <label for="perm_u" class="pure-checkbox">
-                    <input type="checkbox" id="perm_u" name="perm_u">
-                    Eigene Zeugnisse bearbeiten
-                </label>
                 <label for="perm_s" class="pure-checkbox">
-                    <input type="checkbox" id="perm_s" name="perm_s">
-                    Zeugnis-Verwaltung
+                    <input type="checkbox" id="perm_s" name="perm_s"
+                            {% if 's' in tdata.PERMISSION %}checked{% endif %}>
+                    Administrator
                 </label>
-                {% if 'x' in session.permission %}
-                <label for="perm_x" class="pure-checkbox">
-                    <input type="checkbox" id="perm_x" name="perm_x">
-                    Erweiterte Zugriffsrechte
-                </label>
-                {% endif %}
             </div>
         </fieldset>
 

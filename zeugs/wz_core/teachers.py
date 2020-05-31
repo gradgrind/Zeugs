@@ -3,7 +3,7 @@
 """
 wz_core/teachers.py
 
-Last updated:  2020-05-23
+Last updated:  2020-05-31
 
 Access to the list of teachers.
 
@@ -81,6 +81,31 @@ class TeacherData:
         if row:
             return row
         raise KeyError(_UNKNOWN_TEACHER.format(tid = tid))
+
+
+    def new(self, tid, data):
+        """Add the teacher with the given id to the database. <data> is
+        a mapping: {field -> value}.
+        """
+        data['TID'] = tid
+        with self.db:
+            self.db.addEntry('TEACHERS', data)
+
+
+    def remove(self, tid):
+        """Remove the teacher with the given id from the database.
+        """
+        with self.db:
+            self.db.deleteEntry('TEACHERS', TID = tid)
+
+
+    def update(self, tid, changes):
+        """Edit the given fields (<changes>: {field -> new value}) for
+        the teacher with the given id. Field TID may not be changed!
+        """
+        with self.db:
+            self.db.updateOrAdd('TEACHERS', changes, update_only = True,
+                    TID = tid)
 
 
 

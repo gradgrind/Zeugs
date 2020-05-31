@@ -1,0 +1,22 @@
+<!-- "Delete" teacher (Admin only) -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_teacherdata.choose') %}
+{% set uplink_help = "Lehrkraft wählen" %}
+
+{% block title %}
+    Lehrkraft aus der Datenbank entfernen
+{% endblock %}
+
+{% block content %}
+    <h3>{{ tdata.NAME }}</h3>
+    <p>Um die Daten dieser Lehrkraft zu löschen, klicken Sie auf „Entfernen“.
+    </p>
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Entfernen
+        </button>
+    </form>
+{% endblock %}
