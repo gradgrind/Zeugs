@@ -4,7 +4,7 @@
 """
 flask_app/settings/teacherdata.py
 
-Last updated:  2020-05-31
+Last updated:  2020-06-02
 
 Flask Blueprint for updating teacher data.
 
@@ -40,8 +40,8 @@ from werkzeug.security import generate_password_hash
 
 from wz_core.db import DBT
 from wz_core.teachers import TeacherData, readTeacherTable, exportTeachers
-from ..auth.passwords import Password
-from ..auth.auth import AuthenticationForm, PasswordStrength
+from wz_compat.passwords import Password
+from ..auth.auth import AuthenticationForm
 
 
 # Set up Blueprint
@@ -215,7 +215,7 @@ def new():
         for field in 'NAME', 'SHORTNAME', 'MAIL':
             data[field] = request.form[field]
         # Generate a random password
-        pw = Password(12).get()
+        pw = Password.new()
         pwhash = generate_password_hash(pw)
         data['PASSWORD'] = pwhash
         teachers = TeacherData(schoolyear)
@@ -232,8 +232,8 @@ def new():
                             tdata = None)
 
 
-@bp.route('/pw_user/<tid>', methods=['GET', 'POST'])
-def pw_user(tid):
+@bp.route('/pw_admin/<tid>', methods=['GET', 'POST'])
+def pw_admin(tid):
     schoolyear = checkyear()
     if not schoolyear:
         return redirect(url_for('bp_settings.index'))
@@ -242,15 +242,40 @@ def pw_user(tid):
         tdata = teachers[tid]
     except:
         abort(404)
-    uid = session['user_id']
-    if uid == tid:
-        ownpw = True
-    else:
-        perms = session['permission']
-        if not ('s' in perms or 'x' in perms):
-            abort(404)
-        ownpw = False
+    form = AuthenticationForm()
+    if form.validate_on_submit():
+        # POST
+        if request.form.get('phrase'):
+            pwd = Password.passphrase()
+            if not pwd:
+                flash("Erstellung einer Passphrase: keine Wortliste verfügbar",
+                        "Error")
+        else:
+            pwd = Password.new()
+        if pwd:
+            pwhash = generate_password_hash(pwd)
+            data = {'PASSWORD': pwhash}
+            teachers.update(tid, data)
+            flash("Passwort geändert für %s: %s" % (tid, pwd), "Info")
 
+    # GET
+    return render_template(os.path.join(_BPNAME, 'pw_admin.html'),
+                            heading = _HEADING,
+                            form = form,
+                            tdata = tdata)
+
+
+@bp.route('/pw_user', methods=['GET', 'POST'])
+def pw_user():
+    schoolyear = checkyear()
+    if not schoolyear:
+        return redirect(url_for('bp_settings.index'))
+    uid = session['user_id']
+    try:
+        teachers = TeacherData(schoolyear)
+        tdata = teachers[uid]
+    except:
+        abort(404)
     form = AuthenticationForm()
     if form.validate_on_submit():
         # POST
@@ -258,7 +283,7 @@ def pw_user(tid):
         pwd2 = request.form['pwd2']
         if pwd1 == pwd2:
             # Check password strength
-            fails = PasswordStrength(pwd1).fail
+            fails = Password.checkStrength(pwd1)
             if fails:
                 for f in fails:
                     flash(f, "Warning")
@@ -277,8 +302,7 @@ def pw_user(tid):
                             heading = _HEADING,
                             form = form,
                             tdata = tdata,
-                            ownpw = ownpw,
-                            pwdata = PasswordStrength)
+                            pwdata = Password)
 
 
 @bp.route('/delete/<tid>', methods=['GET', 'POST'])

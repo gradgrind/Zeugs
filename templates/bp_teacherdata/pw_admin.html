@@ -1,0 +1,44 @@
+<!-- Change password for teacher -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_teacherdata.index_s') %}
+{% set uplink_help = "Lehrkräfte" %}
+
+{% block title %}
+    Passwort ändern
+{% endblock %}
+
+{% block content %}
+    <h3>{{ tdata.NAME }}</h3>
+    <p>Es kann entweder ein Passwort oder eine Passphrase erstellt werden.
+    Das Passwort wird automatisch erzeugt und bei einer erfolgreichen
+    Änderung angezeigt.
+    Der Klartext wird nicht gespeichert, also bitte abschreiben!
+    </p>
+
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+
+            <div style="padding-left: 1em; padding-bottom: 1em;">
+                <label for="phrase" class="pure-checkbox">
+                    <input type="checkbox" id="phrase" name="phrase">
+                        Passphrase erstellen
+                </label>
+            </div>
+
+            <p>Geben Sie Ihr eigenes Passwort (bzw. Ihre Passphrase)
+                zur Sicherheit ein:
+            </p>
+            <div class="pure-control-group">
+                <label for="{{ form.PASSWORD.id }}">Eigenes Passwort:</label>
+                {{ form.PASSWORD }}
+                {% for error in form.PASSWORD.errors %}
+                <span>[{{ error }}]</span>
+                {% endfor %}
+            </div>
+
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Passwort Ändern
+        </button>
+    </form>
+{% endblock %}

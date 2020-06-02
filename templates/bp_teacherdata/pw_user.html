@@ -1,30 +1,31 @@
-<!-- Change password for teacher -->
+<!-- A teacher can change his/her password -->
 {% extends "base.html" %}
-{% if 's' in session.permission %}
-  {% set uplink = url_for('bp_teacherdata.index_s') %}
-{% else %}
-  {% set uplink = url_for('bp_settings.index') %}
-{% endif %}
-{% set uplink_help = "Lehrkräfte" %}
+{% set uplink = url_for('bp_settings.index') %}
+{% set uplink_help = "Einstellungen" %}
 
 {% block title %}
     Passwort ändern
 {% endblock %}
 
 {% block content %}
-    <h3>{{ tdata.NAME }}</h3>
-
-    <p>Das Passwort muss folgende Kriterien erfüllen:</p>
+    <p>Es kann entweder ein Passwort oder eine Passphrase benutzt werden.</p>
+    <p>Ein <strong>Passwort</strong> muss folgende Kriterien erfüllen:</p>
     <ul>
-        <li>{{ pwdata.pw_length[2] }}</li>
-        <li>{{ pwdata.pw_spaces }}</li>
+        <li>{{ pwdata.pw_length }}</li>
       {% for chk in pwdata.pw_chars %}
         <li>{{ chk[2] }}</li>
       {% endfor %}
     </ul>
+    <p>Eine <strong>Passphrase</strong> muss folgende Kriterien erfüllen:</p>
+    <ul>
+        <li>{{ pwdata.pp_words }}</li>
+        <li>{{ pwdata.pp_length }}</li>
+        <li>{{ pwdata.pp_psc }}</li>
+    </ul>
+
     <hr>
 
-    <p>Geben Sie das neue Passwort zweimal ein (um Fehler zu vermeiden).
+    <p>Geben Sie das neue Passwort bzw. die Passphrase zweimal ein, um Fehler zu vermeiden.
     </p>
     <form class="pure-form pure-form-aligned" method="POST">
         {{ form.csrf_token }}
@@ -39,8 +40,9 @@
                 <input type="password" id="pwd2" name="pwd2">
             </div>
 
-          {% if ownpw %}
-            <p>Geben Sie auch Ihr aktuelles Passwort zur Sicherheit ein:</p>
+            <p>Geben Sie auch Ihr aktuelles Passwort (bzw. Ihre Passphrase)
+                zur Sicherheit ein:
+            </p>
             <div class="pure-control-group">
                 <label for="{{ form.PASSWORD.id }}">Altes Passwort:</label>
                 {{ form.PASSWORD }}
@@ -48,16 +50,6 @@
                 <span>[{{ error }}]</span>
                 {% endfor %}
             </div>
-          {% else %}
-            <p>Geben Sie auch Ihr eigenes Passwort zur Sicherheit ein:</p>
-            <div class="pure-control-group">
-                <label for="{{ form.PASSWORD.id }}">Eigenes Passwort:</label>
-                {{ form.PASSWORD }}
-                {% for error in form.PASSWORD.errors %}
-                <span>[{{ error }}]</span>
-                {% endfor %}
-            </div>
-          {% endif %}
 
         <button type="submit" class="pure-button submit-button"
                 style="margin: 0.5rem 1rem;">

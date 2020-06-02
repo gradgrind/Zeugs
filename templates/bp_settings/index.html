@@ -16,7 +16,7 @@
     <ul class="modules">
       {% if 'u' in session.permission %}
         <li><a class="pure-menu-link"
-                href="{{ url_for('bp_teacherdata.pw_user', tid=session.user_id) }}">
+                href="{{ url_for('bp_teacherdata.pw_user') }}">
             <span>Passwort ändern</span>
         </a></li>
         <hr>
