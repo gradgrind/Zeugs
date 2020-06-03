@@ -172,41 +172,6 @@ a.pure-menu-link:hover {
     margin-top: 2em;
 }
 
-.form2 { /* layout forms with label + input field using grid */
-    display: grid;
-    grid-template-columns: 10rem 1fr;
-    grid-gap: 0.5rem;
-    align-items: center;
-}
-
-.form2 label {
-    text-align: right;
-    grid-column: 1 / 2;
-}
-
-.form2 input, .form2 button {
-    grid-column: 2 / 3;
-}
-
-/*.form2 button {
-    justify-self: end;
-}*/
-
-.form2 select {
-    height: auto; /* value set by pure-form is too low */
-}
-
-.formsubmit {
-    display: flex;
-    flex-direction: row-reverse;
-    align-items: center;
-    padding: 0 0.5rem;
-}
-
-.formsubmit button {
-    margin: 0 0.5rem;
-}
-
 form span {
     color: red;
     grid-column: 1 / 3;

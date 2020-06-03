@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-05-21
+Last updated:  2020-06-03
 
 Flask Blueprint for updating pupil data.
 
@@ -35,7 +35,7 @@ _HEADING = "Schülerdaten"   # page heading
 import datetime, os
 
 from flask import (Blueprint, render_template, request, session,
-        url_for, redirect, flash)
+        url_for, redirect, flash, abort)
 from flask import current_app as app
 
 from flask_wtf import FlaskForm
@@ -43,6 +43,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 from wz_core.db import DBT
 from wz_core.configuration import Dates
+from wz_core.pupils import Pupils, Klass
 from wz_compat.import_pupils import (DeltaRaw, exportPupils,
         migratePupils, PID_CHANGE, PID_REMOVE, PID_ADD)
 
@@ -51,6 +52,120 @@ from wz_compat.import_pupils import (DeltaRaw, exportPupils,
 _BPNAME = 'bp_pupildata'
 bp = Blueprint(_BPNAME,             # internal name of the Blueprint
         __name__)                   # allows the current package to be found
+
+
+@bp.route('/', methods=['GET'])
+def index_s():
+    return render_template(os.path.join(_BPNAME, 'index.html'),
+                            heading=_HEADING)
+
+
+@bp.route('/klass', methods=['GET'])
+def klass():
+    """View: choose the class with the pupil whose data is to be updated.
+    """
+    schoolyear = session['year']
+    pupils = Pupils(schoolyear)
+    classes = pupils.classes()
+    return render_template(os.path.join(_BPNAME, 'choose_class.html'),
+                            heading = _HEADING,
+                            classes = classes)
+
+
+@bp.route('/pupil/<klass>', methods=['GET'])
+def pupil(klass):
+    """View: choose the pupil whose data is to be updated.
+    """
+    schoolyear = session['year']
+    pupils = Pupils(schoolyear)
+    try:
+        plist = pupils.classPupils(Klass(klass))
+        if not plist:
+            raise ValueError
+    except:
+        abort(404)
+    return render_template(os.path.join(_BPNAME, 'choose_pupil.html'),
+                            heading = _HEADING,
+                            klass = klass,
+                            plist = plist)
+
+
+#TODO
+@bp.route('/new', methods=['GET'])
+def new():
+    """View: add new pupil.
+    """
+    schoolyear = session['year']
+#TODO
+    return "TODO: bp_pupildata::new"
+
+
+#TODO
+@bp.route('/delete/<pid>', methods=['GET', 'POST'])
+def delete(pid):
+    return "TODO: bp_pupildata::delete(%s)" % pid
+
+
+#TODO
+@bp.route('/edit/<pid>', methods=['GET', 'POST'])
+def edit(pid):
+    schoolyear = session['year']
+    pupils = Pupils(schoolyear)
+    pdata = REPORT.wrap(pupils.pupil, pid)
+    return "TODO: bp_pupildata::edit(%s)" % pdata.name()
+
+
+# from teacherdata:
+    form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        changes = {}
+        # A normal user (generally a teacher) has permission 'u', an
+        # administrator 'us'.
+        perms = tdata['PERMISSION']
+        if request.form.get('perm_s'):
+            if 's' not in perms:
+                changes['PERMISSION'] = 'u'
+        elif 's' in perms:
+            changes['PERMISSION'] = 'us'
+
+        for field in 'TID', 'NAME', 'SHORTNAME', 'MAIL':
+            newval = request.form[field]
+            if newval:
+                if newval != tdata[field]:
+                    changes[field] = newval
+            else:
+                badfields.append(field)
+        # update database
+        tidx = changes.pop('TID', None)
+        if tidx:
+            # tid changed: create a new entry, checking that the new tid
+            # doesn't exist, then delete the old one.
+            # First ensure all fields are there:
+            for field in 'NAME', 'SHORTNAME', 'MAIL', 'PERMISSION', 'PASSWORD':
+                if field not in changes:
+                    changes[field] = tdata[field]
+            if newTeacher(teachers, tidx, changes):
+                teachers.remove(tid)
+                flash("Kürzel %s wurde gelöscht" % tid, "Info")
+                return redirect(url_for('bp_teacherdata.choose'))
+        elif changes:
+            teachers.update(tid, changes)
+            for f, v in changes.items():
+                flash("%s: %s ist jetzt '%s'" % (tid, f, v), "Info")
+            flash("Daten für %s wurden aktualisiert"
+                    % request.form['NAME'], "Info")
+            return redirect(url_for('bp_teacherdata.choose'))
+        else:
+            flash("%s: keine Änderungen" % tdata['NAME'], "Info")
+
+    # GET
+    return render_template(os.path.join(_BPNAME, 'edit_pupil.html'),
+                            heading = _HEADING,
+                            form = form,
+                            pdata = pdata)
+
+
 
 
 ################## NOTE ##################

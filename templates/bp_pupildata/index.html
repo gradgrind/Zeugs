@@ -1,0 +1,30 @@
+<!-- Manage pupil data -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_settings.index') %}
+{% set uplink_help = "Einstellungen" %}
+
+{% block title %}Schüler Verwalten{% endblock %}
+
+
+{% block content %}
+    <p>Wählen Sie eine Funktion:
+    </p>
+    <ul class="modules">
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_pupildata.klass') }}">
+            <span>Daten einer Schülerin / eines Schülers ändern</span>
+        </a></li>
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_pupildata.new') }}">
+            <span>Neue Schülerin / neuen Schüler eingeben</span>
+        </a></li>
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_pupildata.export') }}">
+            <span>Schülerdaten als xlsx-Tabelle erstellen</span>
+        </a></li>
+        <li><a class="pure-menu-link"
+                href="{{ url_for('bp_pupildata.upload') }}">
+            <span>Schülerdaten von einer Tabelle aktualisieren</span>
+        </a></li>
+    </ul>
+{% endblock %}

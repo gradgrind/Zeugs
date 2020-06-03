@@ -1,0 +1,90 @@
+<!-- Edit pupil data / new pupil (Admin only) -->
+{% extends "base.html" %}
+<!-- Might want the uplink to depend on edit/new -->
+{% set uplink = url_for('bp_pupildata.index_s') %}
+{% set uplink_help = "Schülerdaten verwalten" %}
+
+{% block title %}
+    {% if pdata.PID %}Persönliche Daten?
+    {% else %}Neue Schülerin / neuer Schüler
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    {% if pdata.PID %}
+    <h3>{{ pdata.name() }}</h3>
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+            <li class="pure-menu-item">
+                <a href="{{ url_for('bp_pupildata.delete', pid=pdata.PID) }}"
+                        class="pure-menu-link">
+                    Diese Person aus der Datenbank entfernen
+                </a>
+            </li>
+        </ul>
+    </div>
+    <hr>
+
+    <p>Hier können Sie einzelne Felder ändern.
+    Klicken Sie dann auf „Speichern“, um die Änderung(en) zu
+    übernehmen.
+    </p>
+    {% else %}
+    <p>Um eine neue Lehrkraft anzumelden, müssen alle Felder ausgefüllt
+    werden. Klicken Sie dann auf „Speichern“, um die Eingaben zu
+    übernehmen.
+    </p>
+    {% endif %}
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+
+        <fieldset>
+            <div class="pure-control-group">
+                <label for="tid">Kürzel</label>
+                <input type="text" id="tid" name ="TID"
+                        placeholder="HM" value="{{ tdata.TID }}"
+                    required>
+            </div>
+            <p>Der Name, der in den Zeugnissen erscheint:</p>
+            <div class="pure-control-group">
+                <label for="tname">Name</label>
+                <input type="text" id="tname" name ="NAME"
+                        placeholder="Hans Müller" value="{{ tdata.NAME }}"
+                    required>
+            </div>
+            <p>Eine Kurzform des Namen, der in Dateinamen benutzt wird
+            und für Sortierzwecke sinnvoll ist (Nachnamen zuerst, usw.):
+            </p>
+            <div class="pure-control-group">
+                <label for="ttag">Kurzname</label>
+                <input type="text" id="ttag" name ="SHORTNAME"
+                        placeholder="Mueller H" value="{{ tdata.SHORTNAME }}"
+                    required>
+            </div>
+            <div class="pure-control-group">
+                <label for="mail">E-Mail</label>
+                <input type="email" id="mail" name ="MAIL"
+                        placeholder="h.mueller@mail.org" value="{{ tdata.MAIL }}"
+                    required>
+            </div>
+        </fieldset>
+
+        <fieldset><legend>Administratorrechte</legend>
+            <p>Ein Administrator hat Zugriff auf alle Daten, kann
+            Tabellen und Zeugnisse erstellen, usw.</p>
+            <div class="pure-controls">
+                <label for="perm_s" class="pure-checkbox">
+                    <input type="checkbox" id="perm_s" name="perm_s"
+                            {% if 's' in tdata.PERMISSION %}checked{% endif %}>
+                    Administrator
+                </label>
+            </div>
+        </fieldset>
+
+        <hr>
+        <button type="submit" class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Speichern
+        </button>
+    </form>
+{% endblock %}

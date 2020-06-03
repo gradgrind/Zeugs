@@ -1,0 +1,23 @@
+<!-- Choose class, for choosing pupil (Admin only) -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_pupildata.index_s') %}
+{% set uplink_help = "Schülerdaten" %}
+
+{% block title %}Klasse wählen{% endblock %}
+
+{% block content %}
+    <p>Klicken Sie auf die Klasse des gesuchten Schülers bzw. der gesuchten Schülerin:</p>
+
+    <div class="pure-menu">
+        <ul class="pure-menu-list">
+        {% for klass in classes %}
+            <li class="pure-menu-item">
+                <a href="{{ url_for('bp_pupildata.pupil', klass=klass) }}"
+                        class="pure-menu-link">
+                    {{ klass }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+{% endblock %}

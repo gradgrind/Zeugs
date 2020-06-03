@@ -3,7 +3,7 @@
 """
 search.py
 
-Last updated:  2020-03-28
+Last updated:  2020-06-03
 
 A utility for searching the source files for particular text strings.
 This is not used by the programm itself, but it may be useful for tracing
@@ -42,6 +42,9 @@ def search_dir (dpath, searchstring, mask='*', deep=True):
     dirs = []
     output = []
     for fname in os.listdir (dpath):
+        if fname == 'venv':
+            # Ignore folder/file 'venv' (wherever it is in the tree!)
+            continue
         fpath = os.path.join (dpath, fname)
         if os.path.isdir (fpath):
             dirs.append (fpath)
