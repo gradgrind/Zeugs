@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-05-09
+wz_core/pupils.py - last updated 2020-06-04
 
 Database access for reading pupil data.
 
@@ -120,6 +120,9 @@ class Klass:
         return None
 
 
+#TODO: deprecated? -> grade_classes::klass2streams(class_)?
+# Its difference might however be useful: it only returns streams that
+# actually have pupils ...
     def klassStreams (self, schoolyear):
         """Return a sorted list of stream names for this school-class.
         """
@@ -328,6 +331,16 @@ class Pupils:
                 rows.append (pdata)
                 rows.pidmap [pdata['PID']] = pdata
         return rows
+
+
+    def update(self, pid, changes):
+        """Edit the given fields (<changes>: {field -> new value}) for
+        the pupil with the given id. Field PID may not be changed!
+        """
+        with self.db:
+            self.db.updateOrAdd('PUPILS', changes, update_only = True,
+                    PID = pid)
+
 
 
 ##################### Test functions

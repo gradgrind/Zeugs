@@ -152,6 +152,10 @@ a.pure-menu-link:hover {
     background-color: #eee;
 }
 
+a.pure-menu-link span {
+    white-space: normal;
+}
+
 .pure-form {
     padding-top: 1rem;
 }

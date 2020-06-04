@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 wz_compat/config.py
 
-Last updated:  2020-05-10
+Last updated:  2020-06-04
 
 Functions for handling configuration for a particular location.
 
@@ -48,6 +48,19 @@ def printStream(stream):
         'RS': 'Realschule'
     }.get(stream, '–––––')
 
+
+def pupil_xfields(class_):
+    """Return details of XDATA fields for the pupils. This can depend on
+    the school-class, so this must be provided.
+    The result is a mapping: {field-name -> (description,
+            list of possible values OR <None>)}
+    """
+    if class_ in ('12', '13'):
+        return {
+            'QUALI_D': ("Eintritt in die Qualifikationsphase (Abitur)",
+                    None)
+        }
+    return {}
 
 
 ####### Name Sorting #######

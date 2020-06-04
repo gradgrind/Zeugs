@@ -19,6 +19,13 @@
                 </a>
             </li>
         {% endfor %}
+            <hr>
+            <li class="pure-menu-item">
+                <a href="{{ url_for('bp_pupildata.new', klass=klass) }}"
+                        class="pure-menu-link">
+                    Neue Schülerin / Neuer Schüler
+                </a>
+            </li>
         </ul>
     </div>
 {% endblock %}

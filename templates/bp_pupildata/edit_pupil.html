@@ -1,24 +1,43 @@
 <!-- Edit pupil data / new pupil (Admin only) -->
 {% extends "base.html" %}
-<!-- Might want the uplink to depend on edit/new -->
-{% set uplink = url_for('bp_pupildata.index_s') %}
-{% set uplink_help = "Schülerdaten verwalten" %}
+<!-- TODO: Might want the uplink to depend on edit/new -->
+{% if pdata %}
+
+{% set uplink = url_for('bp_pupildata.pupil', klass=klass) %}
+{% set uplink_help = "Schüler/in wählen" %}
+
+{% endif %}
 
 {% block title %}
-    {% if pdata.PID %}Persönliche Daten?
-    {% else %}Neue Schülerin / neuer Schüler
-    {% endif %}
+    Klasse {{ klass }}
 {% endblock %}
 
 {% block content %}
-    {% if pdata.PID %}
-    <h3>{{ pdata.name() }}</h3>
+    <h3>
+    {% if pdata %}{{ pdata.name() }}
+    {% else %}Neue Schülerin / neuer Schüler
+    {% endif %}
+    </h3>
+
+    {% if pdata %}
     <div class="pure-menu">
         <ul class="pure-menu-list">
             <li class="pure-menu-item">
+                <a href="{{ url_for('bp_pupildata.change_class', pid=pdata.PID) }}"
+                        class="pure-menu-link">
+                    Klasse ändern
+                </a>
+            </li>
+<!-- Perhaps there should be no delete function. When a pupil leaves,
+the exit date is stored, and the pupil will not be migrated to the
+next year.
+If a pupil should not appear in lists, reports, etc. there could be a
+special flag to indicate this?
+Actually that could apply to teachers as well? -->
+            <li class="pure-menu-item">
                 <a href="{{ url_for('bp_pupildata.delete', pid=pdata.PID) }}"
                         class="pure-menu-link">
-                    Diese Person aus der Datenbank entfernen
+                    Diese Person aus der Datenbank entfernen [???]
                 </a>
             </li>
         </ul>
@@ -30,59 +49,122 @@
     übernehmen.
     </p>
     {% else %}
-    <p>Um eine neue Lehrkraft anzumelden, müssen alle Felder ausgefüllt
-    werden. Klicken Sie dann auf „Speichern“, um die Eingaben zu
-    übernehmen.
+    <p>Um eine neue Schülerin bzw. einen neuen Schüler anzumelden, müssen
+    alle Felder ausgefüllt werden. Klicken Sie dann auf „Speichern“,
+    um die Eingaben zu übernehmen.
     </p>
     {% endif %}
+
     <form class="pure-form pure-form-aligned" method="POST">
         {{ form.csrf_token }}
 
         <fieldset>
+<!-- TODO: Shouldn't pid be automatic?
             <div class="pure-control-group">
-                <label for="tid">Kürzel</label>
-                <input type="text" id="tid" name ="TID"
-                        placeholder="HM" value="{{ tdata.TID }}"
+                <label for="pid">Schülernummer</label>
+                <input type="text" id="pid" name ="PID"
+                        placeholder="123456" value="{{ pdata.PID }}"
                     required>
             </div>
-            <p>Der Name, der in den Zeugnissen erscheint:</p>
+-->
             <div class="pure-control-group">
-                <label for="tname">Name</label>
-                <input type="text" id="tname" name ="NAME"
-                        placeholder="Hans Müller" value="{{ tdata.NAME }}"
-                    required>
-            </div>
-            <p>Eine Kurzform des Namen, der in Dateinamen benutzt wird
-            und für Sortierzwecke sinnvoll ist (Nachnamen zuerst, usw.):
-            </p>
-            <div class="pure-control-group">
-                <label for="ttag">Kurzname</label>
-                <input type="text" id="ttag" name ="SHORTNAME"
-                        placeholder="Mueller H" value="{{ tdata.SHORTNAME }}"
-                    required>
+                <label for="stream">{{ fieldnames.STREAM }}</label>
+                <select id="stream" name="STREAM">
+                {% for s in streams %}
+                    <option {% if s == pdata.STREAM %}selected{% endif %}>
+                        {{ s }}
+                    </option>
+                {% endfor %}
+                </select>
             </div>
             <div class="pure-control-group">
-                <label for="mail">E-Mail</label>
-                <input type="email" id="mail" name ="MAIL"
-                        placeholder="h.mueller@mail.org" value="{{ tdata.MAIL }}"
+                <label for="name1">{{ fieldnames.FIRSTNAMES }}</label>
+                <input type="text" id="name1" name ="FIRSTNAMES"
+                        placeholder="Hans Jürgen" value="{{ pdata.FIRSTNAMES }}"
                     required>
             </div>
+            <div class="pure-control-group">
+                <label for="name2">{{ fieldnames.LASTNAME }}</label>
+                <input type="text" id="name2" name ="LASTNAME"
+                        placeholder="Müller" value="{{ pdata.LASTNAME }}"
+                    required>
+            </div>
+            <div class="pure-control-group">
+                <label for="name0">{{ fieldnames.FIRSTNAME }}</label>
+                <input type="text" id="name0" name ="FIRSTNAME"
+                        placeholder="Hans" value="{{ pdata.FIRSTNAME }}"
+                    >   <!-- not "required", may be empty -->
+            </div>
+            <div class="pure-control-group">
+                <label for="dob">{{ fieldnames.DOB_D }}</label>
+                <input type="date" id="dob" name ="DOB_D"
+                        value="{{ pdata.DOB_D }}"
+                    required>
+            </div>
+            <div class="pure-control-group">
+                <label for="pob">{{ fieldnames.POB }}</label>
+                <input type="text" id="pob" name ="POB"
+                        placeholder="Hamburg" value="{{ pdata.POB }}"
+                    required>
+            </div>
+            <div class="pure-control-group">
+                <label for="sex">{{ fieldnames.SEX }}</label>
+                <select id="sex" name="SEX">
+                {% for s in ('m', 'w') %}
+                    <option {% if s == pdata.SEX %}selected{% endif %}>
+                        {{ s }}
+                    </option>
+                {% endfor %}
+                </select>
+            </div>
+            <div class="pure-control-group">
+                <label for="home">{{ fieldnames.HOME }}</label>
+                <input type="text" id="home" name ="HOME"
+                        placeholder="Hannover" value="{{ pdata.HOME }}"
+                    required>
+            </div>
+            <div class="pure-control-group">
+                <label for="entry">{{ fieldnames.ENTRY_D }}</label>
+                <input type="date" id="entry" name ="ENTRY_D"
+                        value="{{ pdata.ENTRY_D }}"
+                    required>
+            </div>
+          {% if pdata %} <!-- Schulaustritt ... not for new pupils! -->
+            <div class="pure-control-group">
+                <label for="exit">{{ fieldnames.EXIT_D }}</label>
+                <input type="date" id="exit" name ="EXIT_D"
+                        value="{{ pdata.EXIT_D }}"
+                    required>
+            </div>
+          {% endif %}
         </fieldset>
-
-        <fieldset><legend>Administratorrechte</legend>
-            <p>Ein Administrator hat Zugriff auf alle Daten, kann
-            Tabellen und Zeugnisse erstellen, usw.</p>
-            <div class="pure-controls">
-                <label for="perm_s" class="pure-checkbox">
-                    <input type="checkbox" id="perm_s" name="perm_s"
-                            {% if 's' in tdata.PERMISSION %}checked{% endif %}>
-                    Administrator
-                </label>
+        <fieldset>
+          {% for field, fname, value, values in xfields %}
+            <legend>{{ fname }}</legend>
+            <div class="pure-control-group">
+                <label for="{{ field }}">{{ field }}</label>
+              {% if field.endswith('_D') %}
+                <input type="date" id="{{ field }}" name="{{ field }}"
+                        value="{{ value }}">
+              {% elif values %}
+                <select id="{{ field }}" name="{{ field }}">
+                {% for s in values %}
+                    <option {% if s == value %}selected{% endif %}>
+                        {{ s }}
+                    </option>
+                {% endfor %}
+                </select>
+              {% else %}
+                <input type="text" id="{{ field }}" name="{{ field }}"
+                        value="{{ value }}">
+              {% endif %}
             </div>
+          {% endfor %}
         </fieldset>
 
         <hr>
-        <button type="submit" class="pure-button submit-button"
+        <button type="submit"
+                class="pure-button submit-button"
                 style="margin: 0.5rem 1rem;">
             Speichern
         </button>

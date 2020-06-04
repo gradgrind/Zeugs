@@ -1,0 +1,38 @@
+<!-- Edit pupil class (Admin only) -->
+{% extends "base.html" %}
+{% set uplink = url_for('bp_pupildata.edit', pid=pdata.PID) %}
+{% set uplink_help = "Schülerdaten ändern" %}
+
+{% block title %}
+    Klasse ändern
+{% endblock %}
+
+{% block content %}
+    <h3>{{ pdata.name() }}</h3>
+    <p>Nur wenige alternative Klasse sind möglich – große Sprünge sind
+    nicht zu erwarten.</p>
+    <p>Achten Sie darauf, dass eine Klassenänderung u.U. dazu führen
+    kann, dass der bisherige Bewertungsmaßstab nicht mehr gültig ist.
+    In diesem Fall müssen Sie dann einen neuen Bewertungsmaßstab
+    wählen.
+    </p>
+    <form class="pure-form pure-form-aligned" method="POST">
+        {{ form.csrf_token }}
+
+        <div class="pure-control-group">
+            <label for="klass">Neue Klasse</label>
+            <select id="klass" name="CLASS">
+            {% for c in classes %}
+                <option {% if c == pdata.CLASS %}selected{% endif %}>
+                    {{ c }}
+                </option>
+            {% endfor %}
+            </select>
+        </div>
+        <button type="submit"
+                class="pure-button submit-button"
+                style="margin: 0.5rem 1rem;">
+            Speichern
+        </button>
+    </form>
+{% endblock %}

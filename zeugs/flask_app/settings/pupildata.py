@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-06-03
+Last updated:  2020-06-04
 
 Flask Blueprint for updating pupil data.
 
@@ -46,6 +46,8 @@ from wz_core.configuration import Dates
 from wz_core.pupils import Pupils, Klass
 from wz_compat.import_pupils import (DeltaRaw, exportPupils,
         migratePupils, PID_CHANGE, PID_REMOVE, PID_ADD)
+from wz_compat.grade_classes import klass2streams
+from wz_compat.config import pupil_xfields
 
 
 # Set up Blueprint
@@ -91,13 +93,64 @@ def pupil(klass):
 
 
 #TODO
-@bp.route('/new', methods=['GET'])
-def new():
-    """View: add new pupil.
+@bp.route('/new/<klass>', methods=['GET'])
+def new(klass):
+    """View: add new pupil to the given school-class.
     """
     schoolyear = session['year']
 #TODO
-    return "TODO: bp_pupildata::new"
+    return "TODO: bp_pupildata::new(%s)" % klass
+
+
+@bp.route('/change_class/<pid>', methods=['GET', 'POST'])
+def change_class(pid):
+#    return "TODO: bp_pupildata::change_class(%s)" % pid
+    schoolyear = session['year']
+    pupils = Pupils(schoolyear)
+    pdata = REPORT.wrap(pupils.pupil, pid, suppressok = True)
+    if not pdata:
+        abort(404)
+
+    form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        newclass = request.form['CLASS']
+        if newclass == pdata['CLASS']:
+            flash("Die Klasse wurde nicht geändert", "Warning")
+        else:
+            changes = {'CLASS': newclass}
+            streams = klass2streams(newclass)
+            if pdata['STREAM'] in streams:
+                warn = False
+            else:
+                warn = True
+                changes['STREAM'] = streams[0]
+            # Apply changes to db table
+            pupils.update(pid, changes)
+            flash("Klasse von %s zu %s geändert" % (pdata['CLASS'], newclass),
+                    "Info")
+            if warn:
+                flash("Der Bewertungsmaßstab ist in Klasse %s nicht gültig"
+                        % pdata['STREAM'], "Warning")
+        return redirect(url_for('bp_pupildata.edit', pid=pid))
+
+    # GET
+    klass = Klass(pdata['CLASS'])
+    pyear = klass.year
+    allclasses = pupils.classes()
+    classes = []
+    for c in allclasses:
+        cx = Klass(c)
+        if cx.year < pyear - 1:
+            continue
+        if cx.year > pyear + 1:
+            continue
+        classes.append(c)
+    return render_template(os.path.join(_BPNAME, 'change_class.html'),
+                            heading = _HEADING,
+                            form = form,
+                            pdata = pdata,
+                            classes = classes)
 
 
 #TODO
@@ -111,8 +164,10 @@ def delete(pid):
 def edit(pid):
     schoolyear = session['year']
     pupils = Pupils(schoolyear)
-    pdata = REPORT.wrap(pupils.pupil, pid)
-    return "TODO: bp_pupildata::edit(%s)" % pdata.name()
+    pdata = REPORT.wrap(pupils.pupil, pid, suppressok = True)
+    if not pdata:
+        abort(404)
+#    return "TODO: bp_pupildata::edit(%s)" % pdata.name()
 
 
 # from teacherdata:
@@ -159,11 +214,28 @@ def edit(pid):
         else:
             flash("%s: keine Änderungen" % tdata['NAME'], "Info")
 
+#TODO: Don't forget PSORT – if the relevant name components have changed
+# ... tvSplit(fnames, lname) and sortingName(firstname, tv, lastname)
+# from wz_compat.config
+# Can move the code from wz_compat::import_pupils ~l. 272 to wz_compat::config
+
     # GET
+    class_ = pdata['CLASS']
+    streams = klass2streams(class_)
+    # Special pupil fields
+    xfields = []
+    pxmap = pdata.xdata()
+    for field, val in pupil_xfields(class_).items():
+        desc, values = val
+        xfields.append((field, desc, pxmap.get(field), values))
     return render_template(os.path.join(_BPNAME, 'edit_pupil.html'),
                             heading = _HEADING,
                             form = form,
-                            pdata = pdata)
+                            fieldnames = CONF.TABLES.PUPILS_FIELDNAMES,
+                            pdata = pdata,
+                            klass = pdata['CLASS'],
+                            streams = streams,
+                            xfields = xfields)
 
 
 
