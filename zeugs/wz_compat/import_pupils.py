@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_compat/import_pupils.py - last updated 2020-05-10
+wz_compat/import_pupils.py - last updated 2020-06-05
 
 Convert the pupil data from the form supplied by the school database.
 Retain only the relevant fields, add additional fields needed by this
@@ -59,7 +59,7 @@ from wz_core.db import DBT
 from wz_core.pupils import Pupils, PupilData, Klass
 # To read/write spreadsheet tables:
 from wz_table.dbtable import readDBTable, makeDBTable
-from wz_compat.config import tvSplit, sortingName
+from wz_compat.config import name_filter
 from wz_compat.grade_classes import klass2streams
 
 
@@ -110,7 +110,7 @@ def migratePupils(schoolyear):
             if c_new == '12' and pstream == 'Gym':
                 xdata = pdata.xdata()
                 xdata['QUALI_D'] = startdate
-                pdata.setXdata(**xdata)
+                pdata['XDATA'] = pdata.setXdata(xdata)
             rows.append(pdata)
 
     # Create the database table PUPILS from the loaded pupil data.
@@ -269,16 +269,13 @@ class DeltaRaw(dict):
             if pdata['EXIT_D'] and pdata['EXIT_D'] < self.startdate:
                 continue
 
-            ## Name fixing (if the input table doesn't have the PSORT field)
-            if not pdata['PSORT']:
-                firstnames, tv, lastname = tvSplit(pdata['FIRSTNAMES'],
-                        pdata['LASTNAME'])
-                firstname = tvSplit(pdata['FIRSTNAME'], 'X')[0]
-                if tv:
-                    pdata['FIRSTNAMES'] = firstnames
-                    pdata['FIRSTNAME'] = firstname
-                    pdata['LASTNAME'] = tv + ' ' + lastname
-                pdata['PSORT'] = sortingName(firstname, tv, lastname)
+            ## Name fixing
+            pnamefields = name_filter(pdata['FIRSTNAMES'],
+                    pdata['LASTNAME'], pdata['FIRSTNAME'])
+            pdata['FIRSTNAMES'] = pnamefields[0]
+            pdata['FIRSTNAME'] = pnamefields[2]
+            pdata['LASTNAME'] = pnamefields[1]
+            pdata['PSORT'] = pnamefields[3]
 
             klass = pdata['CLASS']
             # Normalize class name
@@ -438,7 +435,7 @@ class DeltaRaw(dict):
             if klass == '12':
                 if stream == 'Gym':
                     xdata['QUALI_D'] = self.startdate
-                    pdata.setXdata(**xdata)
+                    pdata['XDATA'] = pdata.setXdata(xdata)
             elif klass == '13':
                 REPORT.Warn(_NO_QUALI_D, klass = klass, name = pdata.name())
         return pdata

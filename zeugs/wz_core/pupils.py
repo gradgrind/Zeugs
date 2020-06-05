@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-wz_core/pupils.py - last updated 2020-06-04
+wz_core/pupils.py - last updated 2020-06-05
 
 Database access for reading pupil data.
 
@@ -245,15 +245,16 @@ class PupilData(list):
             pass
         return _xdata
 
-    def setXdata(self, **kvmap):
+    @staticmethod
+    def setXdata(kvmap):
         """Build a value for the XDATA field from the supplied key/value
         pairs.
         """
         if kvmap:
             _xdlist = ['%s:%s' % (k, v) for k, v in kvmap.items()]
-            self['XDATA'] = '\n'.join(_xdlist)
+            return '\n'.join(_xdlist)
         else:
-            self['XDATA'] = None
+            return None
 
 
 

@@ -4,7 +4,7 @@
 """
 flask_app/settings/pupildata.py
 
-Last updated:  2020-06-04
+Last updated:  2020-06-05
 
 Flask Blueprint for updating pupil data.
 
@@ -47,7 +47,7 @@ from wz_core.pupils import Pupils, Klass
 from wz_compat.import_pupils import (DeltaRaw, exportPupils,
         migratePupils, PID_CHANGE, PID_REMOVE, PID_ADD)
 from wz_compat.grade_classes import klass2streams
-from wz_compat.config import pupil_xfields
+from wz_compat.config import pupil_xfields, name_filter
 
 
 # Set up Blueprint
@@ -167,71 +167,87 @@ def edit(pid):
     pdata = REPORT.wrap(pupils.pupil, pid, suppressok = True)
     if not pdata:
         abort(404)
-#    return "TODO: bp_pupildata::edit(%s)" % pdata.name()
-
-
-# from teacherdata:
-    form = FlaskForm()
-    if app.isPOST(form):
-        # POST
-        changes = {}
-        # A normal user (generally a teacher) has permission 'u', an
-        # administrator 'us'.
-        perms = tdata['PERMISSION']
-        if request.form.get('perm_s'):
-            if 's' not in perms:
-                changes['PERMISSION'] = 'u'
-        elif 's' in perms:
-            changes['PERMISSION'] = 'us'
-
-        for field in 'TID', 'NAME', 'SHORTNAME', 'MAIL':
-            newval = request.form[field]
-            if newval:
-                if newval != tdata[field]:
-                    changes[field] = newval
-            else:
-                badfields.append(field)
-        # update database
-        tidx = changes.pop('TID', None)
-        if tidx:
-            # tid changed: create a new entry, checking that the new tid
-            # doesn't exist, then delete the old one.
-            # First ensure all fields are there:
-            for field in 'NAME', 'SHORTNAME', 'MAIL', 'PERMISSION', 'PASSWORD':
-                if field not in changes:
-                    changes[field] = tdata[field]
-            if newTeacher(teachers, tidx, changes):
-                teachers.remove(tid)
-                flash("Kürzel %s wurde gelöscht" % tid, "Info")
-                return redirect(url_for('bp_teacherdata.choose'))
-        elif changes:
-            teachers.update(tid, changes)
-            for f, v in changes.items():
-                flash("%s: %s ist jetzt '%s'" % (tid, f, v), "Info")
-            flash("Daten für %s wurden aktualisiert"
-                    % request.form['NAME'], "Info")
-            return redirect(url_for('bp_teacherdata.choose'))
-        else:
-            flash("%s: keine Änderungen" % tdata['NAME'], "Info")
-
-#TODO: Don't forget PSORT – if the relevant name components have changed
-# ... tvSplit(fnames, lname) and sortingName(firstname, tv, lastname)
-# from wz_compat.config
-# Can move the code from wz_compat::import_pupils ~l. 272 to wz_compat::config
-
-    # GET
     class_ = pdata['CLASS']
-    streams = klass2streams(class_)
     # Special pupil fields
     xfields = []
     pxmap = pdata.xdata()
     for field, val in pupil_xfields(class_).items():
         desc, values = val
         xfields.append((field, desc, pxmap.get(field), values))
+    fieldnames = CONF.TABLES.PUPILS_FIELDNAMES
+
+    form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        changes = {}
+        # The html 'required' attribute doesn't block an entry with only
+        # spaces! Thus an extra check is done here.
+        emptyfields = []
+        newvals = {}
+        for field in ('STREAM', 'FIRSTNAMES', 'LASTNAME',
+                    'DOB_D', 'POB', 'SEX', 'HOME', 'ENTRY_D'):
+            newval = request.form[field].strip()
+            newvals[field] = newval
+            if newval:
+                if newval != pdata[field]:
+                    changes[field] = newval
+            else:
+                emptyfields.append(field)
+        if emptyfields:
+            for field in emptyfields:
+                flash("Feld '%s' darf nicht leer sein" % fieldnames[field],
+                        "Error")
+        else:
+            # These fields *may* be empty
+            fname = request.form['FIRSTNAME'].strip() or newvals['FIRSTNAMES']
+            newvals['FIRSTNAME'] = fname
+            if fname != pdata['FIRSTNAME']:
+                changes['FIRSTNAME'] = fname
+            exit_d = request.form['EXIT_D'] or None
+            if exit_d != pdata['EXIT_D']:
+                changes['EXIT_D'] = exit_d
+
+            xchanges = False
+            for field, desc, val, vals in xfields:
+                newval = request.form.get(field).strip()
+                if newval:
+                    if newval != val:
+                        pxmap[field] = newval
+                        xchanges = True
+                elif val:
+                    del(pxmap[field])
+                    xchanges = True
+            if xchanges:
+                changes['XDATA'] = pdata.setXdata(pxmap)
+
+            # Process the names if there has been a change
+            if ('FIRSTNAMES' in changes or 'LASTNAME' in changes
+                    or 'FIRSTNAME' in changes):
+                ndata = name_filter(newvals['FIRSTNAMES'],
+                        newvals['LASTNAME'], newvals['FIRSTNAME'])
+                changes['FIRSTNAMES'] = ndata[0]
+                changes['LASTNAME'] = ndata[1]
+                changes['FIRSTNAME'] = ndata[2]
+                changes['PSORT'] = ndata[3]
+
+            # update database
+            if changes:
+                pupils.update(pid, changes)
+                for f, v in changes.items():
+                    flash("%s: %s ist jetzt '%s'" % (pid, f, v),
+                            "Info")
+                flash("Daten für %s wurden aktualisiert"
+                        % pdata.name(), "Info")
+                return redirect(url_for('bp_pupildata.pupil', klass=class_))
+            else:
+                flash("%s: keine Änderungen" % pdata.name(), "Info")
+
+    # GET
+    streams = klass2streams(class_)
     return render_template(os.path.join(_BPNAME, 'edit_pupil.html'),
                             heading = _HEADING,
                             form = form,
-                            fieldnames = CONF.TABLES.PUPILS_FIELDNAMES,
+                            fieldnames = fieldnames,
                             pdata = pdata,
                             klass = pdata['CLASS'],
                             streams = streams,

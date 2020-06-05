@@ -134,7 +134,7 @@ Actually that could apply to teachers as well? -->
                 <label for="exit">{{ fieldnames.EXIT_D }}</label>
                 <input type="date" id="exit" name ="EXIT_D"
                         value="{{ pdata.EXIT_D }}"
-                    required>
+                    >   <!-- not "required", may be empty -->
             </div>
           {% endif %}
         </fieldset>

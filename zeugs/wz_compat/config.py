@@ -4,7 +4,7 @@
 """
 wz_compat/config.py
 
-Last updated:  2020-06-04
+Last updated:  2020-06-05
 
 Functions for handling configuration for a particular location.
 
@@ -64,6 +64,22 @@ def pupil_xfields(class_):
 
 
 ####### Name Sorting #######
+def name_filter(firstnames, lastname, firstname):
+    """Given raw firstnames, lastname and short firstname.
+    Ensure that any "tussenvoegsel" is at the beginning of the lastname
+    (and not at the end of the first name) and that spaces are normalized.
+    Also generate a "sorting" name, a field which combines name components
+    to sort the entries alphabetically in a fairly consistent way,
+    considering "tussenvoegsel".
+    """
+    firstnames1, tv, lastname1 = tvSplit(firstnames, lastname)
+    firstname1 = tvSplit(firstname, 'X')[0]
+    sortname = sortingName(firstname1, tv, lastname1)
+    if tv:
+        lastname1 = tv + ' ' + lastname1
+    return (firstnames1, lastname1, firstname1, sortname)
+
+
 def sortingName(firstname, tv, lastname):
     """Given first name, "tussenvoegsel" and last name, produce an ascii
     string which can be used for sorting the people alphabetically.
