@@ -22,7 +22,7 @@ Copyright 2019-2020 Michael Towers
    limitations under the License.
 """
 
-_UNKNOWN_PID = "Schüler „{pid]“ ist nicht bekannt"
+_UNKNOWN_PID = "Schüler „{pid}“ ist nicht bekannt"
 
 
 from fnmatch import fnmatchcase
@@ -296,6 +296,13 @@ class Pupils:
         REPORT.Fail(_UNKNOWN_PID, pid = pid)
 
 
+    def check_pupil(self, pid):
+        """Test whether the given <pid> is used.
+        """
+        with self.db:
+            return bool(self.db.select1('PUPILS', PID = pid))
+
+
 #    def pid2klass(self):
 #        """Return a mapping {pid -> school-class} for all pids.
 #        """
@@ -341,6 +348,14 @@ class Pupils:
         with self.db:
             self.db.updateOrAdd('PUPILS', changes, update_only = True,
                     PID = pid)
+
+
+    def new(self, fields):
+        """Add a new pupil with the given data. <fields> is a mapping
+        containing all the necessary fields.
+        """
+        with self.db:
+            self.db.addEntry('PUPILS', fields)
 
 
 

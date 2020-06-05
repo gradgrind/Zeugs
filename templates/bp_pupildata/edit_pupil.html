@@ -1,12 +1,8 @@
 <!-- Edit pupil data / new pupil (Admin only) -->
 {% extends "base.html" %}
-<!-- TODO: Might want the uplink to depend on edit/new -->
-{% if pdata %}
 
 {% set uplink = url_for('bp_pupildata.pupil', klass=klass) %}
 {% set uplink_help = "Schüler/in wählen" %}
-
-{% endif %}
 
 {% block title %}
     Klasse {{ klass }}
@@ -49,24 +45,27 @@ Actually that could apply to teachers as well? -->
     übernehmen.
     </p>
     {% else %}
-    <p>Um eine neue Schülerin bzw. einen neuen Schüler anzumelden, müssen
-    alle Felder ausgefüllt werden. Klicken Sie dann auf „Speichern“,
+    <p>Um eine neue Schülerin bzw. einen neuen Schüler anzumelden, füllen
+    Sie die Felder aus. Klicken Sie dann auf „Speichern“,
     um die Eingaben zu übernehmen.
     </p>
+    <p>Das Feld „Rufname“ dürfen Sie leer lassen. Dann werden die
+    „Vornamen“ auch als Rufnamen benutzt werden.</p>
     {% endif %}
 
     <form class="pure-form pure-form-aligned" method="POST">
         {{ form.csrf_token }}
 
         <fieldset>
-<!-- TODO: Shouldn't pid be automatic?
+          {% if not pdata %}
+<!-- TODO: Shouldn't pid be automatic? -->
             <div class="pure-control-group">
                 <label for="pid">Schülernummer</label>
                 <input type="text" id="pid" name ="PID"
-                        placeholder="123456" value="{{ pdata.PID }}"
+                        placeholder="123456"
                     required>
             </div>
--->
+          {% endif %}
             <div class="pure-control-group">
                 <label for="stream">{{ fieldnames.STREAM }}</label>
                 <select id="stream" name="STREAM">
@@ -139,8 +138,11 @@ Actually that could apply to teachers as well? -->
           {% endif %}
         </fieldset>
         <fieldset>
-          {% for field, fname, value, values in xfields %}
+          {% for field, fname, fdesc, value, values in xfields %}
             <legend>{{ fname }}</legend>
+            {% if fdesc %}
+            <p>{{ fdesc }}</p>
+            {% endif %}
             <div class="pure-control-group">
                 <label for="{{ field }}">{{ field }}</label>
               {% if field.endswith('_D') %}

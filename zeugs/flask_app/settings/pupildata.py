@@ -93,13 +93,86 @@ def pupil(klass):
 
 
 #TODO
-@bp.route('/new/<klass>', methods=['GET'])
+@bp.route('/new/<klass>', methods=['GET', 'POST'])
 def new(klass):
     """View: add new pupil to the given school-class.
     """
+    try:
+        klass2streams(klass)
+    except:
+        abort(404)
     schoolyear = session['year']
+    pupils = Pupils(schoolyear)
+    # Special pupil fields
+    xfields = []
+    for field, val in pupil_xfields(klass).items():
+        title, desc, values = val
+        xfields.append((field, title, desc, None, values))
+    fieldnames = CONF.TABLES.PUPILS_FIELDNAMES
+
+    form = FlaskForm()
+    if app.isPOST(form):
+        # POST
+        pass
 #TODO
-    return "TODO: bp_pupildata::new(%s)" % klass
+
+        # The html 'required' attribute doesn't block an entry with only
+        # spaces! Thus an extra check is done here.
+        emptyfields = []
+        newvals = {}
+        for field in ('PID', 'STREAM', 'FIRSTNAMES', 'LASTNAME',
+                    'DOB_D', 'POB', 'SEX', 'HOME', 'ENTRY_D'):
+            newval = request.form[field].strip()
+            newvals[field] = newval
+            if not newval:
+                emptyfields.append(field)
+        if emptyfields:
+            for field in emptyfields:
+                flash("Feld '%s' darf nicht leer sein" % fieldnames[field],
+                        "Error")
+        else:
+            # These fields *may* be empty
+            fname = request.form['FIRSTNAME'].strip() or newvals['FIRSTNAMES']
+            newvals['FIRSTNAME'] = fname
+#            newvals['EXIT_D'] = request.form['EXIT_D'] or None
+
+            # Manage "custom" fields (XDATA)
+            xvals = {}
+            for field, desc, val, vals in xfields:
+                newval = request.form.get(field).strip()
+                if newval:
+                    xvals[field] = newval
+            newvals['XDATA'] = pdata.setXdata(xvals) if xvals else None
+
+            # Process the names
+            ndata = name_filter(newvals['FIRSTNAMES'],
+                    newvals['LASTNAME'], newvals['FIRSTNAME'])
+            newvals['FIRSTNAMES'] = ndata[0]
+            newvals['LASTNAME'] = ndata[1]
+            newvals['FIRSTNAME'] = ndata[2]
+            newvals['PSORT'] = ndata[3]
+
+            # update database
+            newvals['CLASS'] = klass
+            pid = newvals['PID']
+            if pupils.check_pupil(pid):
+                flash("Schülernummer %s existiert schon!" % pid, "Error")
+            else:
+                pupils.new(newvals)
+                flash("Neuer Schüler / neue Schülerin: „%s %s“"
+                        % (newvals['FIRSTNAME'], newvals['LASTNAME']), "Info")
+                return redirect(url_for('bp_pupildata.pupil', klass=klass))
+
+    # GET
+    streams = klass2streams(klass)
+    return render_template(os.path.join(_BPNAME, 'edit_pupil.html'),
+                            heading = _HEADING,
+                            form = form,
+                            fieldnames = fieldnames,
+                            pdata = None,
+                            klass = klass,
+                            streams = streams,
+                            xfields = xfields)
 
 
 @bp.route('/change_class/<pid>', methods=['GET', 'POST'])
@@ -153,13 +226,12 @@ def change_class(pid):
                             classes = classes)
 
 
-#TODO
+#TODO: is there really a need for this?
 @bp.route('/delete/<pid>', methods=['GET', 'POST'])
 def delete(pid):
     return "TODO: bp_pupildata::delete(%s)" % pid
 
 
-#TODO
 @bp.route('/edit/<pid>', methods=['GET', 'POST'])
 def edit(pid):
     schoolyear = session['year']
@@ -172,8 +244,8 @@ def edit(pid):
     xfields = []
     pxmap = pdata.xdata()
     for field, val in pupil_xfields(class_).items():
-        desc, values = val
-        xfields.append((field, desc, pxmap.get(field), values))
+        title, desc, values = val
+        xfields.append((field, title, desc, pxmap.get(field), values))
     fieldnames = CONF.TABLES.PUPILS_FIELDNAMES
 
     form = FlaskForm()
@@ -207,8 +279,9 @@ def edit(pid):
             if exit_d != pdata['EXIT_D']:
                 changes['EXIT_D'] = exit_d
 
+            # Manage "custom" fields (XDATA)
             xchanges = False
-            for field, desc, val, vals in xfields:
+            for field, title, desc, val, vals in xfields:
                 newval = request.form.get(field).strip()
                 if newval:
                     if newval != val:

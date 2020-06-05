@@ -52,12 +52,15 @@ def printStream(stream):
 def pupil_xfields(class_):
     """Return details of XDATA fields for the pupils. This can depend on
     the school-class, so this must be provided.
-    The result is a mapping: {field-name -> (description,
+    The result is a mapping: {field-name -> (title, description OR <None>,
             list of possible values OR <None>)}
     """
     if class_ in ('12', '13'):
         return {
-            'QUALI_D': ("Eintritt in die Qualifikationsphase (Abitur)",
+            'QUALI_D': ("Eintritt in die Qualifikationsphase",
+                    ("Dieses Feld wird für manche Notenzeugnisse benötigt,"
+                    " aber nur für Schüler in der Qualifikationsphase"
+                    " (also die Abitur-Gruppe)."),
                     None)
         }
     return {}
