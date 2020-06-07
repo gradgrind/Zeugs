@@ -37,10 +37,10 @@
             <th class="th2">Lehrer</th>
         </thead>
         <tbody>
-            {% for subject, teacher in stlist %}
+            {% for sid, subject, teacher in stlist %}
                 <tr>
                     <td class="td1">{{subject}}</td>
-                    <td class="td2">{{teacher}}</td>
+                    <td class="td2">{{teacher['NAME']}}</td>
                 </tr>
             {% endfor %}
         </tbody>

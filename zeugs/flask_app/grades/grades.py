@@ -4,7 +4,7 @@
 """
 flask_app/grades/grades.py
 
-Last updated:  2020-05-23
+Last updated:  2020-06-07
 
 Flask Blueprint for grade reports (modular)
 
@@ -26,10 +26,13 @@ Copyright 2019-2020 Michael Towers
 =-LICENCE========================================
 """
 
+import io
+
 from .grades_base import bp, _HEADING, _BPNAME
 from wz_grades.gradedata import CurrentTerm
+from wz_core.courses import CourseTables
 
-from flask import render_template, session
+from flask import render_template, session, send_file
 
 # "Sub-modules"
 from .grades_term import *
@@ -62,6 +65,28 @@ def index_info():
     return "Grade documentation: TODO"
     render_template(os.path.join(_BPNAME, 'index_info.html'),
                                 heading = _HEADING)
+
+
+@bp.route('/teachers', methods=['GET'])
+def teachers():
+    """Return a tsv-file containing a table:
+        CLASS SUBJECT TEACHER E-MAIL
+    """
+    schoolyear = session['year']
+    clist = CourseTables(schoolyear).klass2subject_teachers(text = False)
+    lines = []
+    for class_, stlist in clist:
+        for sid, subject, tdata in stlist:
+            item = (class_, subject, tdata['NAME'], tdata['MAIL'])
+            lines.append('\t'.join(item))
+    tsv = 'KLASSE\tFACH\tLEHRER\tE-MAIL\n' + '\n'.join(lines)
+    print(repr(lines), flush=True)
+    return send_file(
+        io.BytesIO(tsv.encode()),
+        attachment_filename='Klasse-Notenlehrer.tsv',
+        mimetype='text/tab-separated-values',
+        as_attachment=True
+    )
 
 
 

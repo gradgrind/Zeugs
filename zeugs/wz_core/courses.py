@@ -4,7 +4,7 @@
 """
 wz_core/courses.py
 
-Last updated:  2020-04-08
+Last updated:  2020-05-07
 
 Handler for the basic course info.
 
@@ -241,6 +241,34 @@ class CourseTables:
         """
         return self._names [sid]
 
+
+    def klass2subject_teachers(self, text = True):
+        """Return a list of subject/teacher allocations for the classes:
+            [(class name, subjects/teachers), ...]
+        The subjects/teachers item is itself a list:
+            [sid, subject name, teacher info]
+        """
+        klasses = []
+        for k in self.classes():
+            klass = Klass(k)
+            sidmap = {}
+            sid2tids = self.classSubjects(klass, 'TEXT' if text else 'GRADE')
+            for sid, tids in sid2tids.items():
+                if tids.TEXT:
+                    if not tids:
+                        tids = [_nn]
+                    for tid in tids:
+                        try:
+                            sidmap[sid].add(tid)
+                        except:
+                            sidmap[sid] = {tid}
+            lines = []
+            for sid, tids in sidmap.items():
+                sname = self.subjectName(sid)
+                for tid in tids:
+                    lines.append((sid, sname, self.teacherData[tid]))
+            klasses.append((klass.klass, lines))
+        return klasses
 
 
 

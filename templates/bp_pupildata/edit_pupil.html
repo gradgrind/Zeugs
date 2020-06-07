@@ -58,7 +58,9 @@ Actually that could apply to teachers as well? -->
 
         <fieldset>
           {% if not pdata %}
-<!-- TODO: Shouldn't pid be automatic? -->
+          <!-- not for existing pupils, it may not be changed -->
+<!-- TODO: Shouldn't pid be automatic? Difficult if the actual source
+is external ... -->
             <div class="pure-control-group">
                 <label for="pid">Schülernummer</label>
                 <input type="text" id="pid" name ="PID"

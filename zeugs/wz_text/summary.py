@@ -3,7 +3,7 @@
 """
 wz_text/summary.py
 
-Last updated:  2020-05-21
+Last updated:  2020-06-07
 
 Prepare checklists of classes/subjects for the teachers.
 Prepare checklists of subjects/teachers for the classes.
@@ -40,6 +40,9 @@ from wz_compat.config import printSchoolYear
 
 _NOTEMPLATE = "Vorlagedatei (Lehrer-Zeugniskontrolle) fehlt:\n  {path} "
 
+
+#TODO: extract a basic teacher->data function and put it in CourseTables
+# (as with ksSheets, below).
 def tSheets (schoolyear, manager, date):
     courses = CourseTables (schoolyear)
     tidmap = {}
@@ -99,31 +102,9 @@ def tSheets (schoolyear, manager, date):
 
 
 def ksSheets (schoolyear, manager, date):
-    courses = CourseTables (schoolyear)
-    tidmap = {tid: courses.teacherData.getTeacherName (tid)
-            for tid in courses.teacherData}
-
-    klasses = []
-    for k in courses.classes ():
-        klass = Klass(k)
-        sidmap = {}
-        sid2tids = courses.classSubjects(klass, 'TEXT')
-        for sid, tids in sid2tids.items ():
-            if tids.TEXT:
-                if not tids:
-                    tids = [_nn]
-                for tid in tids:
-                    try:
-                        sidmap [sid].add (tid)
-                    except:
-                        sidmap [sid] = {tid}
-        lines = []
-        for sid, tids in sidmap.items ():
-            sname = courses.subjectName (sid)
-            for tid in tids:
-                lines.append ((sname, tidmap [tid]))
-        klasses.append ((klass.klass, lines))
-
+    """Prepare checklists of subjects/teachers for the classes.
+    """
+    klasses = CourseTables(schoolyear).klass2subject_teachers()
     tpdir = Paths.getUserPath('DIR_TEXT_REPORT_TEMPLATES')
     templateLoader = jinja2.FileSystemLoader(searchpath=tpdir)
     templateEnv = jinja2.Environment(loader=templateLoader, autoescape=True)

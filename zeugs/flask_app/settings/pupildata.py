@@ -92,7 +92,6 @@ def pupil(klass):
                             plist = plist)
 
 
-#TODO
 @bp.route('/new/<klass>', methods=['GET', 'POST'])
 def new(klass):
     """View: add new pupil to the given school-class.
@@ -113,9 +112,6 @@ def new(klass):
     form = FlaskForm()
     if app.isPOST(form):
         # POST
-        pass
-#TODO
-
         # The html 'required' attribute doesn't block an entry with only
         # spaces! Thus an extra check is done here.
         emptyfields = []
@@ -131,10 +127,9 @@ def new(klass):
                 flash("Feld '%s' darf nicht leer sein" % fieldnames[field],
                         "Error")
         else:
-            # These fields *may* be empty
+            # This field *may* be empty
             fname = request.form['FIRSTNAME'].strip() or newvals['FIRSTNAMES']
             newvals['FIRSTNAME'] = fname
-#            newvals['EXIT_D'] = request.form['EXIT_D'] or None
 
             # Manage "custom" fields (XDATA)
             xvals = {}
@@ -177,7 +172,6 @@ def new(klass):
 
 @bp.route('/change_class/<pid>', methods=['GET', 'POST'])
 def change_class(pid):
-#    return "TODO: bp_pupildata::change_class(%s)" % pid
     schoolyear = session['year']
     pupils = Pupils(schoolyear)
     pdata = REPORT.wrap(pupils.pupil, pid, suppressok = True)
@@ -230,6 +224,14 @@ def change_class(pid):
 @bp.route('/delete/<pid>', methods=['GET', 'POST'])
 def delete(pid):
     return "TODO: bp_pupildata::delete(%s)" % pid
+    schoolyear = session['year']
+    pupils = Pupils(schoolyear)
+    pdata = REPORT.wrap(pupils.pupil, pid, suppressok = True)
+    if not pdata:
+        abort(404)
+    class_ = pdata['CLASS']
+# One possibility would be to tag the entry so that it is not used after
+# the leaving date?
 
 
 @bp.route('/edit/<pid>', methods=['GET', 'POST'])
