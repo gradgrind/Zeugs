@@ -6,3 +6,5 @@ logs
 flask_session
 
 zeugs_data
+
+zeugs_web/db.sqlite3

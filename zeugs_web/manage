@@ -1,0 +1,7 @@
+#!/bin/bash
+thisfile=$( realpath "$0"  )
+thisdir=$( dirname "$thisfile" )
+basedir=$( dirname "$thisdir" )
+export ZEUGS_BASE="$thisdir"
+cd "$thisdir"
+"$basedir/venv/bin/python" manage.py "$@"
