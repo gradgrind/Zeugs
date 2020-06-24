@@ -3,7 +3,7 @@
 """
 wz_grades/makeabi.py
 
-Last updated:  2020-04-19
+Last updated:  2020-06-24
 
 Generate final grade reports for the Abitur.
 
@@ -75,6 +75,10 @@ def makeAbi(schoolyear, pdata):
         zgrades = abiCalc.getFullGrades()
     except GradeError:
         REPORT.Fail(_MISSING_GRADES, pname = pdata.name())
+#####
+    REPORT.Test("??? %s" % repr(zgrades))
+
+
     # Passed?
     tfile = 'Abitur/Abitur.html' #if zgrades["PASS"] else 'Abitur/AbiturFail.html'
     ### Generate html for the reports
@@ -100,7 +104,7 @@ def makeAbi(schoolyear, pdata):
 ############### TEST functions ###############
 _testyear = 2016
 def test_01():
-    return
+#    return
 #TODO
 
     from wz_core.pupils import Pupils
@@ -123,16 +127,16 @@ def test_01():
         '200302': {
             'De.e': '15',
             'N_De.e': '*',
-            'Ges.e': '13',
+            'Ges.e': '15',
             'N_Ges.e': '*',
-            'Bio.e': '12',
+            'Bio.e': '15',
             'N_Bio.e': '*',
-            'Ma.g': '13',
+            'Ma.g': '15',
             'N_Ma.g': '*',
-            'En.m': '12',
-            'Fr.m': '11',
-            'Mu.m': '12',
-            'Ku.m': '13'
+            'En.m': '15',
+            'Fr.m': '15',
+            'Mu.m': '15',
+            'Ku.m': '15'
         },
         '200301': {
             'De.e': '03',
@@ -157,7 +161,8 @@ def test_01():
 def test_02():
     from wz_core.pupils import Pupils
     from wz_core.configuration import Paths
-    _pids = ('200305', '200302', '200301')
+#    _pids = ('200305', '200302', '200301')
+    _pids = ('200302',)
     pupils = Pupils(_testyear)
     for _pid in _pids:
         pdata = pupils.pupil(_pid)

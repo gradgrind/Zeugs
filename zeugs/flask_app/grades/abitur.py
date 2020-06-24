@@ -4,7 +4,7 @@
 """
 flask_app/grades/abitur.py
 
-Last updated:  2020-04-21
+Last updated:  2020-06-24
 
 Flask Blueprint for abitur reports
 
@@ -266,7 +266,7 @@ def grades(pid):
                     g = None
                 gmap[sid] = g
         # Update GRADES entry, or add new one
-        if REPORT.wrap(saveGrades, schoolyear, pdata, grades, DATE_D,
+        if REPORT.wrap(saveGrades, schoolyear, pdata, gmap, DATE_D,
                 suppressok = True):
             flash("Zeugnisdaten gespeichert", "Info")
             # Test whether a report is to be constructed

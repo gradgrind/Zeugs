@@ -4,7 +4,7 @@
 """
 wz_compat/gradefunctions.py
 
-Last updated:  2020-04-19
+Last updated:  2020-06-24
 
 Calculations needed for grade handling.
 
@@ -809,7 +809,7 @@ class AbiCalc:
                 e = 4 * s
                 if e >= 20:
                     n2 += 1
-            gmap["E%d" % i] = str(e)
+            gmap["E%d" % (i+1)] = str(e)
             eN.append(e)
             if e == 0:
                 errors.append(_NULL_ERROR % self.sngg[i][1])
@@ -847,8 +847,12 @@ class AbiCalc:
         # errors, use integer arithmetic.
         g180 = (1020 - t1 - t2)
         g1 = str (g180 // 180)
+        if g1 == '0':
+            g1 = '1'
+            g2 = '0'
+        else:
+            g2 = str ((g180 % 180) // 18)
         gmap["Grade1"] = g1
-        g2 = str ((g180 % 180) // 18)
         gmap["Grade2"] = g2
         gmap["GradeT"] = self._gradeText[g1] + ", " + self._gradeText[g2]
         gmap["PASS"] = True
