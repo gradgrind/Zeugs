@@ -76,8 +76,7 @@ def makeAbi(schoolyear, pdata):
     except GradeError:
         REPORT.Fail(_MISSING_GRADES, pname = pdata.name())
 #####
-    REPORT.Test("??? %s" % repr(zgrades))
-
+#    REPORT.Test("??? %s" % repr(zgrades))
 
     # Passed?
     tfile = 'Abitur/Abitur.html' #if zgrades["PASS"] else 'Abitur/AbiturFail.html'

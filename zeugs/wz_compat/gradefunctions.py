@@ -745,14 +745,6 @@ class AbiCalc:
             '8': 'acht', '9': 'neun'
     }
 
-    @staticmethod
-    def fixGrade(g):
-        if g:
-            return '––––––' if g == '*' else g
-        else:
-            return '?'
-
-
     def __init__(self, sid2grade):
         """<sid2grade> must be a <GradeManagerA> instance. The subjects
         should thus be checked and ordered.
@@ -770,10 +762,12 @@ class AbiCalc:
             sid, grade = sg.__next__()
             sname = sid2grade.sname[sid]
             self.zgrades["F%d" % i] = sname.split('|')[0].rstrip()
-            self.zgrades["S%d" % i] = self.fixGrade(grade)
+            grade = grade or '?'
+            self.zgrades["S%d" % i] = grade
             if i <= 4:
                 sn, gn = sg.__next__()
-                self.zgrades["M%d" % i] = self.fixGrade(gn)
+                gn = gn or '*'
+                self.zgrades["M%d" % i] = '––––––' if gn == '*' else gn
             else:
                 gn = None
             self.sngg.append((sid, sname, grade, gn))

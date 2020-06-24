@@ -294,7 +294,11 @@ def grades(pid):
         pdata.DATE_D = gdata.ginfo.get('DATE_D')
         pdata.grades = gdata.getAllGrades()
         # Return the sid-name-grade-Ngrade list
-        return AbiCalc(gdata.getAllGrades()).sngg
+        slist = AbiCalc(pdata.grades).sngg
+#####
+#        REPORT.Test("?++ %s" % repr(pdata.grades))
+#        REPORT.Test("?:: %s" % repr(slist))
+        return slist
 
     # Build grade lists. <gradechoicesM> is for the additional oral
     # exams for the first four subjects – these are optional so they
