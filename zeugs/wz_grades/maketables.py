@@ -4,7 +4,7 @@
 """
 wz_grades/maketables.py
 
-Last updated:  2020-04-17
+Last updated:  2020-07-08
 
 Build result tables for the grade groups, including evaluation, etc.
 
@@ -153,7 +153,7 @@ def makeTable(schoolyear, term, ggroup):
     pagewidthP = 595 - 2*sizes['marginwidth']   # portrait
     BODGE = 0.95    # this factor is an experimental value
     fontsize = pagewidthP / width * BODGE
-    if fontsize < 10:
+    if fontsize < 7:
         # Use "landscape"
         fontsize = pagewidthL / width * BODGE
         sizes['orientation'] = 'landscape'

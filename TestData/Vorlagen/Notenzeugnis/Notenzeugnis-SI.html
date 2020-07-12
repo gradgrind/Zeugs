@@ -339,7 +339,7 @@
             {% endif %}
             <!-- Versetzung -->
             {% set GS = grades.XINFO['GS'] %}
-            {% if report_type == 'Zeugnis' and grades.XINFO['V'] != '-' %}
+            {% if report_type == 'Zeugnis' and grades.XINFO['V'] == '✓' %}
             {% set remarks = True %}
             <p style="margin: 2mm 5mm; font-size: 11pt;">
                 Durch Konferenzbeschluss vom {{todate(pupil.gdate_D)}}
