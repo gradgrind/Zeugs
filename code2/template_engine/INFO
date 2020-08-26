@@ -1,0 +1,6 @@
+This package deals with generating pdf documents using lualatex.
+
+Template files contain specially marked fields which can be substituted
+by program-supplied data.
+
+Escaping of characters which are special in latex must also be handled.

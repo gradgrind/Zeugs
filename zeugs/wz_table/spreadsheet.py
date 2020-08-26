@@ -3,7 +3,7 @@
 """
 wz_table/spreadsheet.py
 
-Last updated:  2020-05-21
+Last updated:  2020-08-24
 
 Spreadsheet file reader, returning all cells as strings.
 
@@ -36,7 +36,7 @@ Copyright 2017-2020 Michael Towers
 # in the 'app' folder. et-xmlfile is only needed if lxml is not available.
 
 ### Messages
-_UNSUPPORTEDFILETYPE    = "Nicht unterstützer Dateityp ({ending}):\n   {path}"
+_UNSUPPORTED_FILETYPE   = "Nicht unterstützer Dateityp ({ending}):\n   {path}"
 _TABLENOTFOUND          = "Tabellendatei existiert nicht:\n   {path}"
 _MULTIPLEMATCHINGFILES  = "Mehrere passende Dateien:\n   {path}"
 _TABLENOTREADABLE       = "Tabellendatei konnte nicht eingelesen werden:\n   {path}"

@@ -1,0 +1,21 @@
+	Klassen und Fächer
+CLASS	SID	TIDS	OPTIONS	FLAGS
+
+
+12	AWT	ML	RS,HS
+12	Bio	KK
+12	Ch	KK	?
+
+11	AWT	ML	RS,HS
+11	Bio	KK
+11	Ch	KK
+
+10	Eu	UM		/
+10	Fr	AFM	Gym
+10	Ges	BTH
+10	Ktn	SN		Ku
+
+<	>	&	\	<strong>
+Much shorter	XXX
+#
+|	last line	6.12	5,10	2
