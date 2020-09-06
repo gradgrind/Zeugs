@@ -1,0 +1,38 @@
+SekI:
+=====
+
+abschluss		'a' (Abschluss),
+			'v' (Versetzung in die Qualifikationsphase),
+			'x' (Abgang),
+			'0' (normales Zeugnis)
+gleichstellung		'h' (Hauptschulabschluss) or '0'
+Schule			[Freie Michaelschule]
+Zeugnis			Zeugnis,
+			Abschlusszeugnis,
+			Abgangszeugnis,
+			Zwischenzeugnis
+Massstab		'Maßstab Gymnasium',
+			'Maßstab Realschule',
+			'Maßstab Hauptschule',
+			'Erweiterter Sekundarabschluss I,
+			'Realschulabschluss',
+			'Hauptschulabschluss'
+Klasse			[12]
+Schuljahr		[2015 – 2016]
+P.VORNAMEN		[Hans Wilhelm]
+P.NACHNAME		[Müller]
+P.G.DAT			[23.01.1998]	(Geburtsdatum)
+P.G.ORT			[Hamburg]	(Geburtsort)
+P.E.DAT			[15.04.2012]	(Eintrittsdatum)
+P.X.DAT			[[16.07.2016]]	(Austrittsdatum)
+Jahrgang		[12]
+
+Fach.01 - Fach.16	[Deutsch]
+Note.01 - Note.16	[gut]
+FachKP.01 - FachKP.08	[Malen]
+NoteKP.01 - NoteKP.08	[befriedigend]
+
+K.DAT			[[03.07.2016]]
+I.DAT			[16.07.2016]
+
+Missing: Bemerkungen

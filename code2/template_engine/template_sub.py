@@ -4,7 +4,7 @@
 """
 template_engine/template_sub.py
 
-Last updated:  2020-08-21
+Last updated:  2020-08-30
 
 Manage the substitution of "special" fields in a latex template.
 
@@ -36,8 +36,15 @@ _BLOCKMISMATCH = "Vorlage: Block-Anfang und -Ende stimmen nicht überein"
 _BLOCKTAG = "Vorlage: Block-Bezeichnung wurde schon verwendet"
 _BLOCKENDS = "Vorlage: Block endet nicht"
 
+import sys, os
+if __name__ == '__main__':
+    # Enable package import if running as module
+    this = sys.path[0]
+    sys.path[0] = os.path.dirname(this)
+
 import re
-import run_extern
+
+from core.run_extern import lualatex2pdf
 
 RX_SUB = re.compile(r'\(\*([A-Za-z][A-Za-z0-9.]*?)\*\)')
 TEX_ESC = {
@@ -92,7 +99,8 @@ SUB_BLOCK = '!!!!!*%s*'
 class TemplateError(Exception):
     pass
 class Template:
-    def __init__(self, filepath):
+    def __init__(self, filename):
+        filepath = os.path.join(RESOURCES, 'templates', filename)
         stack = []          # For nested blocks
         lines = []          # Current line accumulator
         self.lines = []     # All lines (unmodified)
@@ -173,10 +181,13 @@ class Template:
 
     @staticmethod
     def makepdf(ustring):
-        return run_extern.lualatex2pdf(ustring)
+        return lualatex2pdf(ustring)
 
 
 if __name__ == '__main__':
+    from core.base import init
+    init('TESTDATA')
+
     print(' --->', substitute("TEST TEMPLATE\n"
             "First (*Substitution.1*).\n"
             "Second: (*S2*), (*S_2*).\n"
@@ -203,9 +214,9 @@ if __name__ == '__main__':
         'I.DAT': '15.07.2020',
         'P.G.ORT': 'Burgwedel',
         'P.G.DAT': '02.12.2002',
-        'E.DAT': '01.08.2009',
+        'P.E.DAT': '01.08.2009',
         'P.VORNAMEN': 'Lucia Caterina Lisanne',
-        'X.DAT': '15.07.2020',
+        'P.X.DAT': '15.07.2020',
         'Jahrgang': '11',
         'P.NACHNAME': 'Binder',
 
@@ -235,7 +246,7 @@ if __name__ == '__main__':
         'FachKP.07': '––––––––––', 'NoteKP.07': '––––––––––',
         'FachKP.08': '––––––––––', 'NoteKP.08': '––––––––––',
     }
-    t = Template('templates/Notenzeugnis-SI.tex')
+    t = Template('Notenzeugnis-SI.tex')
     print("\nKeys:", t.allkeys())
     t1, s, u = t.substitute(sdict, 'body')
     print("\nSubstituted:", t1)

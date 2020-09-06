@@ -365,7 +365,10 @@ class DBtable:
     The first row with an entry (except '#') in the first column is
     taken as containing the field names. In this row empty fields
     should be avoided. If there are any empty ones, these will be
-    allocated numbered tags.
+    allocated numbered tags beginning with '$'.
+    All non-comment rows before this header-row are regarded as possible
+    general-information rows. They are available as a list of rows –
+    without the (empty) first column – as <self.info>.
     All subsequent non-empty rows are taken as records (unless the
     first column contains '#').
     The table is iterable and indexable (returning the rows).
@@ -413,13 +416,16 @@ class DBtable:
                         cols.append('$%02d' % i)
                 self.header = dictuple('DBROW', cols)
             else:
-                self.info.append(row)
+                self.info.append(row[1:])
 
     def fieldnames(self):
         return self.header.fieldnames()
 
 
 if __name__ == '__main__':
+    from core.base import init
+    init('TESTDATA')
+
     import io
     filepath = 'Test1.tsv'
     fname = os.path.basename(filepath)
@@ -449,6 +455,15 @@ if __name__ == '__main__':
 
     print("\nRemake tsv:")
     print(tsvWriter(dbt).decode('utf-8'))
+
+    print("\nGRADES 10:")
+    ss = Spreadsheet(os.path.join(DATA, 'testing', 'Noten_2', 'Noten_10'))
+    dbt = ss.dbTable()
+    print("\nINFO:", dbt.info)
+    print("\nFIELDS:", dbt.fieldnames())
+    print("\nCONTENT:")
+    for row in dbt:
+        print(" :::", row)
 
     print("\n\nFAIL: This should be an error ...")
     Spreadsheet('Test1')

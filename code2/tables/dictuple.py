@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-tables/dictuple.py - last updated 2020-08-24
+tables/dictuple.py - last updated 2020-09-02
 
 A factory function for tuples with named fields and dict-like access to
 the individual fields using the <get> method.
@@ -59,12 +59,12 @@ def dictuple(name, fields):
                     raise IndexError("Dictuple elements mismatch")
             else:
                 raise TypeError("Dictuple requires a list or tuple")
-            return tuple.__new__(cls, [str(k) for k in items])
+            return tuple.__new__(cls, items)
 
         def __repr__(self):
             """A print-representation showing field names and values.
             """
-            kvlist = ["%s: %s" % (repr(k), repr(v))
+            kvlist = ["%s: %s" % (repr(k), str(v))
                     for k, v in self.items()]
             return "<%s>(%s)" % (self.__name__, ", ".join(kvlist))
 
@@ -95,16 +95,16 @@ if __name__ == '__main__':
 
     dt2 = dictuple("TWO", ["W", "X", "Y", "Z"])
     print (dt2, "// Field names:", dt2.fieldnames())
-    dt2a = dt2((91,82,73,64))
+    dt2a = dt2((None,82,73,64))
     dt2b = dt2(("L","M","N","O"))
 
-    print (dt1a, dt1a.get("B"), dt1a[1])
+    print (dt1a, dt1a.get("B"), dt1a[1], type(dt1a[1]))
     print (dt2a, dt2a.get("X"), dt2a[1])
     print (dt2b, dt2b.get("Z"), dt2b[-1])
 
     print("\nAs tuple:", dt1a)
     for v in dt1a:
-        print(v)
+        print(repr(v))
 
     print("\nAs dict:", dt1a._dict())
     for k, v in dt1a.items():

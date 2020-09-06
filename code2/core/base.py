@@ -3,7 +3,7 @@
 """
 core/base.py
 
-Last updated:  2020-08-25
+Last updated:  2020-08-29
 
 Basic configuration and structural stuff.
 
@@ -77,20 +77,34 @@ def read_float(string):
     return float(inum.replace (',', '.'))
 
 
+def str2list(string, sep = ','):
+    """Convert a string with separator character to a list.
+    Accept also <None> as string input.
+    """
+    if string:
+        return [s.strip() for s in string.split(sep)]
+    return []
 
+###
+
+DATEFORMAT = '%d.%m.%Y' # for  <datetime.datetime.strftime>
+class DateError(Exception):
+    pass
 class Dates:
     @staticmethod
-    def dateConv (date, trap = True):
+    def date_conv (date, trap = True):
         """Convert a date string from the program format (e.g. "2016-12-06")
         to the format used for output (e.g. "06.12.2016").
+        If an invalid date is passed, a <DateError> is raised, unless
+        <trap> is false. In that case <None> – an invalid date – is returned.
         """
         try:
             d = datetime.datetime.strptime(date, "%Y-%m-%d")
             return d.strftime(DATEFORMAT)
         except:
             if trap:
-                raise ValueError(_INVALID_DATE.format(date = repr(date)))
-            return None
+                raise DateError("Ungültiges Datum: '%s'" % date)
+        return None
 
     @classmethod
     def today(cls, iso = True):
@@ -156,8 +170,8 @@ if __name__ == '__main__':
     init()
     print("Current school year:", Dates.get_schoolyear())
     print("SET:", SCHOOLYEAR)
-    print("DATE:", Dates.dateConv('2016-04-25'))
+    print("DATE:", Dates.date_conv('2016-04-25'))
     try:
-        print("BAD Date:", Dates.dateConv('2016-02-30'))
-    except ValueError as e:
+        print("BAD Date:", Dates.date_conv('2016-02-30'))
+    except DateError as e:
         print(" ... trapped:", e)

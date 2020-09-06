@@ -1,0 +1,254 @@
+\documentclass[12pt]{article}
+\usepackage[ngerman]{babel}
+\usepackage{fontspec}
+\setmainfont[Path=../fonts/,AutoFakeSlant,AutoFakeBold]{DroidSans.ttf}
+%\usepackage[showframe]{geometry}
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    total={170mm,257mm},
+    left=20mm,
+    top=20mm,
+}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage[table]{xcolor}
+\setlength{\parindent}{0pt}
+\pagestyle{empty}
+\setlength{\fboxsep}{1mm}
+\setlength{\fboxrule}{0.2mm}
+
+\newcommand{\cfbox}[2]{%
+    \colorlet{currentcolor}{.}%
+    {\color{#1}%
+        \fbox{\color{currentcolor}#2}}%
+}
+
+%\usepackage{calc}
+\newlength{\mylength}
+
+\begin{document}
+%[*body*
+%%% Ensure parameters have correct initial values
+% This can be 'a' (Abschluss), 'v' (Versetzung in die Qualifikationsphase),
+% 'x' (Abgang) or '0' (normales Zeugnis):
+\def\abschluss{(*abschluss*)}
+%\def\abschluss{v} % Comment out this line, it is only for testing
+% This can be 'h' (Hauptschulabschluss) or '0':
+\def\gleichstellung{(*gleichstellung*)}
+%\def\gleichstellung{0} % Comment out this line, it is only for testing
+
+\normalsize
+\renewcommand{\arraystretch}{1}
+\setlength{\tabcolsep}{0mm}
+
+    \begin{center}
+        {\LARGE \uppercase{(*Schule*)}}\\
+        \vspace{1mm}
+        \hrule
+        \vspace{2cm}
+        {\Huge \textbf{\uppercase{(*Zeugnis*)}} \\}
+        \vspace{8mm}
+        {\large (*Massstab*)}\\
+        \vspace{2cm}
+
+\begin{minipage}[t][6.8cm]{\textwidth}
+    \centering
+\if\abschluss a
+        \vskip 1.8cm
+\else
+\if\abschluss x
+        \vskip 2mm
+\else
+        \begin{tabular}{p{2.5cm} p{3cm} p{2.5cm} p{3cm}}
+            Klasse: & (*Klasse*) & Schuljahr: & (*Schuljahr*) \\
+        \end{tabular}
+        \vskip 1.8cm
+\fi
+\fi
+        \begin{tabular}{p{4cm}
+                >{\centering}p{2.5cm}
+                >{\centering}p{2cm}
+                >{\centering}p{4cm}
+                >{\centering\arraybackslash}p{2.5cm}}
+            Name: & \multicolumn{4}{c}{\bfseries (*P.VORNAMEN*) (*P.NACHNAME*)} \\
+            \cline{2-5}
+            \noalign{\vskip 8mm}
+            geboren am & (*P.G.DAT*) & in & \multicolumn{2}{c}{(*P.G.ORT*)} \\
+            \cline{2-2}\cline{4-5}
+\if\abschluss a
+\else
+            \noalign{\vskip 8mm}
+\if\abschluss x
+            hat die Schule vom & (*P.E.DAT*)& bis zum & (*P.X.DAT*) & \multicolumn{1}{l}{\hskip 2mm besucht} \\
+            \cline{2-2}\cline{4-4}
+            \noalign{\vskip 8mm}
+            und wurde aus dem & (*Jahrgang*). & \multicolumn{3}{l}{\hskip 2mm Schuljahrgang entlassen.}\\
+            \cline{2-2}
+\else
+            & & \multicolumn{2}{r}{besucht die Schule seit\hspace*{2mm}} & (*P.E.DAT*) \\
+            \cline{5-5}
+\fi
+\fi
+% This line seems to be needed to ensure the last column gets created:
+            & & & & \\[-2ex]
+        \end{tabular}
+\end{minipage}
+
+    \end{center}
+
+\definecolor{mygrey1}{HTML}{DDDDDD}
+\definecolor{mygrey2}{HTML}{CCCCCC}
+\definecolor{mygrey3}{HTML}{AAAAAA}
+\newcolumntype{T}{m{36mm}}
+\newcolumntype{U}{>{\centering\arraybackslash}>{\slshape}>{\columncolor{mygrey1}} m{36mm}}
+\newcolumntype{S}{>{\columncolor{mygrey1}} m{2mm}}
+
+    \begin{tabular}{T m{2mm} S U S m{14mm} T m{2mm} S U S}
+        (*Fach.01*) & & & (*Note.01*) & & \rule{0pt}{10mm} & (*Fach.02*) & & & (*Note.02*) & \\
+        \noalign{\vskip 2mm}
+        (*Fach.03*) & & & (*Note.03*) & & \rule{0pt}{10mm} & (*Fach.04*) & & & (*Note.04*) & \\
+        \noalign{\vskip 2mm}
+        (*Fach.05*) & & & (*Note.05*) & & \rule{0pt}{10mm} & (*Fach.06*) & & & (*Note.06*) & \\
+        \noalign{\vskip 2mm}
+        (*Fach.07*) & & & (*Note.07*) & & \rule{0pt}{10mm} & (*Fach.08*) & & & (*Note.08*) & \\
+        \noalign{\vskip 2mm}
+        (*Fach.09*) & & & (*Note.09*) & & \rule{0pt}{10mm} & (*Fach.10*) & & & (*Note.10*) & \\
+        \noalign{\vskip 2mm}
+        (*Fach.11*) & & & (*Note.11*) & & \rule{0pt}{10mm} & (*Fach.12*) & & & (*Note.12*) & \\
+        \noalign{\vskip 2mm}
+        (*Fach.13*) & & & (*Note.13*) & & \rule{0pt}{10mm} & (*Fach.14*) & & & (*Note.14*) & \\
+        \noalign{\vskip 2mm}
+        (*Fach.15*) & & & (*Note.15*) & & \rule{0pt}{10mm} & (*Fach.16*) & & & (*Note.16*) & \\
+    \end{tabular}
+
+\newpage
+
+    \begin{center}
+     {\Large (*Schule*)}\\
+    \end{center}
+    \begin{tabular}{p{5.5cm} p{1.5cm} p{3.5cm} p{2.5cm} p{4cm}}
+\if\abschluss a
+    (*Zeugnis*) & \multicolumn{4}{l}{\bfseries (*Massstab*)} \\
+\else
+\if\abschluss x
+    \multicolumn{5}{l}{(*Zeugnis*)} \\
+\else
+    (*Zeugnis*) & Klasse: & (*Klasse*) & Schuljahr: &   (*Schuljahr*) \\
+\fi
+\fi
+    \noalign{\vskip 2mm}
+    \multicolumn{5}{l}{\hspace{1cm}\bfseries (*P.VORNAMEN*) (*P.NACHNAME*)} \\
+% This line seems to be needed to ensure the last column gets created:
+    & & & & \\[-2ex]
+    \hline
+    \end{tabular}
+
+    \vspace{10mm}
+    {\hspace{5mm}\bfseries Künstlerisch-Praktische Kurse:}\\
+
+    \begin{tabular}{T m{2mm} S U S m{14mm} T m{2mm} S U S}
+        (*FachKP.01*) & & & (*NoteKP.01*) & & \rule{0pt}{10mm} & (*FachKP.02*) & & & (*NoteKP.02*) & \\
+        \noalign{\vskip 2mm}
+        (*FachKP.03*) & & & (*NoteKP.03*) & & \rule{0pt}{10mm} & (*FachKP.04*) & & & (*NoteKP.04*) & \\
+        \noalign{\vskip 2mm}
+        (*FachKP.05*) & & & (*NoteKP.05*) & & \rule{0pt}{10mm} & (*FachKP.06*) & & & (*NoteKP.06*) & \\
+        \noalign{\vskip 2mm}
+        (*FachKP.07*) & & & (*NoteKP.07*) & & \rule{0pt}{10mm} & (*FachKP.08*) & & & (*NoteKP.08*) & \\
+        \noalign{\vskip 2mm}
+    \end{tabular}
+
+    \vspace{1cm}
+    \begin{minipage}[t][3cm]{\textwidth}
+        {\hspace{5mm}\bfseries Bemerkungen:}
+        \vskip 2mm
+\if\abschluss v
+        Durch Konferenzbeschluss vom (*K.DAT*) in die Qualifikationsphase versetzt.\\
+\else
+        \vskip 5mm
+        \hskip 3cm ––––––––––
+\fi
+    \end{minipage}
+
+\if\abschluss x
+    \vskip 5mm
+    \begin{minipage}[t][3cm]{\textwidth}
+\if\gleichstellung h
+        {\hspace{5mm}\bfseries Gleichstellungsvermerk:}
+        \vskip 2mm
+        Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss gleichgestellt. Es vermittelt die gleiche Berechtigung wie das Zeugnis über den Sekundarabschluss I – Hauptschulabschluss.
+\else
+        \hfil
+\fi
+    \end{minipage}
+\else
+    \vskip 15mm
+\fi
+    \vskip 1cm
+    Hannover, den (*I.DAT*) \\
+
+    \small
+    \begin{tabular}{
+            >{\centering\arraybackslash}>{\slshape}p{55mm}
+            >{\centering\arraybackslash}p{60mm} >{\centering\arraybackslash}>{\slshape}p{55mm}}
+            & \multirow{3}{*}{\fcolorbox{mygrey2}{white}{%
+                    \begin{minipage}[b][36mm]{42mm}
+                        \vspace*{\fill}
+                        \centering
+                            \textcolor{mygrey2}{Siegel}
+                        \vspace*{\fill}
+                    \end{minipage}
+            }} & \\
+        \rule{0pt}{20mm} & & \\
+        \cline{1-1}\cline{3-3}
+        \noalign{\vskip 1mm}
+        Klassenlehrer/in & & Schulleiter/in \\
+    \end{tabular}
+
+\if\abschluss a
+    \vskip 10mm
+\else
+\if\abschluss x
+    \vskip 10mm
+\else
+    \begin{tabular}{p{7cm}
+        >{\centering\arraybackslash}>{\slshape}p{10cm}}
+        \rule{0pt}{20mm} & \\
+        \cline{2-2}
+        \noalign{\vskip 1mm}
+        & Erziehungsberechtigte/r oder volljährige/r Schüler/in \\
+%       \noalign{\vskip 5mm}
+%       \hline
+    \end{tabular}
+    \vskip 5mm
+\fi
+\fi
+{\hrule
+\slshape
+    \vskip 5mm
+    Notenstufen:
+\setlength{\tabcolsep}{1mm}
+\footnotesize
+\renewcommand{\arraystretch}{1.5}
+\arrayrulecolor{mygrey3}
+    \begin{center}
+    \begin{tabular}{| *{6}{p{2.6cm} |}}
+        \hline
+        1: sehr gut &
+        2: gut &
+        3: befriedigend &
+        4: ausreichend &
+        5: mangelhaft &
+        6: ungenügend \\
+        \hline
+    \end{tabular}
+    \end{center}
+}
+\if\abschluss a
+    \setlength{\mylength}{\textwidth}
+    \addtolength{\mylength}{-2.4mm}
+    \cfbox{mygrey3}{\parbox{\mylength}{\footnotesize Dem Zeugnis über die Vergabe eines Abschlusses i. V. m. einer Abschlussprüfung liegt zugrunde: „Verordnung über die Abschlüsse im Sekundarbereich I der allgemein bildenden Schulen einschließlich der Freien Waldorfschulen“ v. 7.4.1994 (Nds. GVBl. S. 197) in der jeweils geltenden Fassung
+    }}
+\fi
+%]*body*
+\end{document}

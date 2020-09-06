@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-attendance.py - last updated 2019-09-28
+attendance.py - last updated 2020-09-05
 
 Create attendance table for a class.
 
@@ -36,7 +36,7 @@ from openpyxl.utils import get_column_letter, column_index_from_string
 from openpyxl.styles import Alignment, Border, Side, PatternFill, NamedStyle
 
 from wz_core.configuration import Paths, ConfigFile
-from wz_core.pupils import Pupils
+from wz_core.pupils import Pupils, Klass
 from wz_table.spreadsheet import Spreadsheet
 
 #### Spreadsheet Functions ####
@@ -297,7 +297,7 @@ class AttendanceTable:
             fml.append (f)
         # Add pupil rows, and remember rows
         self._pupilRows = {}
-        pupilDataList = Pupils (self._year).classPupils (self._class)
+        pupilDataList = Pupils (self._year).classPupils (Klass(self._class))
         for pdata in pupilDataList:
             pid = pdata ['PID']
             self._pupilRows [pid] = row
@@ -474,16 +474,16 @@ def readHols (schoolyear):
     deltaday = datetime.timedelta (days=1)
     kalinfo = ConfigFile (Paths.getYearPath (schoolyear, 'FILE_HOLIDAYS'))
     hols = set ()
-    for d0 in kalinfo.SINGLE_DAYS.split ('|'):
+    for d0 in kalinfo.SINGLE_DAYS.csplit ('|'):
         d = getDate (schoolyear, d0, dateformat=False)
         if d:
             hols.add (d)
         else:
             raise RuntimeError ("Date Error")
 
-    for r0 in kalinfo.RANGES.split ('|'):
+    for r0 in kalinfo.RANGES.csplit ('|'):
         try:
-            d01, d02 = kalinfo [r0].split ('|')
+            d01, d02 = kalinfo [r0].csplit ('|')
         except:
             REPORT.Fail ("Ungültige Ferienzeit: %s" % r0)
         d1 = getDate (schoolyear, d01, dateformat=False)
@@ -538,7 +538,7 @@ def getDate (schoolyear, date0, dateformat=True):
 
 ##################### Test functions
 def test_01 ():
-    year = 2016
+    year = 2021
     print ("Hols", year)
     l = list (readHols (year))
     l.sort ()
@@ -546,5 +546,5 @@ def test_01 ():
         print (" ---", d.isoformat ())
 
 def test_02 ():
-    year = 2016
-    AttendanceTable.makeAttendanceTable (year, klass='10')
+    year = 2021
+    AttendanceTable.makeAttendanceTable (year, klass='11')

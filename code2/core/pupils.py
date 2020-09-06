@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/pupils.py - last updated 2020-08-26
+core/pupils.py - last updated 2020-09-05
 
 Database access for reading pupil data.
 
@@ -35,59 +35,63 @@ _UNKNOWN_PID = "Schüler „{pid}“ ist nicht bekannt"
 #from fnmatch import fnmatchcase
 from collections import UserList
 
+from core.db import DB
 
+
+#TODO: The school year needs to be handled somehow, otherwise the module
+# cannot be used in parallel by different users!
 class Pupils:
-    def __init__(self):
-        self.dbconn = DATABASE.engine.connect()
-
+    def __init__(self, schoolyear):
+        self.schoolyear = schoolyear
+#??
+        self.dbconn = DB(schoolyear)
+#
     def __getitem__(self, pid):
-        s = DATABASE.pupils.select().where(DATABASE.pupils.c.PID == pid)
-        result = self.dbconn.execute(s)
-        pdata = result.fetchone()
+        with self.dbconn:
+            pdata = self.dbconn.select1('PUPIL', PID = pid)
         if not pdata:
-            raise ValueError(_UNKNOWN_PID.format(pid = pid))
+            raise KeyError(_UNKNOWN_PID.format(pid = pid))
         return pdata
-
+#
     def pid2name(self, pid):
         """Return the short name of a pupil given the PID.
         """
         pdata = self[pid]
         return self.pdata2name(pdata)
-
+#
     @staticmethod
     def pdata2name(pdata):
         """Return the short name of a pupil given the database row.
         """
         return pdata['FIRSTNAME'] + ' ' + pdata['LASTNAME']
-
+#
     def classes(self, stream = None):
         """Return a sorted list of class names. If <stream> is supplied,
         only classes will be return with entries in that stream.
         """
-        s = DATABASE.select([DATABASE.pupils.c.CLASS])
-        if stream:
-            s = s.where(DATABASE.pupils.c.STREAM == stream)
-        result = self.dbconn.execute(s.distinct())
-        return sorted([c[0] for c in result.fetchall()], reverse = True)
-
+        with self.dbconn:
+            if stream:
+                return sorted(self.dbconn.selectDistinct('PUPIL', 'CLASS',
+                        STREAM = stream))
+            return sorted(self.dbconn.selectDistinct('PUPIL', 'CLASS'))
+#
     def streams(self, klass):
         """Return a sorted list of stream names for the given class.
         """
-        s = DATABASE.select([DATABASE.pupils.c.STREAM]
-                ).where(DATABASE.pupils.c.CLASS == klass)
-        result = self.dbconn.execute(s.distinct())
-        return sorted([(c[0] or '') for c in result.fetchall()])
-
+        with self.dbconn:
+            return sorted(self.dbconn.selectDistinct('PUPIL', 'STREAM',
+                    CLASS = klass))
+#
     def check_pupil(self, pid):
         """Test whether the given <pid> is used.
         """
         try:
             self[pid]
             return True
-        except ValueError:
+        except KeyError:
             return False
-
-    def classPupils (self, klass, stream = None, date = None):
+#
+    def classPupils(self, klass, stream = None, date = None):
         """Read the pupil data for the given school-class (possibly with
         stream).
         Return a list of pupil-data (database rows), the pupils being
@@ -99,40 +103,45 @@ class Pupils:
         To enable indexing on pupil-id, the result has an extra
         attribute, <pidmap>: {pid-> <PupilData> instance}
         """
+        with self.dbconn:
+            if stream:
+                fetched = self.dbconn.select('PUPIL', CLASS = klass,
+                        STREAM = stream)
+            else:
+                fetched = self.dbconn.select('PUPIL', CLASS = klass)
         rows = UserList()
         rows.pidmap = {}
-        s = DATABASE.pupils.select().where(DATABASE.pupils.c.CLASS == klass)
-        if stream:
-            s = s.where(DATABASE.pupils.c.STREAM == stream)
-        s = s.order_by(DATABASE.pupils.c.PSORT)
-        for pdata in self.dbconn.execute(s):
+        for row in fetched:
             # Check exit date
             if date:
-                exd = pdata['EXIT_D']
+                exd = row['EXIT_D']
                 if exd and exd < date:
                     continue
-            rows.append(pdata)
-            rows.pidmap[pdata['PID']] = pdata
+            rows.append(row)
+            rows.pidmap[row['PID']] = row
         return rows
-
+#
     def new(self, **fields):
         """Add a new pupil with the given data. <fields> is a mapping
         containing all the necessary fields.
         """
-        self.dbconn.execute(DATABASE.pupils.insert().values(**fields))
-
-    def remove(self, pid):
-        """Remove the pupil with the given id from the database.
-        """
-        self.dbconn.execute(DATABASE.pupils.delete().where(
-                DATABASE.pupils.c.PID == pid))
-
+        with self.dbconn:
+            self.dbconn.addEntry('PUPIL', fields)
+#
     def update(self, pid, **changes):
         """Edit the given fields (<changes>: {field -> new value}) for
         the pupil with the given id. Field PID may not be changed!
         """
-        self.dbconn.execute(DATABASE.pupils.update().where(
-                DATABASE.pupils.c.PID == pid).values(**changes))
+        with self.dbconn:
+            self.dbconn.updateOrAdd('PUPIL', changes, update_only = True,
+                    PID = pid)
+#
+    def remove(self, pid):
+        """Remove the pupil with the given id from the database.
+        """
+        with self.dbconn:
+            self.dbconn.deleteEntry('PUPIL', PID = pid)
+
 
 
 
@@ -140,11 +149,11 @@ if __name__ == '__main__':
     from core.base import init
     init('TESTDATA')
 
-    pupils = Pupils()
+    pupils = Pupils(2016)
     pid = '200502'
     pdata = pupils[pid]
     print("\nPID(%s):" % pid, pupils.pdata2name(pdata))
-    print("  ...", pdata)
+    print("  ...", dict(pdata))
     print("\nPID(%s):" % pid, pupils.pid2name('200506'))
 
     print("\nCLASSES:", pupils.classes())
@@ -155,8 +164,8 @@ if __name__ == '__main__':
     cp = pupils.classPupils('12', stream = 'RS', date = None)
     print("\nPUPILS in 12.RS:")
     for pdata in cp:
-        print(" --", pdata)
-    print("\nPUPIL 200888, in 12.RS:", cp.pidmap['200888'])
+        print(" --", dict(pdata))
+    print("\nPUPIL 200888, in 12.RS:", dict(cp.pidmap['200888']))
 
     try:
         pupils.remove("XXX")
@@ -165,14 +174,14 @@ if __name__ == '__main__':
     print("\nAdd, update (and remove) a pupil:")
     pupils.new(PID="XXX", FIRSTNAME="Fred", LASTNAME="Jones", CLASS="12",
         PSORT="ZZZ")
-    print(" -->", pupils["XXX"])
+    print(" -->", dict(pupils["XXX"]))
     pupils.update("XXX", STREAM="RS", EXIT_D="2016-01-31")
     print("\nUPDATE (showRS):")
     for pdata in pupils.classPupils('12', stream = 'RS', date = None):
-        print(" --", pdata)
+        print(" --", dict(pdata))
     print("\n AND ... on 2016-02-01:")
     for pdata in pupils.classPupils('12', stream = 'RS', date = "2016-02-01"):
-        print(" --", pdata)
+        print(" --", dict(pdata))
     pupils.remove("XXX")
 
     print("\nFAIL:")

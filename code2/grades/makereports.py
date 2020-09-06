@@ -4,7 +4,7 @@
 """
 grades/makereports.py
 
-Last updated:  2020-08-24
+Last updated:  2020-08-30
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -38,6 +38,8 @@ Copyright 2020 Michael Towers
 
 
 ## Messages
+_NO_GRADE_TEMPLATE = ("Keine Notenzeugnis-Vorlage für Klasse {cs}:\n"
+        "Halbjahr: {term}, Zeugnistyp: {rtype}")
 
 
 #?
@@ -59,6 +61,12 @@ _TOO_MANY_SUBJECTS = ("Zu wenig Platz für Fachgruppe {group} in Vorlage:"
 import os
 from collections import namedtuple
 
+from core.base import Dates
+from local.grade_config import (GradeConfigError,
+        GRADE_REPORT_TERM, GRADE_REPORT_ANYTIME)
+from template_engine.template_sub import Template
+
+
 #from wz_core.configuration import Paths, Dates
 #from wz_core.pupils import Pupils, Klass
 #from wz_compat.config import printSchoolYear, printStream
@@ -67,8 +75,10 @@ from collections import namedtuple
 #        GradeData, getTermTypes)
 
 
-def makeReports(class_stream, schoolyear, term,
-        report_type, issuedate, fixdate, grades):
+def makeReports(class_stream, report_type, issuedate, grades,
+        term = None,
+#?
+        fixdate = None):
     """Given grade information for a list of pupils, build a single file
     containing the grade reports for all pupils in the list.
     The grades (etc.) for a pupil are provided in a <Dictuple>.
@@ -78,11 +88,10 @@ def makeReports(class_stream, schoolyear, term,
     that of an individual pupil (when this has changed since the grading),
     in which case a warning will be issued, but the grade report will
     still be generated.
-    Also the template for the reports needs to be supplied. This should
-    be an instance of the appropriate <Template> class.
 
-    Multiple reports within one file probably require all the reports to
-    have the same number of pages if double-sided printing is to be done.
+    If multiple reports are to be generated, it is probably sensible to
+    ensure that they all have the same number of pages if double-sided
+    printing is to be done.
     """
 # How to manage multipart templates?!
 # 1) Separate the frame and the body
@@ -130,28 +139,31 @@ def makeReports(class_stream, schoolyear, term,
     except:
         klass, stream = class_stream, None
 
-#This as function?
-    try:
-        grtemplates = GRADE_REPORT_TEMPLATE[report_type]
-        t = grtemplates.get(class_stream)
-        if not t:
-            t = grtemplates.get(klass)
-            if not t:
-                t = grtemplates['*']
-        if t == '-':
-            raise KeyError
-    except:
-#TODO
-        raise
-
-#TODO: <t> is only the file name, will need full path!
-    template = Template(t)
+    tname = getTemplateName(class_stream, term, report_type)
+    if not tname:
+        raise GradeConfigError(_NO_GRADE_TEMPLATE.format(
+                cs = class_stream, term = term or '*', rtype = report_type))
+    template = Template(tname)
     texlist = []
+    pupils = Pupils()
     for pgrades in grades:
-        data = dict(pgrades)
         # Get pupil's personal data
-#TODO
-        data.update(Pupils(pgrades['PID']))
+        pdata = pupils[pgrades['PID']]
+        data = getPupilData(pdata)
+#TODO: grades
+# The grades should be supplied as a list of pupil-grade tuples.
+# The pupil-grade tuples should be <Dictuples>.
+# Initially these should be purely "real" grades for actual graded courses.
+# The various special fields are then obtained by processing the grades
+# (possibly in conjunction with other data).
+
+
+#TODO: do two substitutions? Firstly the individual data (reporting no
+# errors), then join all the bits together and substitute the general
+# data (with error reporting)
+        data.update(general_data)
+
+
         # Substitute pupil data, ignore missing fields
         texlist.append(template.substitute(data, tag='body')[0])
         tex0 = '\n\n\\newpage\n\n'.join(texlist)
@@ -179,7 +191,7 @@ def prepareData(schoolyear, class_stream, ...):
 
     for k, v in data.items():
         if k.endswith('.DAT'):
-            data[k] = dateConv(v)
+            data[k] = date_conv(v)
     # Assume the class always starts with two digits.
 #TODO: How to get <class_stream>?
     data['Jahrgang'] = class_stream[:2]
@@ -188,21 +200,6 @@ def prepareData(schoolyear, class_stream, ...):
     data.update(SCHOOL_DATA)
 
 
-DATEFORMAT = '%d.%m.%Y' # for  <datetime.datetime.strftime>
-class DateError(Exception):
-    pass
-def dateConv (date, trap=True):
-    """Convert a date string from the program format (e.g. "2016-12-06") to
-    the format used for output (e.g. "06.12.2016").
-    """
-    try:
-        d = datetime.datetime.strptime (date, "%Y-%m-%d")
-        return d.strftime (DATEFORMAT)
-    except:
-        if trap:
-            raise DateError("Ungültiges Datum: '%s'" % date)
-        else:
-            return "00.00.0000"
 
 
 QUALI_VALID = { # Levels of qualification for stream and class.
@@ -223,46 +220,25 @@ GRADE_REPORTS = { # Map to titles of reports
     'Zwischen':     'Zwischenzeugnis'
 }
 
-# The first entry in each list is the default.
-GRADE_REPORT_TERM = { # Valid types for term and class.
-    '1': {
-        '11': ['Orientierung', 'Abgang'],
-        '12': ['Zeugnis', 'Abgang']
-    }
-    '2': {
-        '10': ['Orientierung', 'Abgang'],
-        '11': ['Zeugnis', 'Abgang'],
-        '12.Gym': ['Zeugnis', 'Abgang'],
-        '12.RS': ['Abschluss', 'Abgang', 'Zeugnis'],
-        '12.HS': ['Abschluss', 'Abgang', 'Zeugnis']
-    }
-}
-# ... any class, any time
-GRADE_REPORT_ANYTIME = ['Abgang', 'Zwischen']
 
-GRADE_REPORT_TEMPLATE = {
-    'Orientierung': {'*': 'Orientierungsnoten'},
-    'Zeugnis': {
-        '12.Gym': 'Notenzeugnis-SII',
-        '*': 'Notenzeugnis-SI'
-    }
-    'Zwischen': {
-        '12': '-',
-        '11': '-',
-        '*' 'Zwischenzeugnis'
-    }
-    'Abschluss': {
-        '12.RS': 'Notenzeugnis-SI',
-        '12.HS': 'Notenzeugnis-SI'
-    }
-    'Abgang': {
-    # An exit from class 12.Gym before the report for the first half year
-    # can be a problem if there are no grades yet. Perhaps those from
-    # class 11 could be converted?
-        '12.Gym': 'Notenzeugnis-SII',
-        '*': 'Notenzeugnis-SI'
-    }
-}
+
+#
+def getTemplateName(class_stream, term = None, report_type = None):
+    mapping = GRADE_REPORT_TERM[term] if term else GRADE_REPORT_ANYTIME
+    gtemplates = mapping.get(class_stream)
+    if not gtemplates:
+        gtemplates = mapping.get(class_stream.split('.')[0])
+        if not gtemplates:
+            return None
+    if report_type:
+        for rtype, gtemplate in gtemplates:
+            if report_type == rtype:
+                return gtemplate
+        return None
+    else:
+        #
+        return gtemplates[0]
+
 
 
 FIELDS_SI = {
