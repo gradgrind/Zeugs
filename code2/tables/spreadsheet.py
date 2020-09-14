@@ -3,7 +3,7 @@
 """
 tables/spreadsheet.py
 
-Last updated:  2020-08-25
+Last updated:  2020-09-14
 
 Spreadsheet file reader, returning all cells as strings.
 For reading, simple tsv files (no quoting, no escapes), Excel files (.xlsx)
@@ -81,18 +81,18 @@ def tsvWriter(dbtable):
 
 
 
-class TsvReader:
+class TsvReader(dict):
     def __init__ (self, filepath):
         """Read a tab-separated-value table as a list of rows,
         each row is a list of cell values.
         <filepath> can be the path to a tsv file, but it could be an
         <io.BytesIO> object.
         This format doesn't support multiple sheets, the single table
-        is named 'TSV' and the result at <self.sheets> is
-        {'TSV' -> row list}.
+        is named 'TSV' and the resulting instance has only one key, 'TSV'.
         All values are returned as "stripped" strings, except for empty
         cells, these having the value <None>.
         """
+        super().__init__()
         if type(filepath) == str:
             with open(filepath, 'rb') as fbi:
                 lines = fbi.read().splitlines()
@@ -112,7 +112,7 @@ class TsvReader:
             dl = maxlen - len(row)
             if dl:
                 row += [None] * dl
-        self.sheets = {'TSV': rows}
+        self['TSV'] = rows
 
     def mergedRanges (self, sheetname):
         """Returns an empty list as tsv doesn't support cell merging.
@@ -120,8 +120,7 @@ class TsvReader:
         return []
 
 
-
-class XlsReader:
+class XlsReader(dict):
     def __init__ (self, filepath):
         """Read an Excel spreadsheet as a list of rows,
         each row is a list of cell values.
@@ -132,36 +131,35 @@ class XlsReader:
         For formulae the last-calculated value is returned.
         All values are returned as strings.
         """
-        sheets = {}
+        super().__init__()
         self._mergedRanges = {}
         # Note that <data_only=True> replaces all formulae by their value,
         # which is probably good for reading, but not for writing!
-        wb = load_workbook (filepath, data_only=True)
+        wb = load_workbook(filepath, data_only=True)
         for wsname in wb.sheetnames:
-            ws = wb [wsname]
+            ws = wb[wsname]
             rows = []
-            for row in ws.iter_rows ():
+            for row in ws.iter_rows():
                 values = []
                 for cell in row:
                     v = cell.value
-                    if type (v) == datetime.datetime:
-                        v = v.strftime ("%Y-%m-%d")
-                    elif type (v) == str:
-                        v = v.strip ()
+                    if type(v) == datetime.datetime:
+                        v = v.strftime("%Y-%m-%d")
+                    elif type(v) == str:
+                        v = v.strip()
                         if v == '':
                              v = None
                     elif v != None:
-                        v = str (v)
-                    values.append (v)
-                rows.append (values)
-            sheets[wsname] = rows
-            self._mergedRanges [wsname] = ws.merged_cells.ranges
-        self.sheets = sheets
+                        v = str(v)
+                    values.append(v)
+                rows.append(values)
+            self[wsname] = rows
+            self._mergedRanges[wsname] = ws.merged_cells.ranges
 
-    def mergedRanges (self, sheetname):
+    def mergedRanges(self, sheetname):
         """Returns a list like ['AK2:AM2', 'H33:AD33', 'I34:J34', 'L34:AI34'].
         """
-        return self._mergedRanges [sheetname]
+        return self._mergedRanges[sheetname]
 
 
 class TableError(Exception):
@@ -256,9 +254,9 @@ class Spreadsheet:
             raise TableError(_TABLENOTREADABLE.format(
                     path=self.filepath or self.filename))
 
-        self._sheetNames = list(self._spreadsheet.sheets)
+        self._sheetNames = list(self._spreadsheet)
         # Default sheet is the first:
-        self._table = self._spreadsheet.sheets[self._sheetNames[0]]
+        self._table = self._spreadsheet[self._sheetNames[0]]
 
     def rowLen(self, table = None):
         if not table:
@@ -284,8 +282,8 @@ class Spreadsheet:
 
     def _getTable(self, tablename, failerror = True):
         try:
-            #print (self._spreadsheet.sheets.keys())
-            return self._spreadsheet.sheets[tablename]
+            #print (self._spreadsheet.keys())
+            return self._spreadsheet[tablename]
         except:
             if failerror:
                 raise TableError(_INVALIDSHEETNAME.format(name=tablename))
@@ -427,11 +425,11 @@ if __name__ == '__main__':
     init('TESTDATA')
 
     import io
-    filepath = 'Test1.tsv'
+    filepath = os.path.join(DATA, 'testing', 'Test1.tsv')
     fname = os.path.basename(filepath)
     tsv = TsvReader(filepath)
     print("\nROWS:")
-    for row in tsv.sheets['TSV']:
+    for row in tsv['TSV']:
         print(" :::", row)
     print("\n\nAnd now using a file-like object ...\n")
     with open(filepath, 'rb') as fbi:
@@ -440,10 +438,10 @@ if __name__ == '__main__':
     flo.filename = fname
     tsv = TsvReader(flo)
     print("\nROWS:")
-    for row in tsv.sheets['TSV']:
+    for row in tsv['TSV']:
         print(" :::", row)
 
-    ss = Spreadsheet('Test1.tsv')
+    ss = Spreadsheet(filepath)
     dbt = ss.dbTable()
     print("\nINFO:", dbt.info)
     print("\nFIELDS:", dbt.fieldnames())
@@ -466,4 +464,4 @@ if __name__ == '__main__':
         print(" :::", row)
 
     print("\n\nFAIL: This should be an error ...")
-    Spreadsheet('Test1')
+    Spreadsheet(filepath.rsplit('.', 1)[0])

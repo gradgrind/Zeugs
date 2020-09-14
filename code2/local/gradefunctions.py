@@ -4,7 +4,7 @@
 """
 local/gradefunctions.py
 
-Last updated:  2020-09-02
+Last updated:  2020-09-14
 
 Calculations needed for grade handling.
 
@@ -120,7 +120,7 @@ class _GradeManager(dict):
     """
     ZPAD = 1    # set to 2 to force leading zero (e.g. '6' -> '06')
 #
-    def __init__(self, klass, stream, grademap):
+    def __init__(self, schoolyear, klass, stream, grademap):
         """Sanitize the "grades" for the subjects in the given class.
         The grades are provided in the mapping <grademap>. The results are
         stored as instance items (<_GradeManager> instance [sid]).
@@ -149,8 +149,9 @@ class _GradeManager(dict):
         # Collect invalid grades:
         self.bad_grades = []
 
-        subjecttable = Class_Subjects()
-        for sdata in subjecttable.class_subjects(klass):
+#TODO:
+        subjecttable = Class_Subjects(schoolyear)
+        for sdata in subjecttable.for_class(klass):
             sid = sdata['SID']
             # Check for duplicates:
             if sid in sid2optional:

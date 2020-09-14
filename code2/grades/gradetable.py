@@ -1,9 +1,9 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-09-04
+grades/gradetable.py - last updated 2020-09-12
 
-Read and build grade tables.
+Access grade data, read and build grade tables.
 
 ==============================
 Copyright 2020 Michael Towers
@@ -20,6 +20,17 @@ Copyright 2020 Michael Towers
    See the License for the specific language governing permissions and
    limitations under the License.
 """
+
+# Header items
+_SCHOOLYEAR = 'Schuljahr'
+_CLASS = 'Klasse'
+_TERM = 'Halbjahr'
+_TID = 'Kürzel'
+
+# Messages
+_TID_MISMATCH = ("Unerwartete Lehrkraft in Tabellendatei:\n"
+        "    erwartet – {arg} / in Tabelle – {tid}\n  Datei: {fpath}")
+
 
 #TODO
 
@@ -48,6 +59,7 @@ if __name__ == '__main__':
 
 #import datetime
 
+from core.db import DB
 from tables.spreadsheet import Spreadsheet, DBtable
 from local.gradefunctions import UNCHOSEN
 
@@ -59,9 +71,22 @@ from local.gradefunctions import UNCHOSEN
 #from wz_compat.grade_classes import gradeGroups, validTermTag
 #from .gradedata import GradeData, CurrentTerm
 
+def getGrades(schoolyear, pid, term = None):
+    """Get the grade entry for the given year, term and pupil.
+    If no term is supplied, get all entries for the given year.
+    """
+    with DB(schoolyear) as dbconn:
+        if term:
+            return dbconn.select1('GRADES', PID = pid, TERM = term)
+        return dbconn.select('GRADES', PID = pid)
+
+#######################################################
+
+class GradeTableError(Exception):
+    pass
 
 class GradeTable(dict):
-    def __init__(self, filepath):
+    def __init__(self, filepath, tid = None):
         """Read the header info and pupils' grades from the given table file.
         The "spreadsheet" module is used as backend so .ods, .xlsx and .tsv
         formats are possible. The filename may be passed without extension –
@@ -69,14 +94,34 @@ class GradeTable(dict):
 
         The class instance is a mapping: {pid -> {sid -> grade}}.
         Additional information is available as attributes:
-            <info>: {key -> value}
+            <tid>: teacher-id
+            <klass>: school-class
+            <term>: school-term
+            <schoolyear>: school-year
             <subjects>: [sid, ...]
             <name>: {pid -> (short) name}
             <stream>: {pid -> stream}
+        The <info> mapping should contain the keys:
+            'SCHOOLYEAR', 'CLASS', 'TERM' and 'TID'
+        The first three should be info-lines at the start of the table,
+        the latter can also be an info-line, but could be passed as the
+        <tid> argument. Of course there should be no conflict between
+        the two possible sources.
         """
         ss = Spreadsheet(filepath)
         dbt = ss.dbTable()
-        self.info = {row[0]: row[1] for row in dbt.info if row[0]}
+        info = {row[0]: row[1] for row in dbt.info if row[0]}
+        self.tid = info.get(_TID)
+        if tid:
+            if self.tid:
+                if self.tid != tid:
+                    raise GradeTableError(_TID_MISMATCH.format(
+                            arg = tid, tid = self.tid, fpath = filepath))
+            else:
+                self.tid = tid
+        self.klass = info.get(_CLASS)
+        self.term = info.get(_TERM)
+        self.schoolyear = info.get(_SCHOOLYEAR)
         sid2col = []
         col = 0
         for f in dbt.fieldnames():
@@ -245,23 +290,27 @@ if __name__ == '__main__':
 
     print("\nGRADES 10.2:")
     gt = GradeTable(os.path.join(DATA, 'testing', 'Noten_2', 'Noten_10'))
-    print("\nINFO:", gt.info)
+    print("   TID:", gt.tid)
+    print("   CLASS:", gt.klass)
+    print("   TERM:", gt.term)
+    print("   SCHOOL-YEAR:", gt.schoolyear)
+
     print("\nSUBJECTS:", gt.subjects)
     print("\nGRADES:")
 #    for pid, grades in gt.items():
 #        print(" ::: %s (%s):" % (gt.name[pid], gt.stream[pid]), grades)
 
-    dbconn = DATABASE.engine.connect()
+    from core.db import DB
+    dbconn = DB(2016)
 
     for folder in 'Noten_1', 'Noten_2':
         fpath = os.path.join(DATA, 'testing', folder)
         for f in os.listdir(fpath):
             if f.rsplit('.', 1)[-1] in ('xlsx', 'ods', 'tsv'):
                 gt = GradeTable(os.path.join(fpath, f))
-                year = gt.info['Schuljahr']
-                klass = gt.info['Klasse']
-                term = gt.info['Halbjahr']
-                print ("\n*** READING: %s.%s, class %s" % (year, term, klass))
+                print ("\n*** READING: %s.%s, class %s, teacher: %s" % (
+                        gt.schoolyear, gt.term or '-',
+                        gt.klass, gt.tid or '-'))
                 for pid, grades in gt.items():
                     print(" ::: %s (%s):" % (gt.name[pid], gt.stream[pid]), grades)
                     # <grades> is a mapping: {sid -> grade}
@@ -273,21 +322,20 @@ if __name__ == '__main__':
                     #   (id – Integer, primary key), PID, CLASS, STREAM, TERM, GRADES
                     valmap = {
                         'PID': pid,
-                        'CLASS': klass,
+                        'CLASS': gt.klass,
                         'STREAM': gt.stream[pid],
-                        'TERM': term,
+                        'TERM': gt.term,
                         'GRADES': ','.join(glist)
                     }
+# Teacher?
 
 # At some point the class, stream and pupil subject choices should be checked,
 # but maybe not here?
 
                     # Enter into GRADES table
-                    try:
-                        dbconn.execute(DATABASE.grades.insert().values(**valmap))
-                    except:
-                        raise
-                    quit(1)
+                    with dbconn:
+                        dbconn.updateOrAdd('GRADES', valmap,
+                                PID = pid, TERM = gt.term)
 
 
 

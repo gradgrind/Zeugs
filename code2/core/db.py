@@ -372,7 +372,7 @@ class DB:
                 [key, value])
 
 
-    def updateOrAdd (self, table, data, update_only = False, **criteria):
+    def updateOrAdd(self, table, data, update_only = False, **criteria):
         """If an entry matching the criteria exists, update it with the
         given data (ignoring unsupplied fields).
         If there is no matching entry, add it, leaving unsupplied fields

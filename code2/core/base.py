@@ -3,7 +3,7 @@
 """
 core/base.py
 
-Last updated:  2020-08-29
+Last updated:  2020-09-13
 
 Basic configuration and structural stuff.
 
@@ -26,9 +26,7 @@ Copyright 2020 Michael Towers
 """
 
 # First month of school year (Jan -> 1, Dec -> 12):
-SCHOOLYEAR_MONTH_1 = 8
-# Format for printed dates (as used by <datetime.datetime.strftime>):
-DATEFORMAT = '%d.%m.%Y'
+from local.base_config import SCHOOLYEAR_MONTH_1, DATEFORMAT
 
 
 ### Messages
@@ -41,6 +39,11 @@ if __name__ == '__main__':
     # Enable package import if running as module
     this = sys.path[0]
     sys.path[0] = os.path.dirname(this)
+
+class Bug(Exception):
+    pass
+builtins.Bug = Bug
+
 
 from core.db import DB
 
@@ -87,12 +90,11 @@ def str2list(string, sep = ','):
 
 ###
 
-DATEFORMAT = '%d.%m.%Y' # for  <datetime.datetime.strftime>
 class DateError(Exception):
     pass
 class Dates:
     @staticmethod
-    def date_conv (date, trap = True):
+    def print_date(date, trap = True):
         """Convert a date string from the program format (e.g. "2016-12-06")
         to the format used for output (e.g. "06.12.2016").
         If an invalid date is passed, a <DateError> is raised, unless

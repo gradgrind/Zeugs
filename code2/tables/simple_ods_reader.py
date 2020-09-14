@@ -1,14 +1,16 @@
-#!/usr/bin/env python3
+### python >= 3.7
 # -*- coding: utf-8 -*-
 
 """
 tables/simple_ods_reader.py
 
-Last updated:  2020-08-24
+Last updated:  2020-09-08
 
 OdsReader:
-Read the data from the sheets of an ods file ignoring all formatting/style information.
-The content is found in the file "content.xml".
+Read the data from the sheets of an ods-file ignoring all formatting and
+style information.
+An ods-file is a zipped archive, the content is found in the file
+member file "content.xml".
 
 =+LICENCE=============================
 Copyright 2020 Michael Towers
@@ -27,6 +29,12 @@ Copyright 2020 Michael Towers
 
 =-LICENCE========================================
 """
+
+import sys, os
+if __name__ == '__main__':
+    # Enable package import if running as module
+    this = sys.path[0]
+    sys.path[0] = os.path.dirname(this)
 
 import zipfile as zf
 from types import SimpleNamespace
@@ -292,9 +300,11 @@ def readOdsFile(filepath, ignore_covered_cells):
 
 
 if __name__ == '__main__':
-#TODO: use special test files
-    import os, io
-    filepath = 'Test1.ods'
+    from core.base import init
+    init('TESTDATA')
+    import io
+
+    filepath = os.path.join(DATA, 'testing', 'Test1.ods')
     fname = os.path.basename(filepath)
     ss = OdsReader(filepath)
     for sheet, table in ss.items():

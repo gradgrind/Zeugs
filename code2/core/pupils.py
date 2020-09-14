@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/pupils.py - last updated 2020-09-05
+core/pupils.py - last updated 2020-09-14
 
 Database access for reading pupil data.
 
@@ -38,12 +38,9 @@ from collections import UserList
 from core.db import DB
 
 
-#TODO: The school year needs to be handled somehow, otherwise the module
-# cannot be used in parallel by different users!
 class Pupils:
     def __init__(self, schoolyear):
         self.schoolyear = schoolyear
-#??
         self.dbconn = DB(schoolyear)
 #
     def __getitem__(self, pid):

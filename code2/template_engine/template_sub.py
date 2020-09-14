@@ -4,7 +4,7 @@
 """
 template_engine/template_sub.py
 
-Last updated:  2020-08-30
+Last updated:  2020-09-10
 
 Manage the substitution of "special" fields in a latex template.
 
@@ -29,6 +29,13 @@ The special substitution fields in a template start with '(*' and end
 with '*)'. Between these delimiters there may be only ASCII-alphanumeric
 characters and '.'.
 """
+
+#TODO: Change the templates to use the pupil data fields without
+# "translation". This would add some flexibility concerning exactly
+# which fields are used – making all of them available would allow the
+# template to "pick out" the ones it needs.
+# One caveat: '_' characters must be changed to '.', as '_' is a special
+# character in LaTeX.
 
 #Messages:
 _NOBLOCK = "Vorlage: Ende eines Blocks ohne Anfang"
@@ -198,7 +205,8 @@ if __name__ == '__main__':
             ,
             {"Substitution.1": "FRED", "S2": "$100 for <Fred>"}))
 
-    sdict = {
+#TODO: use program-internal keys ...
+    sdict0 = {
         'Schule': 'Freie Michaelschule',
         'Klasse': '11',
         'Schuljahr': '2019 – 2020',
@@ -246,6 +254,10 @@ if __name__ == '__main__':
         'FachKP.07': '––––––––––', 'NoteKP.07': '––––––––––',
         'FachKP.08': '––––––––––', 'NoteKP.08': '––––––––––',
     }
+
+#TODO: This could perhaps be part of the <substitute> function?
+    sdict = {k.replace('_', '.'): v for k, v in sdict0.items()}
+
     t = Template('Notenzeugnis-SI.tex')
     print("\nKeys:", t.allkeys())
     t1, s, u = t.substitute(sdict, 'body')
