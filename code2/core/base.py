@@ -3,7 +3,7 @@
 """
 core/base.py
 
-Last updated:  2020-09-13
+Last updated:  2020-09-15
 
 Basic configuration and structural stuff.
 
@@ -25,10 +25,6 @@ Copyright 2020 Michael Towers
 =-LICENCE=================================
 """
 
-# First month of school year (Jan -> 1, Dec -> 12):
-from local.base_config import SCHOOLYEAR_MONTH_1, DATEFORMAT
-
-
 ### Messages
 _INVALID_DATE = "Ungültiges Datum: {date}"
 _INVALID_SCHOOLYEAR = "Ungültiges Schuljahr: {year}"
@@ -44,8 +40,8 @@ class Bug(Exception):
     pass
 builtins.Bug = Bug
 
-
-from core.db import DB
+# First month of school year (Jan -> 1, Dec -> 12):
+from local.base_config import SCHOOLYEAR_MONTH_1, DATEFORMAT
 
 
 def init(datadir = 'DATA'):
@@ -53,24 +49,24 @@ def init(datadir = 'DATA'):
     builtins.ZEUGSDIR = os.path.join(os.path.dirname (appdir))
     builtins.DATA = os.path.join(ZEUGSDIR, datadir)
     builtins.RESOURCES = os.path.join(DATA, 'RESOURCES')
-    set_schoolyear()
+#    set_schoolyear()
 
 
-def set_schoolyear(schoolyear = None):
-    allyears = Dates.get_years()
-    if schoolyear:
-        if schoolyear not in allyears:
-            raise ValueError(_INVALID_SCHOOLYEAR.format(year=schoolyear))
-    else:
-        schoolyear = Dates.get_schoolyear()
-        if schoolyear not in allyears:
-            # Choose the latest school year, if there is one
-            try:
-                schoolyear = allyears[0]
-            except:
-                pass
-    builtins.DATABASE = DB(schoolyear)
-    builtins.SCHOOLYEAR = schoolyear
+#def set_schoolyear(schoolyear = None):
+#    allyears = Dates.get_years()
+#    if schoolyear:
+#        if schoolyear not in allyears:
+#            raise ValueError(_INVALID_SCHOOLYEAR.format(year=schoolyear))
+#    else:
+#        schoolyear = Dates.get_schoolyear()
+#        if schoolyear not in allyears:
+#            # Choose the latest school year, if there is one
+#            try:
+#                schoolyear = allyears[0]
+#            except:
+#                pass
+#    builtins.DATABASE = DB(schoolyear)
+#    builtins.SCHOOLYEAR = schoolyear
 
 
 def read_float(string):
@@ -169,11 +165,10 @@ class Dates:
 
 
 if __name__ == '__main__':
-    init()
+    init('TESTDATA')
     print("Current school year:", Dates.get_schoolyear())
-    print("SET:", SCHOOLYEAR)
-    print("DATE:", Dates.date_conv('2016-04-25'))
+    print("DATE:", Dates.print_date('2016-04-25'))
     try:
-        print("BAD Date:", Dates.date_conv('2016-02-30'))
+        print("BAD Date:", Dates.print_date('2016-02-30'))
     except DateError as e:
         print(" ... trapped:", e)

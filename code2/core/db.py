@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/db.py - last updated 2020-09-06
+core/db.py - last updated 2020-09-15
 
 Database access.
 
@@ -22,13 +22,6 @@ Copyright 2020 Michael Towers
    limitations under the License.
 """
 
-import sys, os
-if __name__ == '__main__':
-    # Enable package import if running as module
-    this = sys.path[0]
-    sys.path[0] = os.path.dirname(this)
-
-
 # Messages:
 _DBMULTIPLERECORDS  = ("Es wurde mehr als ein passender Datensatz gefunden:\n"
                     " – Datei: {path}\n"
@@ -36,9 +29,27 @@ _DBMULTIPLERECORDS  = ("Es wurde mehr als ein passender Datensatz gefunden:\n"
                     " – Kriterien: {select}")
 _TABLEEXISTS        = ("Datenbanktabelle {name} kann nicht erstellt werden,"
                     " da sie schon existiert")
+_FIELD_MISMATCH = ("Tabelle hat die falschen Felder für Datenbank {table}:\n"
+        "  Datenbank: {dbfields}\n  Tabelle: {tablefields}")
 
 
-import sqlite3 #, builtins
+import os, sqlite3, builtins
+
+# To collect the field names of the various tables:
+#    {table-name -> {internal-field-name -> external-field-name}}
+builtins.DB_TABLES = {
+    # A special entry for indexes:
+    #    {table-name -> <index> parameter to DB.makeTable()}
+    '__INDEX__': {},
+    # A special entry for unique field groups:
+    #    {table-name -> <unique> parameter to DB.makeTable()}
+    '__UNIQUE__': {}
+}
+
+import local.pupil_config
+import local.course_config
+import local.grade_config
+from tables.spreadsheet import Spreadsheet
 
 
 class DBerror(Exception):
@@ -88,26 +99,15 @@ class DB:
 #                self.makeTable('TEACHERS', CONF.TABLES.TEACHER_FIELDNAMES,
 #                        index = TEACHERS_UNIQUE)
 
-                if not self.tableExists('PUPIL'):
-                    # One might consider using WITHOUT ROWID.
-                    from local.pupil_config import PUPIL_FIELDS
-                    self.makeTable('PUPIL', PUPIL_FIELDS,
-                            index = ('PID', ('CLASS', 'PSORT')))
-                if not self.tableExists('SUBJECT'):
-                    # One might consider using WITHOUT ROWID.
-                    from local.course_config import SUBJECT_FIELDS
-                    self.makeTable('SUBJECT', SUBJECT_FIELDS,
-                            index = ('SID',))
-                if not self.tableExists('CLASS_SUBJECT'):
-                    # One might consider using WITHOUT ROWID.
-                    from local.course_config import CLASS_SUBJECT_FIELDS
-                    self.makeTable('CLASS_SUBJECT', CLASS_SUBJECT_FIELDS,
-                            index = ('SID',))
-
-                if not self.tableExists('GRADES'):
-                    from local.grade_config import GRADES_FIELDS
-                    self.makeTable('GRADES', PUPIL_FIELDS,
-                            index = (('PID', 'TERM'),))
+                indexes = DB_TABLES['__INDEX__']
+                uniques = DB_TABLES['__UNIQUE__']
+                for table, fields in DB_TABLES.items():
+                    if table[0] == '_':
+                        continue
+                    if not self.tableExists(table):
+                        self.makeTable(table, fields,
+                                index = indexes.get(table),
+                                unique = uniques.get(table))
 
 #            if not self.tableExists('ABI_SUBJECTS'):
 #                self.makeTable('ABI_SUBJECTS', ABI_SUBJECTS_FIELDS,
@@ -189,18 +189,13 @@ class DB:
         return self._cursor.fetchone() != None
 
 
-    def _init(self):
-        """Initialise a new database. Using the existence tests allows
-        for reinitialising individual tables.
-        """
-
-
-    def makeTable(self, name, fields, pk = None, index = None):
+    def makeTable(self, name, fields, pk = None, unique = None, index = None):
         """Create the named table with the given fields.
         <fields> is a list of field names or (name, type) pairs. The
         default type is TEXT.
         <pk> is the optional primary key name (alias for 'rowid').
         Insertions will not include this field.
+        <unique> is a list of unique column groups (also a list).
         <index> is a list of columns – or a list of lists of columns – for
         which unique indexes are to be built.
         """
@@ -232,6 +227,10 @@ class DB:
             else:
                 cfields.append("{name} {ctype}".format(
                         name=key, ctype=ctype))
+        if unique:
+            for fields in unique:
+                cfields.append("UNIQUE({names})".format(
+                        names = ','.join(fields)))
         if self.tableExists(name):
             raise DBerror(_TABLEEXISTS.format(name=name))
         cmd = ccreate.format(name=name, fields=','.join (cfields))
@@ -437,6 +436,26 @@ class DB:
         self._dbcon.execute('VACUUM')
 
 
+    def from_table(self, table, filepath):
+        """Reload the table from the given file (a table).
+        """
+        ss = Spreadsheet(filepath)
+        dbt = ss.dbTable()
+        tablefields = dbt.fieldnames()
+        dbfields = DB_TABLES[table]
+        i = 0
+        for f in dbfields:
+            if f != tablefields[i]:
+                raise DBerror(_FIELD_MISMATCH.format(table = table,
+                        dbfields = ', '.join(dbfields),
+                        tablefields = ', '.join(tablefields)))
+            i += 1
+        rows = [row for row in dbt.rows if row[0]]
+        self.clearTable(table)
+        self.addRows(table, dbfields, rows)
+
+
+
 
 class UpdateError(IndexError):
     pass
@@ -466,54 +485,3 @@ class UpdateError(IndexError):
 #        return conn.execute(s).fetchone()[0]
 
 
-if __name__ == '__main__':
-    from core.base import init
-    init('TESTDATA')
-
-    conn = DATABASE.engine.connect()
-    s = select([DATABASE.pupils]).where(DATABASE.pupils.c.CLASS == '11')
-    result = conn.execute(s)
-    print("\n++++++ ALL PUPILS in class 11 ++++++")
-    for row in result:
-        print(row)
-    conn.execute(DATABASE.subjects.delete())
-    conn.execute(DATABASE.subjects.insert(), [
-        {'SID': 'Bio', 'SUBJECT': 'Biologie'},
-        {'SID': 'De', 'SUBJECT': 'Deutsch'},
-        {'SID': 'En', 'SUBJECT': 'Englisch'},
-    ])
-    print("\n++++++ ALL SUBJECTS ++++++")
-    for row in conn.execute(select([DATABASE.subjects])):
-        print(row)
-    conn.execute(DATABASE.subjects.delete())
-    conn.execute(DATABASE.subjects.insert().values(SID='Ges', SUBJECT='Geschichte'))
-    print("\n++++++ ALL SUBJECTS (CHANGED) ++++++")
-    for row in conn.execute(select([DATABASE.subjects])):
-        print(row)
-
-    pid = '200506'
-    #s = select([DATABASE.pupils]).where(DATABASE.pupils.c.CLASS == '11')
-    s = DATABASE.pupils.select().where(DATABASE.pupils.c.PID == pid)
-    result = conn.execute(s)
-    pdata = result.fetchone()
-    print("\nPID(%s):" % pid, pdata['FIRSTNAME'] + ' ' + pdata['LASTNAME'])
-    print("  ...", pdata)
-    print("PID(%s):" % pid, result.fetchone())
-
-    s = DATABASE.select(columns=[DATABASE.pupils.c.CLASS]).distinct()
-    result = conn.execute(s)
-    print("\n???", result.fetchall())
-
-
-#    r = conn.execute(select([func.count()]).select_from(DATABASE.grades).where(
-#            DATABASE.grades.c.PID == '200651').where(DATABASE.grades.c.TERM == '2'))
-#    r = conn.execute(select([func.count()]).select_from(DATABASE.pupils).where(
-#            DATABASE.pupils.c.CLASS == '11'))
-#    print ("\nCOUNT:", r.fetchone())
-
-    r = DATABASE.count_entries(conn, DATABASE.pupils, (DATABASE.pupils.c.CLASS, '11'))
-    print("\nCOUNT:", r)
-    r = DATABASE.count_entries(conn, DATABASE.grades,
-            (DATABASE.grades.c.PID, '200651'),
-            (DATABASE.grades.c.TERM, '1'))
-    print("\nCOUNT:", r)

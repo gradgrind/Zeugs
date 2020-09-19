@@ -4,7 +4,7 @@
 """
 local/course_config.py
 
-Last updated:  2020-09-05
+Last updated:  2020-09-15
 
 Configuration for course-data handling.
 ======================================
@@ -23,7 +23,11 @@ CLASS_SUBJECT_FIELDS = {
     'CLASS'     : 'Klasse',
     'SID'       : 'Kürzel',
     'TIDS'      : 'Lehrkräfte',
-    'GROUP'     : 'Gruppe',
+    'GRP'       : 'Gruppe',
     'GRADE'     : 'Note'
 }
 
+DB_TABLES['SUBJECT'] = SUBJECT_FIELDS
+DB_TABLES['__INDEX__']['SUBJECT'] = ('SID',)
+DB_TABLES['CLASS_SUBJECT'] = CLASS_SUBJECT_FIELDS
+DB_TABLES['__UNIQUE__']['CLASS_SUBJECT'] = (('CLASS', 'SID'),)

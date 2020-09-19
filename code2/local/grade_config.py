@@ -4,7 +4,7 @@
 """
 local/grade_config.py
 
-Last updated:  2020-09-13
+Last updated:  2020-09-18
 
 Configuration for grade handling.
 ====================================
@@ -12,15 +12,49 @@ Configuration for grade handling.
 
 #from core.base import Dates
 
+# Special "grades"
+UNCHOSEN = '/'
+NO_GRADE = '*'
 
-class GradeConfigError(Exception):
-    pass
-#
+# GRP field in CLASS_SUBJECTS table
+ALL_STREAMS = '*'
+OPTIONAL_SUBJECT = '?'
+
+# GRADE field in CLASS_SUBJECTS table
+NULL_COMPOSITE = '/'
+NOT_GRADED = '-'
+
+# Streams for higher classes
 STREAMS = {
     'Gym': 'Gymnasium',
     'RS': 'Realschule',
-    'HS': 'Hauptschule'
+    'HS': 'Hauptschule',
+#TODO:
+    'FS': 'Förderschule',
+    'GS': 'Grundschule'
 }
+#
+def all_streams(klass):
+    """Return a list of streams available in the given class.
+    """
+#TODO: Only some of the classes have been properly considered here ...
+    try:
+        c = int(klass)
+        if c == 13:
+            return ['Gym']
+        if c >= 10:
+            return ['Gym', 'RS', 'HS']  # 'HS' only for "Abgänger"
+        elif c >= 5:
+            return ['Gym', 'RS']
+        else:
+            return ['GS']
+    except:
+#TODO ...
+        # Förderklasse?
+        c = int(klass[:2])
+        if c >= 5:
+            return ['HS', 'FS']
+        return ['GS']
 #
 REPORT_TYPES = {
     'Orientierung': 'Orientierungsnoten',
@@ -30,8 +64,8 @@ REPORT_TYPES = {
     'Zwischen':     'Zwischenzeugnis'
 }
 #
-# Localized field names. This also determines the fields for the GRADES
-# table.
+# Localized field names.
+# This also determines the fields for the GRADES table.
 GRADES_FIELDS = {
     'PID'       : 'ID',
     'CLASS'     : 'Klasse',
@@ -42,8 +76,13 @@ GRADES_FIELDS = {
     'ISSUE_D'   : 'Ausstellungsdatum',
     'GRADES_D'  : 'Notenkonferenz',
     'COMMENTS'  : 'Bemerkungen'
-}   # Index : ('PID', 'TERM')
+}
 #
+DB_TABLES['GRADES'] = GRADES_FIELDS
+DB_TABLES['__INDEX__']['GRADES'] = (('PID', 'TERM'),)
+
+###
+
 GRADE_REPORT_TERM = {
     # Valid types for term and class.
     # The first entry in each list is the default.
@@ -125,16 +164,16 @@ SUBJECT_GROUPS = {
     'B': ['Ges', 'Geo', 'Soz', 'Rel'],
     'C': ['Ma', 'Bio', 'Ch', 'Ph'],
     'D': ['Sp', 'Eu'],
-    'X': ['Kge', 'Mal', 'Sth']
+    'X': ['Kge', 'Mal', 'Sth'],
 ## Abitur class 13
 # eA
     'E': ['De.e', 'En.e', 'Ges.e', 'Bio.e'],
 # gA
-    'G': ['Ma.g', 'En.m', 'Fr.m', 'Bio.m', 'Ku.m', 'Mu.m', 'Sp.m']
+    'G': ['Ma.g', 'En.m', 'Fr.m', 'Bio.m', 'Ku.m', 'Mu.m', 'Sp.m'],
 ## Sek-I
 # Versetzungsrelevant
     'S': ['De', 'En', 'Fr', 'Ku', 'Mu', 'Ges', 'Soz', 'Geo', 'Rel',
-        'Ma', 'Bio', 'Ch', 'Ph', 'AWT', 'Sp']
+        'Ma', 'Bio', 'Ch', 'Ph', 'AWT', 'Sp'],
 # Künstlerisch-praktisch
     'K': ['Eu', 'Bb', 'Kge', 'Ktr', 'Mal', 'MZ', 'Pls', 'Snt', 'Sth', 'Web']
 }
@@ -202,3 +241,7 @@ def print_year(class_stream):
 #            'P.HOME': pdata['HOME'],
 #            'P.Q.DAT': Dates.date_conv(pdata['QUALI_D'] or NODATE, trap = False)
 #        }
+
+
+class GradeConfigError(Exception):
+    pass

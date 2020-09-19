@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/courses.py - last updated 2020-09-14
+core/courses.py - last updated 2020-09-19
 
 Database access for reading course data.
 
@@ -22,29 +22,40 @@ Copyright 2020 Michael Towers
    limitations under the License.
 """
 
+### Messages
+_UNKNOWN_SID = "Fach-Kürzel „{sid}“ ist nicht bekannt"
+_INVALID_GRP_FIELD = ("In Tabelle CLASS_SUBJECT: ungültiges GRP_Feld für"
+        " Fach-Kürzel „{sid}“ ({grp})")
+_COMPOSITE_IS_COMPONENT = ("Fach-Kürzel „{sid}“ ist sowohl als „Sammelfach“"
+        " als auch als „Unterfach“ definiert")
+_UNUSED_COMPOSITE = "Unterfach {sid}: Sammelfach „{sidc}“ wird nicht benutzt"
+_UNKNOWN_COMPOSITE = "Unterfach {sid}: Sammelfach „{sidc}“ ist nicht definiert"
+_NOT_A_COMPOSITE = "Unterfach {sid}: „{sidc}“ ist kein Sammelfach"
+_NO_COMPONENTS = "Sammelfach {sid} hat keine Unterfächer"
+
+
 import sys, os
 if __name__ == '__main__':
     # Enable package import if running as module
     this = sys.path[0]
     sys.path[0] = os.path.dirname(this)
 
-### Messages
-_UNKNOWN_SID = "Fach-Kürzel „{sid}“ ist nicht bekannt"
-_FIELD_MISMATCH = ("Tabelle hat die falschen Felder für Datenbank {table}:\n"
-        "  Datenbank: {dbfields}\n  Tabelle: {tablefields}")
-
-
-#from collections import UserList
+from collections import namedtuple
+SubjectData = namedtuple("SubjectData", ('streams', 'composite', 'tids',
+        'optional', 'name'))
 
 from core.db import DB
+from core.base import str2list
+from local.grade_config import (NULL_COMPOSITE, NOT_GRADED, ALL_STREAMS,
+        all_streams, OPTIONAL_SUBJECT)
 from tables.spreadsheet import Spreadsheet
-from local.course_config import SUBJECT_FIELDS, CLASS_SUBJECT_FIELDS
+
 
 class CourseError(Exception):
     pass
 
 class Subjects:
-    """Manage the SUBJECT table.
+    """Manage the SUBJECT and CLASS_SUBJECT tables.
     """
     def __init__(self, schoolyear):
         self.schoolyear = schoolyear
@@ -59,59 +70,134 @@ class Subjects:
             raise KeyError(_UNKNOWN_SID.format(sid = sid))
         return row['SUBJECT']
 #
-    def from_table(self, filepath):
-        """Reload the table from the given file (a table).
-        """
-        ss = Spreadsheet(filepath)
-        dbt = ss.dbTable()
-        tablefields = dbt.fieldnames()
-        i = 0
-        for f in SUBJECT_FIELDS:
-            if f != tablefields[i]:
-                raise CourseError(_FIELD_MISMATCH.format(table = 'SUBJECT',
-                        dbfields = ', '.join(SUBJECT_FIELDS),
-                        tablefields = ', '.join(tablefields)))
-            i += 1
-        rows = [row for row in dbt.rows if row[0]]
-        with self.dbconn:
-            self.dbconn.clearTable('SUBJECT')
-            self.dbconn.addRows('SUBJECT', SUBJECT_FIELDS, rows)
-
-
-
-class Class_Subjects:
-    """Manage the CLASS_SUBJECTS table.
-    """
-    def __init__(self, schoolyear):
-        self.schoolyear = schoolyear
-        self.dbconn = DB(schoolyear)
-#
     def for_class(self, klass):
         """Return a list of subject-data rows for the given class.
         """
         with self.dbconn:
             return list(self.dbconn.select('CLASS_SUBJECT', CLASS = klass))
+#
+    def grade_subjects(self, klass, stream = None):
+        """Return a mapping {sid -> subject data} for the given class.
+        Only subjects relevant for grade reports are included. The subject
+        data is in the form of a <SubjectData> named tuple with fields:
+            streams: a list of streams for which this subject is relevant;
+            composite: a list of sids for which the subject is a component
+                (may be more than one entry, in case the streams are
+                handled differently);
+            tids: a list of teacher ids, empty if the subject is a composite;
+            optional: boolean, true if '/' is a permissible "grade";
+            name: the full name of the subject.
+        If <stream> is supplied, only subjects relevant for this stream
+        will be included.
+        """
+        composites = {}
+        subjects = {}
+        for sdata in self.for_class(klass):
+            sid = sdata['SID']
+            comp = sdata['GRADE']
+            if comp == NOT_GRADED:
+                continue
+            groups = str2list(sdata['GRP'])
+            optional = True
+            try:
+                groups.remove(OPTIONAL_SUBJECT)
+            except ValueError:
+                optional = False
+            if not groups:
+                # Subject not relevant for grades
+                continue
+            try:
+                groups.remove(ALL_STREAMS)
+            except ValueError:
+                # Check streams
+                streams = []
+                for g in all_streams(klass):
+                    try:
+                        groups.remove(g)
+                    except ValueError:
+                        continue
+                    streams.append(g)
+                if not streams:
+                    # Subject not relevant for grades
+                    continue
+            else:
+                if groups:
+                    raise CourseError(_INVALID_GRP_FIELD.format(
+                            sid = sid, grp = sdata['GRP']))
+                streams = all_streams(klass)
+            if stream and (stream not in streams):
+                # Subject not for given stream
+                continue
+            tids = sdata['TIDS']
+            if not tids:
+                # composite subject
+                if comp:
+                    raise CourseError(_COMPOSITE_IS_COMPONENT.format(
+                            sid = sid))
+                composites[sid] = []
+            ### Here is the subject data item:
+            subjects[sid] = SubjectData(streams, str2list(comp),
+                    str2list(tids), optional, self[sid])
 
+        # Check that the referenced composites are valid and useable
+        for sid, sbjdata in subjects.items():
+            if sbjdata.composite:
+                streams = set(sbjdata.streams)
+                for sidc in sbjdata.composite:
+                    if not streams:
+                        raise CourseError(_UNUSED_COMPOSITE.format(
+                                sidc = sidc, sid = sid))
+                    if sidc == NULL_COMPOSITE:
+                        # Must be the last one ...
+                        streams.clear()
+                        continue
+                    try:
+                        sbjcomp = subjects[sidc]
+                    except KeyError:
+                        raise CourseError(_UNKNOWN_COMPOSITE.format(
+                                sidc = sidc, sid = sid))
+                    if sidc not in composites:
+                        # The target is not a composite
+                        raise CourseError(_NOT_A_COMPOSITE.format(
+                                sidc = sidc, sid = sid))
+                    ok = False
+                    for s in list(streams):
+                        if s in sbjcomp.streams:
+                            streams.remove(s)
+                            ok = True
+                    if not ok:
+                        raise CourseError(_UNUSED_COMPOSITE.format(
+                                sidc = sidc, sid = sid))
+                    composites[sidc].append(sid)
 
-    def from_table(self, filepath):
-        pass
-
-
-        with self.dbconn:
-            self.dbconn.addRows('CLASS_SUBJECT', fields, data)
-
-
-
-
+        # Check that all composites have components
+        for sid, slist in composites.items():
+            if not slist:
+                raise CourseError(_NO_COMPONENTS.format(sid = sid))
+        return subjects
 
 
 
 if __name__ == '__main__':
+    _year = 2016
     from core.base import init
     init('TESTDATA')
 
-    subjects = Subjects(2016)
+    dbconn = DB(_year)
     filepath = os.path.join(DATA, 'testing', 'Subjects.ods')
     fname = os.path.basename(filepath)
-    subjects.from_table(filepath)
+    with dbconn:
+        dbconn.from_table('SUBJECT', filepath)
+    filepath = os.path.join(DATA, 'testing', 'Class-Subjects.ods')
+    fname = os.path.basename(filepath)
+    with dbconn:
+        dbconn.from_table('CLASS_SUBJECT', filepath)
+
+    subjects = Subjects(_year)
     print("En ->", subjects['En'])
+    print("\n**** raw subject data for class 11 ****")
+    for row in subjects.for_class('11'):
+        print("  ", dict(row))
+    print("\n**** Subject data for class 11: grading ****")
+    for sid, sdata in subjects.grade_subjects('11').items():
+        print("  %s:" % sid, sdata)

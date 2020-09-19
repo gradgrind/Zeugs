@@ -4,7 +4,7 @@
 """
 local/gradefunctions.py
 
-Last updated:  2020-09-14
+Last updated:  2020-09-19
 
 Calculations needed for grade handling.
 
@@ -27,23 +27,11 @@ Copyright 2020 Michael Towers
 =-LICENCE========================================
 """
 
-UNCHOSEN = '/'
-_NO_GRADE = '*'
-
-# OPTIONS field in CLASS_SUBJECTS table
-STREAMS = ('Gym', 'RS', 'HS')
-_ALL_STREAMS = '*'
-_OPTIONAL_SUBJECT = '?'
-
-# FLAGS field in CLASS_SUBJECTS table
-_NULL_COMPOSITE = '/'
-_NOT_GRADED = '-'
-
 # Messages
-_DUPLICATE_SID = "Fach {sid} kommt in Klasse-Fächer-Tabelle mehrmals vor"
-_GRADE_MISSING = "Keine Note im Fach {sid}"
-_GRADE_NOT_OPTIONAL = "Fach {sid} ist ein Pflichtfach – es muss benotet werden"
+_GRADE_MISSING = "Keine Note in {sbj}"
+_GRADE_NOT_OPTIONAL = "{sbj} ist ein Pflichtfach – es muss benotet werden"
 _BAD_GRADE = "Ungültige Note im Fach {sid}: {grade}"
+_UNEXPECTED_GRADE = "Unerwartete Note im Fach {sbj}: {grade}"
 
 
 _MULTIPLE_SUBJECT = "Fach {sid} mehrfach benotet"
@@ -72,7 +60,8 @@ from fractions import Fraction
 #from collections import OrderedDict
 
 from core.base import str2list
-#from wz_core.db import DBT
+from core.courses import Subjects
+from local.grade_config import UNCHOSEN, NO_GRADE, NULL_COMPOSITE
 
 
 class GradeError(Exception):
@@ -138,54 +127,55 @@ class _GradeManager(dict):
         # Collect normal grades (not including "component" subjects):
         self.grades = {}    # numeric grades {sid -> int}
         # Collect lists of "component" subjects:
-        #    {composite sid -> [component sid, ...]}.
+        components = []
+        bad_components = []
+        # Final component lists:
+        #    {composite sid -> [component grade (int), ...]}.
         # Include a "special" composite for grades which "don't count".
-        self.components = {_NULL_COMPOSITE: []}
+        self.composites = {NULL_COMPOSITE: []}
         # ... and this for non-numerical grades:
-        self.badcomponents = {_NULL_COMPOSITE: []}
+        #    {composite sid -> [component grade (non-int), ...]}.
+        self.ngcomponents = {NULL_COMPOSITE: []}
+#?
         sid2optional = {}       # {sid -> optional(True/False)}
+#?
         subjects = {}           # [(graded sid, flags), ...]
         self.XINFO = {}         # additional (calculated) fields
         # Collect invalid grades:
         self.bad_grades = []
 
 #TODO:
-        subjecttable = Class_Subjects(schoolyear)
-        for sdata in subjecttable.for_class(klass):
-            sid = sdata['SID']
-            # Check for duplicates:
-            if sid in sid2optional:
-                raise GradeError(_DUPLICATE_SID.format(sid = sid))
-            flaglist = str2list(sdata['FLAGS'])
-            if _NOT_GRADED in flaglist:
-                # Subject not relevant for grades
-                continue
-            options = sdata['OPTIONS']
-            if options:
-                optlist = str2list(options)
-                if _ALL_STREAMS in optlist or stream in optlist:
-                    sid2optional[sid] = _OPTIONAL_SUBJECT in optlist
-                    if sdata['TIDS']:
-                        # graded subject
-                        subjects.append(sid, flaglist)
+        subjects = Subjects(schoolyear)
+        gsubjects = subjects.grade_subjects(klass, stream)
+        # Run through <gsubjects> to sort out components and process grades
+        for sid, sdata in gsubjects.items():
+            if sdata.tids:
+                # Normal graded subject (incl. composite components)
+                try:
+                    g = grademap.pop(sid)
+                except KeyError:
+                    raise GradeError(_GRADE_MISSING.format(sbj = sdata.name))
+                if g == UNCHOSEN:
+                    if not sdata.optional:
+                        raise GradeError(_GRADE_NOT_OPTIONAL.format(
+                                sbj = sdata.name))
+                    # This allows <grademap> to indicate that this subject
+                    # is not taken or not valid.
+                    self[sid] = UNCHOSEN
+                    continue
+                gint = self.gradeFilter(sid, g) # this also sets <self[sid]>
+                if sdata.composite:
+                    if gint >= 0:
+                        components.append((sdata.composite[0], gint))
                     else:
-                        # composite subject
-                        self.components[sid] = []
-                        self.badcomponents[sid] = []
-        # Run through <subjects> to sort out components and process grades
-        for sid, flaglist in subjects:
-            try:
-                g = grademap.pop(sid)
-            except KeyError:
-                raise GradeError(_GRADE_MISSING.format(sid = sid))
-            if g == UNCHOSEN:
-                if not sid2optional[sid]:
-                    raise GradeError(_GRADE_NOT_OPTIONAL.format(sid = sid))
-                # This allows <grademap> to indicate that this subject
-                # is not taken / not valid.
-                self[sid] = UNCHOSEN
-                continue
-            gint = self.gradeFilter(sid, g) # this also sets <self[sid]>
+                        bad_components.append((sdata.composite[0], g))
+            else:
+                # Composite subject
+                self.composites[sid] = []
+
+
+
+
 
             for csid in self.components:
                 if csid in flaglist:
@@ -202,8 +192,8 @@ class _GradeManager(dict):
         # Allow checking for "unused" grades
         self.unused_grades = grademap if grademap else None
         # Remove pseudo-composite
-        del(self.components[_NULL_COMPOSITE])
-        del(self.badcomponents[_NULL_COMPOSITE])
+        del(self.components[NULL_COMPOSITE])
+        del(self.badcomponents[NULL_COMPOSITE])
         # Check that non-optional composites have components
         for sid, glist in self.components.items():
             if not glist:
@@ -227,7 +217,7 @@ class _GradeManager(dict):
                 self[sid] = g.zfill(self.ZPAD)
                 self.grades[sid] = int(g)
             else:
-                self[sid] = _NO_GRADE
+                self[sid] = NO_GRADE
 
 
 

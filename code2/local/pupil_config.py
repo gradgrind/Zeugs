@@ -4,7 +4,7 @@
 """
 local/pupil_config.py
 
-Last updated:  2020-09-06
+Last updated:  2020-09-15
 
 Configuration for pupil-data handling.
 ======================================
@@ -30,6 +30,7 @@ PUPIL_FIELDS = {
     'ENTRY_D'   : 'Eintrittsdatum',
     'EXIT_D'    : 'Schulaustritt',
     'QUALI_D'   : 'Eintritt-SekII'  # not in imported data
-}   # Index : PID
-    # Index : (CLASS, PSORT)
+}
 
+DB_TABLES['PUPIL'] = PUPIL_FIELDS
+DB_TABLES['__INDEX__']['PUPIL'] = ('PID', ('CLASS', 'PSORT'))
