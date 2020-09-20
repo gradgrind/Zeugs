@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-09-12
+grades/gradetable.py - last updated 2020-09-20
 
 Access grade data, read and build grade tables.
 
@@ -301,7 +301,8 @@ if __name__ == '__main__':
 #        print(" ::: %s (%s):" % (gt.name[pid], gt.stream[pid]), grades)
 
     from core.db import DB
-    dbconn = DB(2016)
+    _year = 2016
+    dbconn = DB(_year)
 
     for folder in 'Noten_1', 'Noten_2':
         fpath = os.path.join(DATA, 'testing', folder)
@@ -315,11 +316,11 @@ if __name__ == '__main__':
                     print(" ::: %s (%s):" % (gt.name[pid], gt.stream[pid]), grades)
                     # <grades> is a mapping: {sid -> grade}
                     glist = ['%s:%s' % (sid, g)
-                            for sid, g in grades.items()
-                            if g and (g != UNCHOSEN)]
+                            for sid, g in grades.items() if g]
 
                     # The GRADES table has the fields:
-                    #   (id – Integer, primary key), PID, CLASS, STREAM, TERM, GRADES
+                    #   (id – Integer, primary key), PID, CLASS, STREAM,
+                    #   TERM, GRADES, REPORT_TYPE, ISSUE_D, GRADES_D, COMMENTS
                     valmap = {
                         'PID': pid,
                         'CLASS': gt.klass,
@@ -327,7 +328,7 @@ if __name__ == '__main__':
                         'TERM': gt.term,
                         'GRADES': ','.join(glist)
                     }
-# Teacher?
+# Teacher? ... in grade entry as 'sid:grade:tid'?
 
 # At some point the class, stream and pupil subject choices should be checked,
 # but maybe not here?
@@ -336,6 +337,41 @@ if __name__ == '__main__':
                     with dbconn:
                         dbconn.updateOrAdd('GRADES', valmap,
                                 PID = pid, TERM = gt.term)
+
+
+    from local.gradefunctions import Manager
+    from core.base import str2list
+
+    klass, stream, term = '12', 'RS', '2'
+    GMan = Manager(klass, stream, term = term)
+    grademaps = []
+    with dbconn:
+        for row in dbconn.select('GRADES', CLASS = klass, STREAM = stream,
+                TERM = term):
+            pid = row['PID']
+            grades = {}
+            for sg in str2list(row['GRADES']):
+                sid, g = sg.split(':')
+                grades[sid] = g
+            grademaps.append((pid, grades))
+
+
+    pid, gmap = grademaps[-1]
+    print("\nGrade Manager for %s.%s (%s):" % (klass, stream, pid))
+    print(" ...", grademaps)
+
+    grade_manager = GMan(_year, klass, stream, gmap)
+    grade_manager.addDerivedEntries()
+    print(" :::", grade_manager)
+    print("\n +++ <grades>:", grade_manager.grades)
+    print("\n +++ <composites>:", grade_manager.composites)
+    print("\n +++ <ngcomposites>:", grade_manager.ngcomposites)
+    print("\n +++ <bad_grades>:", grade_manager.bad_grades)
+    print("\n +++ <XINFO>:", grade_manager.XINFO)
+
+# Use the grade manager to filter the tables?
+# But then empty required grades would cause an exception ...
+
 
 
 

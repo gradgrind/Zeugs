@@ -117,17 +117,13 @@ class Subjects:
                     except ValueError:
                         continue
                     streams.append(g)
-                if not streams:
-                    # Subject not relevant for grades
-                    continue
+                # If <streams> is still empty, <groups> will not be,
+                # which will lead to an exception below.
             else:
-                if groups:
-                    raise CourseError(_INVALID_GRP_FIELD.format(
-                            sid = sid, grp = sdata['GRP']))
                 streams = all_streams(klass)
-            if stream and (stream not in streams):
-                # Subject not for given stream
-                continue
+            if groups:
+                raise CourseError(_INVALID_GRP_FIELD.format(
+                        sid = sid, grp = sdata['GRP']))
             tids = sdata['TIDS']
             if not tids:
                 # composite subject
@@ -139,7 +135,9 @@ class Subjects:
             subjects[sid] = SubjectData(streams, str2list(comp),
                     str2list(tids), optional, self[sid])
 
-        # Check that the referenced composites are valid and useable
+        # Check that the referenced composites are valid and useable,
+        # filter for <stream>
+        result = {}
         for sid, sbjdata in subjects.items():
             if sbjdata.composite:
                 streams = set(sbjdata.streams)
@@ -170,11 +168,16 @@ class Subjects:
                                 sidc = sidc, sid = sid))
                     composites[sidc].append(sid)
 
+            if (not stream) or (stream in sbjdata.streams):
+                # Subject valid for given stream
+                result[sid] = sbjdata
+
         # Check that all composites have components
         for sid, slist in composites.items():
             if not slist:
                 raise CourseError(_NO_COMPONENTS.format(sid = sid))
-        return subjects
+
+        return result
 
 
 
@@ -198,6 +201,6 @@ if __name__ == '__main__':
     print("\n**** raw subject data for class 11 ****")
     for row in subjects.for_class('11'):
         print("  ", dict(row))
-    print("\n**** Subject data for class 11: grading ****")
-    for sid, sdata in subjects.grade_subjects('11').items():
+    print("\n**** Subject data for class 11.RS: grading ****")
+    for sid, sdata in subjects.grade_subjects('11', 'RS').items():
         print("  %s:" % sid, sdata)

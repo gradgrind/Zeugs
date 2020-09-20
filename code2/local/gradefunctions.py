@@ -4,7 +4,7 @@
 """
 local/gradefunctions.py
 
-Last updated:  2020-09-19
+Last updated:  2020-09-20
 
 Calculations needed for grade handling.
 
@@ -111,14 +111,18 @@ class _GradeManager(dict):
 #
     def __init__(self, schoolyear, klass, stream, grademap):
         """Sanitize the "grades" for the subjects in the given class.
-        The grades are provided in the mapping <grademap>. The results are
-        stored as instance items (<_GradeManager> instance [sid]).
-        Also collect all numeric grades as instance attribute <grades>:
+        The grades are provided in the mapping <grademap>, a mapping
+            {sid -> grade}.
+        The results are stored as instance items:
+            (<_GradeManager> instance [sid]).
+        Also collect all numeric grades as instance attribute <self.grades>:
             {sid -> int}.
         However, grades for "component" subjects are collected separately
-        as instance attribute <components>:
+        as instance attribute <self.composites>:
             {composite -> [int, ...]}.
-        <grademap> is a mapping {sid -> grade}
+        There is also an attribute for the non-standard (non-numerical)
+        grades, <self.ngcomposites>:
+            {composite -> ["grade", ...]}.
         """
         super().__init__()
 
@@ -128,26 +132,19 @@ class _GradeManager(dict):
         self.grades = {}    # numeric grades {sid -> int}
         # Collect lists of "component" subjects:
         components = []
-        bad_components = []
         # Final component lists:
         #    {composite sid -> [component grade (int), ...]}.
         # Include a "special" composite for grades which "don't count".
         self.composites = {NULL_COMPOSITE: []}
         # ... and this for non-numerical grades:
         #    {composite sid -> [component grade (non-int), ...]}.
-        self.ngcomponents = {NULL_COMPOSITE: []}
-#?
-        sid2optional = {}       # {sid -> optional(True/False)}
-#?
-        subjects = {}           # [(graded sid, flags), ...]
+        self.ngcomposites = {NULL_COMPOSITE: []}
         self.XINFO = {}         # additional (calculated) fields
         # Collect invalid grades:
         self.bad_grades = []
-
-#TODO:
+        # Run through the subjects to sort out components and process grades
         subjects = Subjects(schoolyear)
         gsubjects = subjects.grade_subjects(klass, stream)
-        # Run through <gsubjects> to sort out components and process grades
         for sid, sdata in gsubjects.items():
             if sdata.tids:
                 # Normal graded subject (incl. composite components)
@@ -165,50 +162,47 @@ class _GradeManager(dict):
                     continue
                 gint = self.gradeFilter(sid, g) # this also sets <self[sid]>
                 if sdata.composite:
-                    if gint >= 0:
-                        components.append((sdata.composite[0], gint))
+                    for comp in sdata.composite:
+                        if comp == NULL_COMPOSITE or comp in gsubjects:
+                            components.append((comp, gint, g))
+                            break
                     else:
-                        bad_components.append((sdata.composite[0], g))
+                        raise Bug("BUG: No composite subject for component"
+                                " {sid}".format(sid = sid))
+                else:
+                    # <sid> is not a component
+                    if gint >= 0:
+                        self.grades[sid] = gint
             else:
                 # Composite subject
                 self.composites[sid] = []
-
-
-
-
-
-            for csid in self.components:
-                if csid in flaglist:
-                    # <sid> is a component of composite <csid>.
-                    if gint >= 0:
-                        self.components[csid].append(gint)
-                    else:
-                        self.badcomponents[csid].append(g)
-                    break
+                self.ngcomposites[sid] = []
+        # Run through the referenced composites
+        for comp, gint, g in components:
+            if gint >= 0:
+                self.composites[comp].append(gint)
             else:
-                # <sid> is not a component
-                if gint >= 0:
-                    self.grades[sid] = gint
+                self.ngcomposites[comp].append(g)
         # Allow checking for "unused" grades
         self.unused_grades = grademap if grademap else None
         # Remove pseudo-composite
-        del(self.components[NULL_COMPOSITE])
-        del(self.badcomponents[NULL_COMPOSITE])
+        del(self.composites[NULL_COMPOSITE])
+        del(self.ngcomposites[NULL_COMPOSITE])
         # Check that non-optional composites have components
-        for sid, glist in self.components.items():
+        for sid, glist in self.composites.items():
             if not glist:
-                if not self.badcomponents[sid] and not sid2optional[sid]:
+                if not self.ngcomposites[sid] and not gsubjects[sid].optional:
                     raise GradeError(_GRADE_NOT_OPTIONAL.format(sid = sid))
 #
     def addDerivedEntries(self):
         """Add entries to the grade mapping for those items/subjects
         which are determined by processing the other grades.
-        <self.components> {sid -> [int, ... ]} is a mapping of "composite"
+        <self.composites> {sid -> [int, ... ]} is a mapping of "composite"
         subjects, whose grade is the average of its "components". There
-        is also a similar mapping, <self.badcomponents> {sid -> [str, ...]},
+        is also a similar mapping, <self.ngcomposites> {sid -> [str, ...]},
         for component "grades" which are not numerical.
         """
-        for sid, glist in self.components.items():
+        for sid, glist in self.composites.items():
             if glist:
                 asum = 0
                 for g in glist:
@@ -550,15 +544,15 @@ class _GradeManagerQ(_GradeManager):
 #
     def gradeFilter(self, sid, g):
         # Separate out numeric grades
+        if g not in self.VALID_GRADES:
+            self.bad_grades.append((sid, g))
+            self[sid] = ''
+            return -1
         try:
             gint = int(g)
             if gint < 0 or gint > 15:
                 raise ValueError
         except ValueError:
-            if g not in self.VALID_GRADES:
-                REPORT.Error(_BADGRADE, sid=sid, grade=g)
-                self[sid] = None
-                return None
             self[sid] = g
             return -1
         # Integer grade ...
