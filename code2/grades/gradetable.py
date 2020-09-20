@@ -315,7 +315,7 @@ if __name__ == '__main__':
                 for pid, grades in gt.items():
                     print(" ::: %s (%s):" % (gt.name[pid], gt.stream[pid]), grades)
                     # <grades> is a mapping: {sid -> grade}
-                    glist = ['%s:%s' % (sid, g)
+                    glist = ['%s:%s:%s' % (sid, g, gt.tid or '-')
                             for sid, g in grades.items() if g]
 
                     # The GRADES table has the fields:
@@ -328,7 +328,6 @@ if __name__ == '__main__':
                         'TERM': gt.term,
                         'GRADES': ','.join(glist)
                     }
-# Teacher? ... in grade entry as 'sid:grade:tid'?
 
 # At some point the class, stream and pupil subject choices should be checked,
 # but maybe not here?
@@ -351,16 +350,16 @@ if __name__ == '__main__':
             pid = row['PID']
             grades = {}
             for sg in str2list(row['GRADES']):
-                sid, g = sg.split(':')
+                sid, g, tid = sg.split(':')
                 grades[sid] = g
             grademaps.append((pid, grades))
 
 
-    pid, gmap = grademaps[-1]
+    pid, gmap = grademaps[0]
     print("\nGrade Manager for %s.%s (%s):" % (klass, stream, pid))
     print(" ...", grademaps)
 
-    grade_manager = GMan(_year, klass, stream, gmap)
+    grade_manager = GMan(_year, klass, stream, gmap, trap_missing= False)
     grade_manager.addDerivedEntries()
     print(" :::", grade_manager)
     print("\n +++ <grades>:", grade_manager.grades)
@@ -374,25 +373,6 @@ if __name__ == '__main__':
 
 
 
-
-#    def new(self, **fields):
-#        """Add a new pupil with the given data. <fields> is a mapping
-#        containing all the necessary fields.
-#        """
-#        self.dbconn.execute(DATABASE.pupils.insert().values(**fields))
-
-#    def remove(self, pid):
-#        """Remove the pupil with the given id from the database.
-#        """
-#        self.dbconn.execute(DATABASE.pupils.delete().where(
-#                DATABASE.pupils.c.PID == pid))
-
-#    def update(self, pid, **changes):
-#        """Edit the given fields (<changes>: {field -> new value}) for
-#        the pupil with the given id. Field PID may not be changed!
-#        """
-#        self.dbconn.execute(DATABASE.pupils.update().where(
-#                DATABASE.pupils.c.PID == pid).values(**changes))
 
 
 

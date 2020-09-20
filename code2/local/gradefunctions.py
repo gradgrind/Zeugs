@@ -6,7 +6,7 @@ local/gradefunctions.py
 
 Last updated:  2020-09-20
 
-Calculations needed for grade handling.
+Calculations needed for grade handling in Niedersachsen.
 
 
 =+LICENCE=============================
@@ -61,7 +61,8 @@ from fractions import Fraction
 
 from core.base import str2list
 from core.courses import Subjects
-from local.grade_config import UNCHOSEN, NO_GRADE, NULL_COMPOSITE
+from local.grade_config import (UNCHOSEN, NO_GRADE, NULL_COMPOSITE,
+        MISSING_GRADE)
 
 
 class GradeError(Exception):
@@ -97,7 +98,7 @@ def Manager(gclass, gstream, term = None):
     if gclass >= '12' and gstream == 'Gym':
         return GradeManagerQ1
     return GradeManagerN
-
+#TODO: Extend arguments to call GradeManager... directly?
 
 
 class _GradeManager(dict):
@@ -109,10 +110,13 @@ class _GradeManager(dict):
     """
     ZPAD = 1    # set to 2 to force leading zero (e.g. '6' -> '06')
 #
-    def __init__(self, schoolyear, klass, stream, grademap):
+    def __init__(self, schoolyear, klass, stream, grademap,
+            trap_missing = True):
         """Sanitize the "grades" for the subjects in the given class.
         The grades are provided in the mapping <grademap>, a mapping
             {sid -> grade}.
+        If <trap_missing> is false, missing grades will be replaced by
+        <MISSING_GRADE>.
         The results are stored as instance items:
             (<_GradeManager> instance [sid]).
         Also collect all numeric grades as instance attribute <self.grades>:
@@ -124,6 +128,7 @@ class _GradeManager(dict):
         grades, <self.ngcomposites>:
             {composite -> ["grade", ...]}.
         """
+        self.klass, self.stream = klass, stream
         super().__init__()
 
         # Preserve the original mapping:
@@ -151,7 +156,10 @@ class _GradeManager(dict):
                 try:
                     g = grademap.pop(sid)
                 except KeyError:
-                    raise GradeError(_GRADE_MISSING.format(sbj = sdata.name))
+                    if trap_missing:
+                        raise GradeError(
+                                _GRADE_MISSING.format(sbj = sdata.name))
+                    g = MISSING_GRADE
                 if g == UNCHOSEN:
                     if not sdata.optional:
                         raise GradeError(_GRADE_NOT_OPTIONAL.format(
@@ -212,7 +220,7 @@ class _GradeManager(dict):
                 self.grades[sid] = int(g)
             else:
                 self[sid] = NO_GRADE
-
+        self.evaluateGrades()
 
 
 #???
@@ -312,6 +320,18 @@ class GradeManagerN(_GradeManager):
             self[sid] = str(gint) + plusminus
         return gint
 #
+    def evaluateGrades(self):
+        """Use the grades to determine qualifications, etc.
+        """
+        self.X_GS()
+        self.X_Q12()
+        self.X_V()
+#
+# AVERAGE grades
+#================
+# In Sek. I an average of all grades in officially accepted subjects
+# is used to determine qualifications. For Abschlüsse in Sek. I an
+# average of Maths, German and English grades is also required.
 #NOTE: According to "Verordnung AVO-Sek_I, 2016", the averages should
 # be truncated, not rounded, but the deviations (2nd decimal place)
 # should be insignificant anyway.
@@ -350,6 +370,8 @@ class GradeManagerN(_GradeManager):
         self.XINFO['DEM'] = dem.truncate(2)
         return dem
 #
+# The rules for compensating weak results in one or two subjects are
+# quite complicated ...
     def SekI(self):
         """Perform general "pass" tests on grades:
         not more than two times grade "5" or one "6", including
@@ -357,7 +379,8 @@ class GradeManagerN(_GradeManager):
         """
 #WARNING: this doesn't handle differing numbers of lessons in the
 # compensating subjects, it only differentiates between DMF subjects
-# and the others.
+# and the others. To be more thorough it would be necessary to make
+# available the number of lessons per week in each subject!
         def compensate(sid, grade):
             for s, g in self.grades.items():
                 if g <= grade:
@@ -414,7 +437,7 @@ class GradeManagerN(_GradeManager):
 # AVO-Sek_I, 2016" is in some respects not 100% clear. I interpret it
 # thus: All grades must be 4 or better, but with the possibility for
 # compensation as implemented in the method <SekI>.
-    def X_GS(self, pdata = None):
+    def X_GS(self):
         """Determine qualification according to criteria for a
         "Gleichstellungsvermerk". Only a "Hauptschulabschluss" is
         possible.
@@ -427,21 +450,20 @@ class GradeManagerN(_GradeManager):
         self.XINFO['GS'] = xgs
         return xgs
 #
-    def X_Q12(self, pdata):
+    def X_Q12(self):
         """Determine qualification at end of 12th year for a "Realschüler"
         or a "Hauptschüler".
         """
         q12 = '-'
-        stream = pdata['STREAM']
         if self.SekI():
             ave = self.X_AVE()
             dem = self.X_DEM()
             if ave and dem:
                 if ave <= Frac(4, 1):
                     # This is necessary for all qualifications
-                    if stream == 'HS':
+                    if self.stream == 'HS':
                         q12 = 'HS'
-                    elif stream == 'RS':
+                    elif self.stream == 'RS':
                         if ave <= Frac(3, 1) and dem <= Frac(3, 1):
                             q12 = 'Erw'
                         else:
@@ -449,25 +471,25 @@ class GradeManagerN(_GradeManager):
         self.XINFO['Q12'] = q12
         return q12
 #
-#TODO: Actually there should also be a Q11, which is basically the same
-# as Q12 – including the final exams, but "Erw" is not possible
-# ("Verordnung AVO-Sek_I, 2016, §47 Abs 2").
+# There should also be a Q11, which is basically the same as Q12 –
+# including the final exams, but "Erw" is not possible
+# ("Verordnung AVO-Sek_I, 2016, §47 Abs 2"). For this Q12 can be used,
+# just suppressing "Erw" for class 11.
 #
-    def X_V(self, pdata):
+    def X_V(self):
         """For the "gymnasial" group, 11th class. Determine qualification
-        for the 12th class. Return '✓' or '-'.
+        for the 12th class. Return '+' or '-'.
         """
         v = '-'
         ave = self.X_AVE()
-        klass = pdata['CLASS']
-        if (klass.startswith('11') and pdata['STREAM'] == 'Gym'
+        if (self.klass.startswith('11') and self.stream == 'Gym'
                 and self.SekI()):
             if ave and ave <= Frac(3, 1):
-                v = '✓'
+                v = '+'
         self.XINFO['V'] = v
         return v
 #
-#?
+#TODO: How to implement/use this?
     def reportFail(self, term, rtype, pdata):
         if rtype == 'Zeugnis':
             if term == '2' and pdata['STREAM'] == 'Gym':
@@ -559,6 +581,12 @@ class _GradeManagerQ(_GradeManager):
         # Sanitized original grade:
         self[sid] = str(gint).zfill(self.ZPAD)
         return gint
+#
+#TODO
+    def evaluateGrades(self):
+        """Use the grades to determine qualifications, etc.
+        """
+        pass
 
 ###
 
@@ -717,6 +745,12 @@ class GradeManagerA(_GradeManagerQ):
                 REPORT.Bug("It should not be possible to have too many subjects here")
         if choices:
             REPORT.Fail(_SUBJECT_CHOICE, sids = ', '.join(choices))
+#
+#TODO
+    def evaluateGrades(self):
+        """Use the grades to determine qualifications, etc.
+        """
+        pass
 
 ###
 

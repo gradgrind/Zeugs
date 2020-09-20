@@ -4,7 +4,7 @@
 """
 grades/makereports.py
 
-Last updated:  2020-09-13
+Last updated:  2020-09-20
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -171,19 +171,21 @@ class GradeReports:
             if fail_list:
                 raise Bug(_PUPILS_NOT_IN_CLASS_STREAM.format(
                         group = self.class_stream, names = ', '.join(fail_list)))
-
+#TODO: Check this ...
+        GMan = Manager(self.klass, self.stream, self.term)
         for pdata in self.pdata_list:
             grades = getGrades(self.schoolyear, pdata['PID'], self.term)
             if grades['CLASS'] == self.klass:
                 if (not self.stream) or grades['STREAM'] == self.stream:
-                    pdata.grades = grades
+                    pdata.grades = GMan(self.schoolyear, self.klass,
+                            self.stream, str2list(grades['GRADES']))
                     continue
             csgrades = grades['CLASS']
             if grades['STREAM']:
                 csgrades += '.' + grades['STREAM']
-            raise GradeError(_GRADE_WRONG_CLASS_STREAM.format(
-                    name = self.pupils.pdata2name(pdata),
-                    cs = self.class_stream, csn = csgrades))
+                raise GradeError(_GRADE_WRONG_CLASS_STREAM.format(
+                        name = self.pupils.pdata2name(pdata),
+                        cs = self.class_stream, csn = csgrades))
             # Also check for already "finalised" grades
             if grades['REPORT_TYPE']:
                 raise GradeError(_GRADES_FINALISED.format(
@@ -207,10 +209,9 @@ class GradeReports:
                 if grades['ISSUE_D'] == term_or_date:
                     break
             else:
-                raise Bug(_NO_GRADES_ENTRY.format(
+                raise GradeError(_NO_GRADES_ENTRY.format(
                         name = self.pupils.pid2name(pid), date = term_or_date)
         pdata = self.pupils[pid]
-        pdata.grades = grades
 
         self.report_type = grades['REPORT_TYPE']
         self.issue_date = grades['ISSUE_D']
@@ -230,7 +231,11 @@ class GradeReports:
             raise GradeConfigError(_NO_TEMPLATE.format(
                     group = self.class_stream, term = self.term,
                     rtype = self.report_type))
-
+#???
+        GMan = Manager(self.klass, self.stream, self.term)
+        pdata.grades = GMan(self.schoolyear, self.klass,
+                self.stream, str2list(grades['GRADES']))
+        self.pdata_list = [pdata]
         return self.build()
 
 ###
@@ -240,12 +245,10 @@ class GradeReports:
         template = Template(template_name)
         texlist = []
         subdata = {
-#TODO: Import these from local package
-            'SCHOOL': 'Freie Michaelschule',
-
             'SCHOOLYEAR': print_schoolyear(self.schoolyear),
-#TODO: <quali>
-            'LEVEL': print_level(self.report_type, quali, self.stream),
+#TODO: <quali> ... actually, it could well be pupil-dependant!
+            'LEVEL': print_level(self.report_type, quali,
+                    self.klass, self.stream),
             'TITLE': print_title(self.report_type),
             'YEAR': print_year(self.klass),
 ####

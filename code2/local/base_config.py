@@ -4,11 +4,13 @@
 """
 local/base_config.py
 
-Last updated:  2020-09-13
+Last updated:  2020-09-20
 
 General configuration items.
 ============================
 """
+
+SCHOOL_NAME = 'Freie Michaelschule'
 
 # First month of school year (Jan -> 1, Dec -> 12):
 SCHOOLYEAR_MONTH_1 = 8

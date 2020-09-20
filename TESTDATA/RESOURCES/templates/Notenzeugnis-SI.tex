@@ -27,6 +27,10 @@
 %\usepackage{calc}
 \newlength{\mylength}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\def\school{Freie Michaelschule}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \begin{document}
 %[*body*
 %%% Ensure parameters have correct initial values
@@ -43,11 +47,11 @@
 \setlength{\tabcolsep}{0mm}
 
     \begin{center}
-        {\LARGE \uppercase{(*Schule*)}}\\
+        {\LARGE \MakeUppercase{\school}}\\
         \vspace{1mm}
         \hrule
         \vspace{2cm}
-        {\Huge \textbf{\uppercase{(*Zeugnis*)}} \\}
+        {\Huge \textbf{\MakeUppercase{(*Zeugnis*)}} \\}
         \vspace{8mm}
         {\large (*Massstab*)}\\
         \vspace{2cm}
@@ -125,7 +129,7 @@
 \newpage
 
     \begin{center}
-     {\Large (*Schule*)}\\
+     {\Large \school}\\
     \end{center}
     \begin{tabular}{p{5.5cm} p{1.5cm} p{3.5cm} p{2.5cm} p{4cm}}
 \if\abschluss a

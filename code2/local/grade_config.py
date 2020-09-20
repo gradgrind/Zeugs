@@ -4,7 +4,7 @@
 """
 local/grade_config.py
 
-Last updated:  2020-09-18
+Last updated:  2020-09-20
 
 Configuration for grade handling.
 ====================================
@@ -15,6 +15,7 @@ Configuration for grade handling.
 # Special "grades"
 UNCHOSEN = '/'
 NO_GRADE = '*'
+MISSING_GRADE = '?'
 
 # GRP field in CLASS_SUBJECTS table
 ALL_STREAMS = '*'
@@ -205,17 +206,19 @@ EXTRA_FIELDS_TAGS = {
 
 ###
 
-def print_level(report_type, quali, stream):
+def print_level(report_type, quali, klass, stream):
     """Return the subtitle of the report, the grading level.
     """
 #TODO?
-    if quali:
-        if report_type == 'Abschluss':
-            return {
-                'Erw': 'Erweiterter Sekundarabschluss I',
-                'RS': 'Sekundarabschluss I – Realschulabschluss',
-                'HS': 'Sekundarabschluss I – Hauptschulabschluss'
-            }[quali]
+    if quali and report_type == 'Abschluss':
+        if quali == 'Erw' and klass[:2] != '12':
+            # 'Erw' is only available in class 12
+            quali = 'RS'
+        return {
+            'Erw': 'Erweiterter Sekundarabschluss I',
+            'RS': 'Sekundarabschluss I – Realschulabschluss',
+            'HS': 'Sekundarabschluss I – Hauptschulabschluss'
+        }[quali]
     return 'Maßstab %s' % STREAMS[stream]
 #
 def print_title(report_type):
