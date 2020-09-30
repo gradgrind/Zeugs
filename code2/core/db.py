@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/db.py - last updated 2020-09-15
+core/db.py - last updated 2020-09-30
 
 Database access.
 
@@ -43,8 +43,15 @@ builtins.DB_TABLES = {
     '__INDEX__': {},
     # A special entry for unique field groups:
     #    {table-name -> <unique> parameter to DB.makeTable()}
-    '__UNIQUE__': {}
+    '__UNIQUE__': {},
 }
+# A key-value mapping for term (or other reason) information:
+DB_TABLES['OCCASION_INFO'] = {
+    'OCCASION'  : 'Anlass',
+    'INFO'      : 'Info',
+    'VALUE'     : 'Wert'
+}
+DB_TABLES['__UNIQUE__']['OCCASION_INFO'] = (('OCCASION', 'INFO'),)
 
 import local.pupil_config
 import local.course_config

@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-local/gradefunctions.py
+local/grade_functions.py
 
-Last updated:  2020-09-26
+Last updated:  2020-09-27
 
 Calculations needed for grade handling in Niedersachsen.
 
@@ -29,7 +29,6 @@ Copyright 2020 Michael Towers
 
 # Messages
 _GRADE_MISSING = "Keine Note in {sbj}"
-_GRADE_NOT_OPTIONAL = "{sbj} ist ein Pflichtfach – es muss benotet werden"
 _BAD_GRADE = "Ungültige Note im Fach {sid}: {grade}"
 _UNEXPECTED_GRADE = "Unerwartete Note im Fach {sbj}: {grade}"
 
@@ -163,11 +162,8 @@ class _GradeManager(dict):
                                 sbj = sdata.name)) from e
                     g = MISSING_GRADE
                 if g == UNCHOSEN:
-                    if not sdata.optional:
-                        raise GradeError(_GRADE_NOT_OPTIONAL.format(
-                                sbj = sdata.name))
                     # This allows <grademap> to indicate that this subject
-                    # is not taken or not valid.
+                    # is not taken or not relevant.
                     self[sid] = UNCHOSEN
                     continue
                 gint = self.gradeFilter(sid, g) # this also sets <self[sid]>
@@ -198,11 +194,6 @@ class _GradeManager(dict):
         # Remove pseudo-composite
         del(self.composites[NULL_COMPOSITE])
         del(self.ngcomposites[NULL_COMPOSITE])
-        # Check that non-optional composites have components
-        for sid, glist in self.composites.items():
-            if not glist:
-                if not self.ngcomposites[sid] and not gsubjects[sid].optional:
-                    raise GradeError(_GRADE_NOT_OPTIONAL.format(sid = sid))
 #
     def addDerivedEntries(self):
         """Add entries to the grade mapping for those items/subjects

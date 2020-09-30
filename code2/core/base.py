@@ -3,7 +3,7 @@
 """
 core/base.py
 
-Last updated:  2020-09-15
+Last updated:  2020-09-26
 
 Basic configuration and structural stuff.
 
@@ -42,13 +42,14 @@ builtins.Bug = Bug
 
 # First month of school year (Jan -> 1, Dec -> 12):
 from local.base_config import SCHOOLYEAR_MONTH_1, DATEFORMAT
-
+import core.db  # needed for initialisation
 
 def init(datadir = 'DATA'):
     appdir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     builtins.ZEUGSDIR = os.path.join(os.path.dirname (appdir))
     builtins.DATA = os.path.join(ZEUGSDIR, datadir)
     builtins.RESOURCES = os.path.join(DATA, 'RESOURCES')
+
 #    set_schoolyear()
 
 

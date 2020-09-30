@@ -4,7 +4,7 @@
 """
 local/grade_config.py
 
-Last updated:  2020-09-20
+Last updated:  2020-09-30
 
 Configuration for grade handling.
 ====================================
@@ -17,15 +17,12 @@ UNCHOSEN = '/'
 NO_GRADE = '*'
 MISSING_GRADE = '?'
 
-# GRP field in CLASS_SUBJECTS table
-ALL_STREAMS = '*'
-OPTIONAL_SUBJECT = '?'
-
 # GRADE field in CLASS_SUBJECTS table
 NULL_COMPOSITE = '/'
 NOT_GRADED = '-'
 
 # Streams for higher classes
+ALL_STREAMS = '*'
 STREAMS = {
     'Gym': 'Gymnasium',
     'RS': 'Realschule',
@@ -35,6 +32,11 @@ STREAMS = {
     'GS': 'Grundschule'
 }
 #
+
+# Messages
+_NO_QUALIFICATION = "Kein Abschluss erreicht"
+
+
 def all_streams(klass):
     """Return a list of streams available in the given class.
     """
@@ -88,53 +90,24 @@ GRADE_REPORT_TERM = {
     # Valid types for term and class.
     # The first entry in each list is the default.
     '1': {
-        '11': [
-                ('Orientierung', 'Orientierungsnoten'),
-                ('Abgang', 'Notenzeugnis-SI')
-            ],
-        '12.Gym': [
-                ('Zeugnis', 'Notenzeugnis-SII'),
-                ('Abgang', 'Notenzeugnis-SII')
-# An exit from class 12.Gym before the report for the first half year
+        '11': ('Orientierung', 'Abgang'),
+        '12:Gym': ('Zeugnis', 'Abgang'),
+# An exit from class 12:Gym before the report for the first half year
 # can be a problem if there are no grades yet. Perhaps those from
 # class 11 could be converted (manually)?
-            ],
-        '12.RS': [
-                ('Zeugnis', 'Notenzeugnis-SI'),
-                ('Abgang', 'Notenzeugnis-SI')
-            ],
-        '12.HS': [
-                ('Zeugnis', 'Notenzeugnis-SI'),
-                ('Abgang', 'Notenzeugnis-SI')
-            ]
+        '12:RS': ('Zeugnis', 'Abgang'),
+        '12:HS': ('Abgang',)
         },
 #
     '2': {
-        '10': [
-                ('Orientierung', 'Orientierungsnoten'),
-                ('Abgang', 'Notenzeugnis-SI')
-            ],
-        '11': [
-                ('Zeugnis', 'Notenzeugnis-SI'),
-                ('Abgang', 'Notenzeugnis-SI')
-            ],
-        '12.Gym': [
-                ('Zeugnis', 'Notenzeugnis-SII'),
-                ('Abgang', 'Notenzeugnis-SII')
-            ],
-        '12.RS': [
-                ('Abschluss', 'Notenzeugnis-SI'),
-                ('Zeugnis', 'Notenzeugnis-SI'),
-                ('Abgang', 'Notenzeugnis-SI')
-            ],
-        '12.HS': [
-                ('Abschluss', 'Notenzeugnis-SI'),
-                ('Zeugnis', 'Notenzeugnis-SI'),
-                ('Abgang', 'Notenzeugnis-SI')
-            ]
+        '10': ('Orientierung', 'Abgang'),
+        '11': ('Zeugnis', 'Abgang'),
+        '12:Gym': ('Zeugnis', 'Abgang'),
+        '12:RS': ('Abschluss', 'Zeugnis', 'Abgang'),
+        '12:HS': ('Abschluss', 'Abgang')
         }
     }
-#
+#?
 GRADE_REPORT_ANYTIME = {
     # ... any class, any time
     '12.Gym': [
@@ -146,6 +119,38 @@ GRADE_REPORT_ANYTIME = {
             ('Zwischen', 'Notenzeugnis-SI')
         ]
     }
+#
+# ALTERNATIVE:
+# If term is not considered
+GRADE_REPORT_TEMPLATE = {
+    '13': [
+        ('Zeugnis', 'Notenzeugnis-13'), # ?
+        ('Abitur', 'Abitur'),           # ? Separate template for fail?
+# FHS-Reife?
+        ('Abgang', 'Abgang-13')         # ?
+    ],
+    '12:Gym': [
+        ('Zeugnis', 'Notenzeugnis-SII'),
+        ('Abgang', 'Notenzeugnis-SII')
+    ],
+    '12:RS': [
+        ('Abschluss', 'Notenzeugnis-SI'),
+        ('Zeugnis', 'Notenzeugnis-SI'),
+        ('Abgang', 'Notenzeugnis-SI')
+    ],
+    '12:HS': [
+        ('Abschluss', 'Notenzeugnis-SI'),
+        ('Zeugnis', 'Notenzeugnis-SI'),
+        ('Abgang', 'Notenzeugnis-SI')
+    ],
+    '*': [
+        ('Zeugnis', 'Notenzeugnis-SI'),
+        ('Orientierung', 'Orientierungsnoten'),
+        ('Abgang', 'Notenzeugnis-SI'),
+        ('Zwischen', 'Notenzeugnis-SI')
+    ]
+}
+
 #
 NODATE = "00.00.0000"
 #
@@ -159,25 +164,25 @@ ORDERING_GROUPS = {
 #
 ##### Here the subjects are listed in the groups referred to by
 ##### <ORDERING_GROUPS>:
-SUBJECT_GROUPS = {
-## Abitur class 12
-    'A': ['De', 'En', 'Fr', 'Ku', 'Mu'],
-    'B': ['Ges', 'Geo', 'Soz', 'Rel'],
-    'C': ['Ma', 'Bio', 'Ch', 'Ph'],
-    'D': ['Sp', 'Eu'],
-    'X': ['Kge', 'Mal', 'Sth'],
-## Abitur class 13
-# eA
-    'E': ['De.e', 'En.e', 'Ges.e', 'Bio.e'],
-# gA
-    'G': ['Ma.g', 'En.m', 'Fr.m', 'Bio.m', 'Ku.m', 'Mu.m', 'Sp.m'],
-## Sek-I
-# Versetzungsrelevant
-    'S': ['De', 'En', 'Fr', 'Ku', 'Mu', 'Ges', 'Soz', 'Geo', 'Rel',
-        'Ma', 'Bio', 'Ch', 'Ph', 'AWT', 'Sp'],
-# Künstlerisch-praktisch
-    'K': ['Eu', 'Bb', 'Kge', 'Ktr', 'Mal', 'MZ', 'Pls', 'Snt', 'Sth', 'Web']
-}
+#SUBJECT_GROUPS = {
+### Abitur class 12
+#    'A': ['De', 'En', 'Fr', 'Ku', 'Mu'],
+#    'B': ['Ges', 'Geo', 'Soz', 'Rel'],
+#    'C': ['Ma', 'Bio', 'Ch', 'Ph'],
+#    'D': ['Sp', 'Eu'],
+#    'X': ['Kge', 'Mal', 'Sth'],
+### Abitur class 13
+## eA
+#    'E': ['De.e', 'En.e', 'Ges.e', 'Bio.e'],
+## gA
+#    'G': ['Ma.g', 'En.m', 'Fr.m', 'Bio.m', 'Ku.m', 'Mu.m', 'Sp.m'],
+### Sek-I
+## Versetzungsrelevant
+#    'S': ['De', 'En', 'Fr', 'Ku', 'Mu', 'Ges', 'Soz', 'Geo', 'Rel',
+#        'Ma', 'Bio', 'Ch', 'Ph', 'AWT', 'Sp'],
+## Künstlerisch-praktisch
+#    'K': ['Eu', 'Bb', 'Kge', 'Ktr', 'Mal', 'MZ', 'Pls', 'Snt', 'Sth', 'Web']
+#}
 #
 # Additional fields for grade "evaluation". Some are for the grade tables
 # for display/inspection purposes, some determine details of the grade
@@ -206,11 +211,13 @@ EXTRA_FIELDS_TAGS = {
 
 ###
 
+# -> method of grade manager?
 def print_level(report_type, quali, klass, stream):
     """Return the subtitle of the report, the grading level.
     """
-#TODO?
-    if quali and report_type == 'Abschluss':
+    if report_type == 'Abschluss':
+        if not quali:
+            raise GradeConfigError(_NO_QUALIFICATION)
         if quali == 'Erw' and klass[:2] != '12':
             # 'Erw' is only available in class 12
             quali = 'RS'
@@ -245,6 +252,21 @@ def print_year(class_stream):
 #            'P.Q.DAT': Dates.date_conv(pdata['QUALI_D'] or NODATE, trap = False)
 #        }
 
+
+######## Convert between class_stream and class + stream
+def cs_split(class_stream):
+    c_s = class_stream.split(':')
+    if len(c_s) == 1:
+        return (class_stream, None)
+    elif len(c_s) == 2:
+        return c_s
+    raise Bug("BUG: Bad class_stream: %s" % class_stream)
+#
+def cs_join(klass, stream = None):
+    if stream:
+        return klass + ':' + stream
+    return klass
+########
 
 class GradeConfigError(Exception):
     pass

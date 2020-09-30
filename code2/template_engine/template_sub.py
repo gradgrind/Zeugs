@@ -4,7 +4,7 @@
 """
 template_engine/template_sub.py
 
-Last updated:  2020-09-10
+Last updated:  2020-09-26
 
 Manage the substitution of "special" fields in a latex template.
 
@@ -107,6 +107,8 @@ class TemplateError(Exception):
     pass
 class Template:
     def __init__(self, filename):
+        if not filename.endswith('.tex'):
+            filename += '.tex'
         filepath = os.path.join(RESOURCES, 'templates', filename)
         stack = []          # For nested blocks
         lines = []          # Current line accumulator
@@ -205,61 +207,67 @@ if __name__ == '__main__':
             ,
             {"Substitution.1": "FRED", "S2": "$100 for <Fred>"}))
 
-#TODO: use program-internal keys ...
     sdict0 = {
-        'Schule': 'Freie Michaelschule',
-        'Klasse': '11',
-        'Schuljahr': '2019 – 2020',
-#        'Zeugnis': 'Abgangszeugnis',
-#        'Zeugnis': 'Abschlusszeugnis',
-        'Zeugnis': 'Zeugnis',
-        'Massstab': 'Maßstab Gymnasium',
-#        'Massstab': 'Erweiterter Sekundarabschluss I',
+        'CLASS': '11',              # ?
+        'CLASSYEAR': '11',          # ?
+        'SCHOOLYEAR': '2019 – 2020',
+#        'REPORT': 'Abgangszeugnis',
+#        'REPORT': 'Abschlusszeugnis',
+        'REPORT': 'Zeugnis',
+        'LEVEL': 'Maßstab Gymnasium',   # Sek I, not Abschluss
+#        'LEVEL': 'Erweiterter Sekundarabschluss I',    # Abschluss only
 #        'abschluss': 'x',
 #        'abschluss': 'a',
-        'abschluss': '0',
+#        'abschluss': '0',
+        'abschluss': 'v',
 #        'gleichstellung': 'h',
-        'I.DAT': '15.07.2020',
-        'P.G.ORT': 'Burgwedel',
-        'P.G.DAT': '02.12.2002',
-        'P.E.DAT': '01.08.2009',
-        'P.VORNAMEN': 'Lucia Caterina Lisanne',
-        'P.X.DAT': '15.07.2020',
-        'Jahrgang': '11',
-        'P.NACHNAME': 'Binder',
+#       'gleichstellung': '0',
+        'ISSUE.D': '15.07.2020',    # always
+        'V.D': '06.07.2020',        # Versetzung only (Zeugnis 11.Gym, 12.Gym)
 
-        'Fach.01': 'Deutsch', 'Note.01': 'sehr gut',
-        'Fach.02': 'Englisch', 'Note.02': 'gut',
-        'Fach.03': 'Französisch', 'Note.03': 'befriedigend',
-        'Fach.04': 'Kunst', 'Note.04': 'gut',
-        'Fach.05': 'Musik', 'Note.05': 'gut',
-        'Fach.06': 'Geschichte', 'Note.06': 'gut',
-        'Fach.07': 'Sozialkunde', 'Note.07': 'befriedigend',
-        'Fach.08': 'Religion', 'Note.08': 'gut',
-        'Fach.09': 'Mathematik', 'Note.09': 'befriedigend',
-        'Fach.10': 'Biologie', 'Note.10': 'sehr gut',
-        'Fach.11': 'Chemie', 'Note.11': 'gut',
-        'Fach.12': 'Physik', 'Note.12': 'mangelhaft',
-        'Fach.13': 'Sport', 'Note.13': 'gut',
-        'Fach.14': '––––––––––', 'Note.14': '––––––––––',
-        'Fach.15': '––––––––––', 'Note.15': '––––––––––',
-        'Fach.16': '––––––––––', 'Note.16': '––––––––––',
+# Pupil data
+        'POB': 'Burgwedel',
+        'DOB.D': '02.12.2002',
+        'ENTRY.D': '01.08.2009',
+        'FIRSTNAMES': 'Lucia Caterina Lisanne',
+        'LASTNAME': 'Binder',
+        'EXIT.D': '15.07.2020',     # Abschluss / Abgang only
 
-        'FachKP.01': 'Eurythmie', 'NoteKP.01': 'sehr gut',
-        'FachKP.02': 'Buchbinden', 'NoteKP.02': 'gut',
-        'FachKP.03': 'Kunstgeschichte', 'NoteKP.03': '––––––',
-        'FachKP.04': '––––––––––', 'NoteKP.04': '––––––––––',
-        'FachKP.05': '––––––––––', 'NoteKP.05': '––––––––––',
-        'FachKP.06': '––––––––––', 'NoteKP.06': '––––––––––',
-        'FachKP.07': '––––––––––', 'NoteKP.07': '––––––––––',
-        'FachKP.08': '––––––––––', 'NoteKP.08': '––––––––––',
+        'S.V.01': 'Deutsch', 'G.V.01': 'sehr gut',
+        'S.V.02': 'Englisch', 'G.V.02': 'gut',
+        'S.V.03': 'Französisch', 'G.V.03': 'befriedigend',
+        'S.V.04': 'Kunst', 'G.V.04': 'gut',
+        'S.V.05': 'Musik', 'G.V.05': 'gut',
+        'S.V.06': 'Geschichte', 'G.V.06': 'gut',
+        'S.V.07': 'Sozialkunde', 'G.V.07': 'befriedigend',
+        'S.V.08': 'Religion', 'G.V.08': 'gut',
+        'S.V.09': 'Mathematik', 'G.V.09': 'befriedigend',
+        'S.V.10': 'Biologie', 'G.V.10': 'sehr gut',
+        'S.V.11': 'Chemie', 'G.V.11': 'gut',
+        'S.V.12': 'Physik', 'G.V.12': 'mangelhaft',
+        'S.V.13': 'Sport', 'G.V.13': 'gut',
+        'S.V.14': '––––––––––', 'G.V.14': '––––––––––',
+        'S.V.15': '––––––––––', 'G.V.15': '––––––––––',
+        'S.V.16': '––––––––––', 'G.V.16': '––––––––––',
+
+        'S.K.01': 'Eurythmie', 'G.K.01': 'sehr gut',
+        'S.K.02': 'Buchbinden', 'G.K.02': 'gut',
+        'S.K.03': 'Kunstgeschichte', 'G.K.03': '––––––',
+        'S.K.04': '––––––––––', 'G.K.04': '––––––––––',
+        'S.K.05': '––––––––––', 'G.K.05': '––––––––––',
+        'S.K.06': '––––––––––', 'G.K.06': '––––––––––',
+        'S.K.07': '––––––––––', 'G.K.07': '––––––––––',
+        'S.K.08': '––––––––––', 'G.K.08': '––––––––––',
     }
 
 #TODO: This could perhaps be part of the <substitute> function?
     sdict = {k.replace('_', '.'): v for k, v in sdict0.items()}
 
     t = Template('Notenzeugnis-SI.tex')
-    print("\nKeys:", t.allkeys())
+    print("\nKeys:", sorted(t.allkeys()))
+
+#    quit(0)
+
     t1, s, u = t.substitute(sdict, 'body')
     print("\nSubstituted:", t1)
     print("\nsubbed", s)

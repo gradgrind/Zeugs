@@ -51,9 +51,9 @@
         \vspace{1mm}
         \hrule
         \vspace{2cm}
-        {\Huge \textbf{\MakeUppercase{(*Zeugnis*)}} \\}
+        {\Huge \textbf{\MakeUppercase{(*REPORT*)}} \\}
         \vspace{8mm}
-        {\large (*Massstab*)}\\
+        {\large (*LEVEL*)}\\
         \vspace{2cm}
 
 \begin{minipage}[t][6.8cm]{\textwidth}
@@ -65,7 +65,7 @@
         \vskip 2mm
 \else
         \begin{tabular}{p{2.5cm} p{3cm} p{2.5cm} p{3cm}}
-            Klasse: & (*Klasse*) & Schuljahr: & (*Schuljahr*) \\
+            Klasse: & (*CLASS*) & Schuljahr: & (*SCHOOLYEAR*) \\
         \end{tabular}
         \vskip 1.8cm
 \fi
@@ -75,22 +75,22 @@
                 >{\centering}p{2cm}
                 >{\centering}p{4cm}
                 >{\centering\arraybackslash}p{2.5cm}}
-            Name: & \multicolumn{4}{c}{\bfseries (*P.VORNAMEN*) (*P.NACHNAME*)} \\
+            Name: & \multicolumn{4}{c}{\bfseries (*FIRSTNAMES*) (*LASTNAME*)} \\
             \cline{2-5}
             \noalign{\vskip 8mm}
-            geboren am & (*P.G.DAT*) & in & \multicolumn{2}{c}{(*P.G.ORT*)} \\
+            geboren am & (*DOB.D*) & in & \multicolumn{2}{c}{(*POB*)} \\
             \cline{2-2}\cline{4-5}
 \if\abschluss a
 \else
             \noalign{\vskip 8mm}
 \if\abschluss x
-            hat die Schule vom & (*P.E.DAT*)& bis zum & (*P.X.DAT*) & \multicolumn{1}{l}{\hskip 2mm besucht} \\
+            hat die Schule vom & (*ENTRY.D*)& bis zum & (*EXIT.D*) & \multicolumn{1}{l}{\hskip 2mm besucht} \\
             \cline{2-2}\cline{4-4}
             \noalign{\vskip 8mm}
-            und wurde aus dem & (*Jahrgang*). & \multicolumn{3}{l}{\hskip 2mm Schuljahrgang entlassen.}\\
+            und wurde aus dem & (*CLASSYEAR*). & \multicolumn{3}{l}{\hskip 2mm Schuljahrgang entlassen.}\\
             \cline{2-2}
 \else
-            & & \multicolumn{2}{r}{besucht die Schule seit\hspace*{2mm}} & (*P.E.DAT*) \\
+            & & \multicolumn{2}{r}{besucht die Schule seit\hspace*{2mm}} & (*ENTRY.D*) \\
             \cline{5-5}
 \fi
 \fi
@@ -109,21 +109,21 @@
 \newcolumntype{S}{>{\columncolor{mygrey1}} m{2mm}}
 
     \begin{tabular}{T m{2mm} S U S m{14mm} T m{2mm} S U S}
-        (*Fach.01*) & & & (*Note.01*) & & \rule{0pt}{10mm} & (*Fach.02*) & & & (*Note.02*) & \\
+        (*S.V.01*) & & & (*G.V.01*) & & \rule{0pt}{10mm} & (*S.V.02*) & & & (*G.V.02*) & \\
         \noalign{\vskip 2mm}
-        (*Fach.03*) & & & (*Note.03*) & & \rule{0pt}{10mm} & (*Fach.04*) & & & (*Note.04*) & \\
+        (*S.V.03*) & & & (*G.V.03*) & & \rule{0pt}{10mm} & (*S.V.04*) & & & (*G.V.04*) & \\
         \noalign{\vskip 2mm}
-        (*Fach.05*) & & & (*Note.05*) & & \rule{0pt}{10mm} & (*Fach.06*) & & & (*Note.06*) & \\
+        (*S.V.05*) & & & (*G.V.05*) & & \rule{0pt}{10mm} & (*S.V.06*) & & & (*G.V.06*) & \\
         \noalign{\vskip 2mm}
-        (*Fach.07*) & & & (*Note.07*) & & \rule{0pt}{10mm} & (*Fach.08*) & & & (*Note.08*) & \\
+        (*S.V.07*) & & & (*G.V.07*) & & \rule{0pt}{10mm} & (*S.V.08*) & & & (*G.V.08*) & \\
         \noalign{\vskip 2mm}
-        (*Fach.09*) & & & (*Note.09*) & & \rule{0pt}{10mm} & (*Fach.10*) & & & (*Note.10*) & \\
+        (*S.V.09*) & & & (*G.V.09*) & & \rule{0pt}{10mm} & (*S.V.10*) & & & (*G.V.10*) & \\
         \noalign{\vskip 2mm}
-        (*Fach.11*) & & & (*Note.11*) & & \rule{0pt}{10mm} & (*Fach.12*) & & & (*Note.12*) & \\
+        (*S.V.11*) & & & (*G.V.11*) & & \rule{0pt}{10mm} & (*S.V.12*) & & & (*G.V.12*) & \\
         \noalign{\vskip 2mm}
-        (*Fach.13*) & & & (*Note.13*) & & \rule{0pt}{10mm} & (*Fach.14*) & & & (*Note.14*) & \\
+        (*S.V.13*) & & & (*G.V.13*) & & \rule{0pt}{10mm} & (*S.V.14*) & & & (*G.V.14*) & \\
         \noalign{\vskip 2mm}
-        (*Fach.15*) & & & (*Note.15*) & & \rule{0pt}{10mm} & (*Fach.16*) & & & (*Note.16*) & \\
+        (*S.V.15*) & & & (*G.V.15*) & & \rule{0pt}{10mm} & (*S.V.16*) & & & (*G.V.16*) & \\
     \end{tabular}
 
 \newpage
@@ -133,16 +133,16 @@
     \end{center}
     \begin{tabular}{p{5.5cm} p{1.5cm} p{3.5cm} p{2.5cm} p{4cm}}
 \if\abschluss a
-    (*Zeugnis*) & \multicolumn{4}{l}{\bfseries (*Massstab*)} \\
+    (*REPORT*) & \multicolumn{4}{l}{\bfseries (*LEVEL*)} \\
 \else
 \if\abschluss x
-    \multicolumn{5}{l}{(*Zeugnis*)} \\
+    \multicolumn{5}{l}{(*REPORT*)} \\
 \else
-    (*Zeugnis*) & Klasse: & (*Klasse*) & Schuljahr: &   (*Schuljahr*) \\
+    (*REPORT*) & Klasse: & (*CLASS*) & Schuljahr: &   (*SCHOOLYEAR*) \\
 \fi
 \fi
     \noalign{\vskip 2mm}
-    \multicolumn{5}{l}{\hspace{1cm}\bfseries (*P.VORNAMEN*) (*P.NACHNAME*)} \\
+    \multicolumn{5}{l}{\hspace{1cm}\bfseries (*FIRSTNAMES*) (*LASTNAME*)} \\
 % This line seems to be needed to ensure the last column gets created:
     & & & & \\[-2ex]
     \hline
@@ -152,13 +152,13 @@
     {\hspace{5mm}\bfseries Künstlerisch-Praktische Kurse:}\\
 
     \begin{tabular}{T m{2mm} S U S m{14mm} T m{2mm} S U S}
-        (*FachKP.01*) & & & (*NoteKP.01*) & & \rule{0pt}{10mm} & (*FachKP.02*) & & & (*NoteKP.02*) & \\
+        (*S.K.01*) & & & (*G.K.01*) & & \rule{0pt}{10mm} & (*S.K.02*) & & & (*G.K.02*) & \\
         \noalign{\vskip 2mm}
-        (*FachKP.03*) & & & (*NoteKP.03*) & & \rule{0pt}{10mm} & (*FachKP.04*) & & & (*NoteKP.04*) & \\
+        (*S.K.03*) & & & (*G.K.03*) & & \rule{0pt}{10mm} & (*S.K.04*) & & & (*G.K.04*) & \\
         \noalign{\vskip 2mm}
-        (*FachKP.05*) & & & (*NoteKP.05*) & & \rule{0pt}{10mm} & (*FachKP.06*) & & & (*NoteKP.06*) & \\
+        (*S.K.05*) & & & (*G.K.05*) & & \rule{0pt}{10mm} & (*S.K.06*) & & & (*G.K.06*) & \\
         \noalign{\vskip 2mm}
-        (*FachKP.07*) & & & (*NoteKP.07*) & & \rule{0pt}{10mm} & (*FachKP.08*) & & & (*NoteKP.08*) & \\
+        (*S.K.07*) & & & (*G.K.07*) & & \rule{0pt}{10mm} & (*S.K.08*) & & & (*G.K.08*) & \\
         \noalign{\vskip 2mm}
     \end{tabular}
 
@@ -167,7 +167,7 @@
         {\hspace{5mm}\bfseries Bemerkungen:}
         \vskip 2mm
 \if\abschluss v
-        Durch Konferenzbeschluss vom (*K.DAT*) in die Qualifikationsphase versetzt.\\
+        Durch Konferenzbeschluss vom (*V.D*) in die Qualifikationsphase versetzt.\\
 \else
         \vskip 5mm
         \hskip 3cm ––––––––––
@@ -189,7 +189,7 @@
     \vskip 15mm
 \fi
     \vskip 1cm
-    Hannover, den (*I.DAT*) \\
+    Hannover, den (*ISSUE.D*) \\
 
     \small
     \begin{tabular}{

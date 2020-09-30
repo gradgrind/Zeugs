@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-09-20
+grades/gradetable.py - last updated 2020-09-30
 
 Access grade data, read and build grade tables.
 
@@ -59,6 +59,7 @@ if __name__ == '__main__':
 
 #import datetime
 
+from core.base import str2list
 from core.db import DB
 from tables.spreadsheet import Spreadsheet, DBtable
 from local.gradefunctions import UNCHOSEN
@@ -79,6 +80,15 @@ def getGrades(schoolyear, pid, term = None):
         if term:
             return dbconn.select1('GRADES', PID = pid, TERM = term)
         return dbconn.select('GRADES', PID = pid)
+#
+def gradeMap(grade_row):
+    """
+    """
+    grades = {}
+    for sg in str2list(grade_row['GRADES']):
+        sid, g, tid = sg.split(':')
+        grades[sid] = g
+    return grades
 
 #######################################################
 
@@ -339,27 +349,21 @@ if __name__ == '__main__':
 
 
     from local.gradefunctions import Manager
-    from core.base import str2list
 
     klass, stream, term = '12', 'RS', '2'
-    GMan = Manager(klass, stream, term = term)
     grademaps = []
     with dbconn:
         for row in dbconn.select('GRADES', CLASS = klass, STREAM = stream,
                 TERM = term):
             pid = row['PID']
-            grades = {}
-            for sg in str2list(row['GRADES']):
-                sid, g, tid = sg.split(':')
-                grades[sid] = g
+            grades = gradeMap(row)
             grademaps.append((pid, grades))
-
 
     pid, gmap = grademaps[0]
     print("\nGrade Manager for %s.%s (%s):" % (klass, stream, pid))
     print(" ...", grademaps)
 
-    grade_manager = GMan(_year, klass, stream, gmap, trap_missing= False)
+    grade_manager = Manager(_year, klass, stream, gmap, trap_missing = False)
     grade_manager.addDerivedEntries()
     print(" :::", grade_manager)
     print("\n +++ <grades>:", grade_manager.grades)

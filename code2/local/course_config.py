@@ -4,7 +4,7 @@
 """
 local/course_config.py
 
-Last updated:  2020-09-15
+Last updated:  2020-09-27
 
 Configuration for course-data handling.
 ======================================
@@ -23,7 +23,7 @@ CLASS_SUBJECT_FIELDS = {
     'CLASS'     : 'Klasse',
     'SID'       : 'Kürzel',
     'TIDS'      : 'Lehrkräfte',
-    'GRP'       : 'Gruppe',
+    'STREAMS'   : 'Gruppe',
     'GRADE'     : 'Note'
 }
 

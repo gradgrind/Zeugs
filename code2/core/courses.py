@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/courses.py - last updated 2020-09-19
+core/courses.py - last updated 2020-09-27
 
 Database access for reading course data.
 
@@ -24,7 +24,7 @@ Copyright 2020 Michael Towers
 
 ### Messages
 _UNKNOWN_SID = "Fach-Kürzel „{sid}“ ist nicht bekannt"
-_INVALID_GRP_FIELD = ("In Tabelle CLASS_SUBJECT: ungültiges GRP_Feld für"
+_INVALID_STREAMS_FIELD = ("In Tabelle CLASS_SUBJECT: ungültiges GRP_Feld für"
         " Fach-Kürzel „{sid}“ ({grp})")
 _COMPOSITE_IS_COMPONENT = ("Fach-Kürzel „{sid}“ ist sowohl als „Sammelfach“"
         " als auch als „Unterfach“ definiert")
@@ -42,12 +42,12 @@ if __name__ == '__main__':
 
 from collections import namedtuple
 SubjectData = namedtuple("SubjectData", ('streams', 'composite', 'tids',
-        'optional', 'name'))
+        'name'))
 
 from core.db import DB
 from core.base import str2list
 from local.grade_config import (NULL_COMPOSITE, NOT_GRADED, ALL_STREAMS,
-        all_streams, OPTIONAL_SUBJECT)
+        all_streams)
 from tables.spreadsheet import Spreadsheet
 
 
@@ -85,7 +85,6 @@ class Subjects:
                 (may be more than one entry, in case the streams are
                 handled differently);
             tids: a list of teacher ids, empty if the subject is a composite;
-            optional: boolean, true if '/' is a permissible "grade";
             name: the full name of the subject.
         If <stream> is supplied, only subjects relevant for this stream
         will be included.
@@ -97,12 +96,7 @@ class Subjects:
             comp = sdata['GRADE']
             if comp == NOT_GRADED:
                 continue
-            groups = str2list(sdata['GRP'])
-            optional = True
-            try:
-                groups.remove(OPTIONAL_SUBJECT)
-            except ValueError:
-                optional = False
+            groups = str2list(sdata['STREAMS'])
             if not groups:
                 # Subject not relevant for grades
                 continue
@@ -122,8 +116,8 @@ class Subjects:
             else:
                 streams = all_streams(klass)
             if groups:
-                raise CourseError(_INVALID_GRP_FIELD.format(
-                        sid = sid, grp = sdata['GRP']))
+                raise CourseError(_INVALID_STREAMS_FIELD.format(
+                        sid = sid, grp = sdata['STREAMS']))
             tids = sdata['TIDS']
             if not tids:
                 # composite subject
@@ -133,7 +127,7 @@ class Subjects:
                 composites[sid] = []
             ### Here is the subject data item:
             subjects[sid] = SubjectData(streams, str2list(comp),
-                    str2list(tids), optional, self[sid])
+                    str2list(tids), self[sid])
 
         # Check that the referenced composites are valid and useable,
         # filter for <stream>

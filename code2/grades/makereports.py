@@ -4,7 +4,7 @@
 """
 grades/makereports.py
 
-Last updated:  2020-09-20
+Last updated:  2020-09-30
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -44,14 +44,20 @@ if __name__ == '__main__':
     sys.path[0] = os.path.dirname(this)
 
 ## Messages
+_NO_ISSUE_DATE = "Kein Ausstellungsdatum für Klasse {cs}"
+_NO_GRADES_DATE = "Kein Notendatum (Notenkonferenz) für Klasse {cs}"
+_INVALID_TERM_GROUP = "Keine Notenzeugnis-Vorlage für Klasse {cs}, Anlass {term}"
+_NO_GRADE_TEMPLATE = "Keine Notenzeugnis-Vorlage für Klasse {cs}: {rtype}"
 _PUPILS_NOT_IN_CLASS_STREAM = "BUG: Pupils not in class {group}\n  {names}"
 _GRADE_WRONG_CLASS_STREAM = "{name} ist in Klasse {cs}, aber Noten in Klasse {csn}"
 _GRADES_FINALISED = "Das Zeugnis für {name} wurde schon fertiggestellt"
-_BAD_TERM_GROUP = ("Keine Zeugnistypen sind vorgesehen für Halbjahr {term}"
-        "in Klasse {group}")
+_NO_GRADES_TERM = "Keine Noten für {name}"
+#?
+#_BAD_TERM_GROUP = ("Keine Zeugnistypen sind vorgesehen für Halbjahr {term}"
+#        "in Klasse {group}")
 _NO_GRADES_ENTRY = "BUG: No grades for {name} on {date}"
-_NO_TEMPLATE = "Keine Notenzeugnis-Vorlage für Klasse {group}:\n"
-        "Halbjahr: {term}, Zeugnistyp: {rtype}"
+#_NO_TEMPLATE = "Keine Notenzeugnis-Vorlage für Klasse {group}:\n"
+#        "Halbjahr: {term}, Zeugnistyp: {rtype}"
 #_BAD_REPORT_TYPE = ("Keine Notenzeugnis-Vorlage für Klasse {group}:\n"
 #        "Halbjahr: {term}, Zeugnistyp: {rtype}")
 
@@ -59,7 +65,6 @@ _NO_TEMPLATE = "Keine Notenzeugnis-Vorlage für Klasse {group}:\n"
 _MADEKREPORTS = "Notenzeugnisse für Klasse {ks} wurden erstellt"
 _NOPUPILS = "Notenzeugnisse: keine Schüler"
 _MADEPREPORT = "Notenzeugnis für {pupil} wurde erstellt"
-_NO_ISSUE_DATE = "Kein Ausstellungsdatum für Klasse {klass}"
 _NO_GRADES = "Keine Noten für {pname} => kein Zeugnis"
 _WRONG_GROUP = "{pname} hat die Gruppe gewechselt => kein Zeugnis"
 _WRONG_RTYPE = "Zeugnistyp für {pname} ist {rtype} => kein Zeugnis"
@@ -69,131 +74,261 @@ _BAD_DATE_GROUP = "Gruppe {group} ist keine Zeugnisgruppe"
 _TOO_MANY_SUBJECTS = ("Zu wenig Platz für Fachgruppe {group} in Vorlage:"
         "\n  {template}\n  {pname}: {sids}")
 
+from types import SimpleNamespace
 
 from core.base import Dates
+from core.pupils import Pupils
+from core.db import DB
 from local.base_config import print_schoolyear
-from local.grade_config import (GradeConfigError,
-        GRADE_REPORT_TERM, GRADE_REPORT_ANYTIME,
-        print_level, print_title, print_year)
-from local.gradefunctions import GradeError
-from grades.gradetable import getGrades
+from local.grade_config import (GradeConfigError, cs_split,
+        GRADE_REPORT_TERM, #GRADE_REPORT_ANYTIME,
+        GRADE_REPORT_TEMPLATE, print_level, print_title, print_year)
+from local.grade_functions import GradeError, Manager
+from grades.gradetable import getGrades, gradeMap
 from template_engine.template_sub import Template
+
+
+def get_template(class_stream, report_type = None):
+    """If <report_type> is supplied, return the corresponding template
+    file (name).
+    Otherwise return a list of (report type, template name) tuples for
+    the given class/group.
+    """
+    rtlist = GRADE_REPORT_TEMPLATE.get(class_stream)
+    if not rtlist:
+        klass, stream = cs_split(class_stream)
+        if stream:
+            rtlist = GRADE_REPORT_TEMPLATE.get(klass)
+        if not rtlist:
+            rtlist = GRADE_REPORT_TEMPLATE['*']
+    if report_type:
+        for rtype, tfile in rtlist:
+            if rtype == report_type:
+                return tfile
+        raise GradeConfigError(_NO_GRADE_TEMPLATE.format(cs = class_stream,
+                rtype = report_type))
+    return rtlist
+
+###
+
+def makeReports(schoolyear, occasion, class_stream, pids = None):
+    """Generate a single file containing grade reports for a group of
+    pupils. The group is supplied as <class_stream>, which can be a class
+    name or a class name with stream tag (e.g. '11:Gym').
+    A subset of the group can be chosen by passing a list of pupil-ids
+    as <pids>.
+    The grade information is extracted from the database for the given
+    school-year and "occasion" (term or other category).
+    If double-sided printing is to be done, some care will be necessary
+    with the template design and processing to ensure that empty pages
+    are inserted as necessary.
+    """
+    data = SimpleNamespace()
+    data.class_stream = class_stream
+    data.klass, data.stream = cs_split(class_stream)
+    data.schoolyear = schoolyear
+    data.occasion = occasion
+    data.pupils = Pupils(schoolyear)
+    data.dmap = {}
+
+    try:
+        data.report_type = GRADE_REPORT_TERM[occasion][class_stream][0]
+    except KeyError as e:
+        raise GradeConfigError(_INVALID_TERM_GROUP.format(
+                term = occasion, cs = class_stream)) from e
+
+    dbconn = DB(schoolyear)
+    with dbconn:
+        row = dbconn.select1('OCCASION_INFO',
+                OCCASION = occasion, INFO = 'ISSUE_D-' + class_stream)
+        if row:
+            issue_date = row['VALUE']
+            data.dmap['ISSUE_D'] = issue_date
+        else:
+            raise GradeConfigError(_NO_ISSUE_DATE.format(cs = class_stream))
+
+        row = dbconn.select1('OCCASION_INFO',
+                OCCASION = occasion, INFO = 'GRADES_D-' + class_stream)
+        if row:
+            data.dmap['GRADES_D'] = row['VALUE']
+        else:
+            raise GradeConfigError(_NO_GRADES_DATE.format(cs = class_stream))
+
+#  Other items depending on locality, etc.?
+
+    # Get template
+    data.template = Template(get_template(class_stream, data.report_type))
+    # Get pupils' data
+    pdata_list = data.pupils.classPupils(data.klass, data.stream,
+            issue_date)
+    if pids:
+        pid_set = set(pids)
+        pltemp = pdata_list
+        pdata_list = []
+        for pdata in pltemp:
+            try:
+                pid_set.remove(pdata['PID'])
+            except KeyError:
+                # Don't include this pupil
+                continue
+            pdata_list.append(pdata)
+        fail_list = [data.pupils.pid2name(pid) for pid in pid_set]
+        if fail_list:
+            raise Bug(_PUPILS_NOT_IN_CLASS_STREAM.format(
+                    group = data.class_stream,
+                    names = ', '.join(fail_list)))
+    data.plist = []
+    for pdata in pdata_list:
+        # Get grades
+        grades = getGrades(data.schoolyear, pdata['PID'], data.occasion)
+        if not grades:
+            raise GradeError(_NO_GRADES_TERM.format(
+                    name = data.pupils.pdata2name(pdata)))
+        if grades['CLASS'] == data.klass:
+            if (not data.stream) or grades['STREAM'] == data.stream:
+                data.plist.append((pdata,
+                        Manager(data.schoolyear, data.klass,
+                                data.stream, gradeMap(grades))))
+                continue
+        # Check for already "finalised" grades. This assumes that the
+        # ISSUE_D, GRADES_D (and COMMENTS) fields are all set at the same
+        # time as REPORT_TYPE.
+        if grades['REPORT_TYPE']:
+            raise GradeError(_GRADES_FINALISED.format(
+                    name = data.pupils.pdata2name(pdata)))
+        csgrades = grades['CLASS']
+        if grades['STREAM']:
+            csgrades += '.' + grades['STREAM']
+        raise GradeError(_GRADE_WRONG_CLASS_STREAM.format(
+                name = data.pupils.pdata2name(pdata),
+                cs = data.class_stream, csn = csgrades))
+    return _build(data)
+
+###
+
+def _build(data):
+    allkeys = data.template.allkeys()
+    return allkeys
+
+    texlist = []
+    subdata = {
+        'SCHOOLYEAR': print_schoolyear(data.schoolyear),
+        'REPORT': print_title(data.report_type),
+        'CLASSYEAR': print_year(data.klass),
+####
+        'CLASS': data.klass,
+        'ISSUE_D': Dates.print_date(data.issue_date),
+
+#        'Massstab': 'Maßstab Gymnasium',
+#        'Massstab': 'Erweiterter Sekundarabschluss I',
+### delegate these to the local grades support module
+#        'abschluss': 'x',
+#        'abschluss': 'a',
+#        'abschluss': '0',
+#        'gleichstellung': 'h',
+
+#TODO
+    }
+    for pdata in data.pdata_list:
+        gman = pdata.grades
+        gman.addDerivedEntries()
+#?
+        data = dict(pdata)
+        data['LEVEL'] = print_level(data.report_type,
+                gman.XINFO['Q12'], data.klass, data.stream)
+        data.update(subdata)
+#TODO: divide up subjects and grades into groups
+# Try (for Sek I) without group lists, using composite status to decide?
+
+
+
+
+# How to manage multipart templates?!
+# 1) Separate the frame and the body
+# 2) Substitute the individual fields in the body for each pupil (ignore
+#   missing general fields). It would be good if missing individual
+#   fields were reported?
+# 3) Construct the whole tex file (frame + n*body)
+# 4) Substitute the general fields – now report anything missing
+# 5) Build pdf
+
+# School name (+ image, etc.?)
+
+# School year, e.g. 2019 – 2020
+# Term ("1. Halbjahr" / "1. und 2. Halbjahr" in Qualiphase)
+# Class and stream. The pupil-entries could be checked for conformity
+# before passing them here.
+# "Jahrgang".
+# Date of issue.
+# Date of Notenkonferenz.
+
+### ?Possibly pupil-dependent?
+# Report type (Zeugnis / Abgangszeugnis / Abschlusszeugnis / ...)
+# All reports must have same type?
+#   Failed Abschluss -> Warning/Error? ... or automatic Zeugnis/Abgang
+#   As an Abschluss is potentially a different template: Error and fail
+#   or Error and skip.
+# Level (Maßstab Realschule, etc.)
+#   Abschluss: Erw/RS can be in the same group (like Versetzung in Quali)
+#   Because of the grade level, HS must be a separate group, even if
+#   the group was RS until the grades were "adjusted".
+
+# For RS/HS in class 12.2, the two parameters Abschluss (Erw/RS/HS/None)
+# and Gleichstellungsvermerk (HS/None) are required.
+# Grades.
+# Personal data (date and place of birth, place of dwelling, first
+# names, last name, date of entry, date of exit).
+
+# As far as possible, no processing should be done here which depends
+# on the regulations. Try to keep that in a regional/local module.
+
+# Qualification (not all valid in every group): HS, RS, Erw(/13), Q, None.
+# The meaning can vary according to year and stream.
 
 
 
 
 class GradeReports:
 
+#    def selectTemplates(self):
+#        """Fetch a list of possible report types and the associated template
+#        name based on the class/group and term.
+#
+#??
+#        If term is <None>, the types available for "irregular" reports (not
+#        at the end of a term) are returned.
+#        <class_stream> may just be a class, but it may also have a stream tag.
+#        There must be a matching entry in the configuration module.
+#        Return a list of tuples:
+#            [(report type, template name), ...].
+#        The first entry is the default.
+#        """
+#        if term:
+#            try:
+#                return GRADE_REPORT_TERM[self.term][self.class_stream]
+#            except KeyError:
+#                pass
+#            # If <class_stream> includes a stream, try just the class
+#            if self.stream:
+#                try:
+#                    return GRADE_REPORT_TERM[self.term][self.klass]
+#                except KeyError:
+#                    pass
+#            raise GradeConfigError(_BAD_TERM_GROUP.format(
+#                    term = self.term, group = self.class_stream))
+#        else:
+#            try:
+#                return GRADE_REPORT_ANYTIME[self.class_stream]
+#            except KeyError:
+#                pass
+#            # If <class_stream> includes a stream, try just the class
+#            if self.stream:
+#                try:
+#                    return GRADE_REPORT_ANYTIME[self.klass]
+#                except KeyError:
+#                    pass
+#            return GRADE_REPORT_ANYTIME['*']
 
-
-
-
-    def selectTemplates(self):
-        """Fetch a list of possible report types and the associated template
-        name based on the class/group and term.
-
-??
-        If term is <None>, the types available for "irregular" reports (not
-        at the end of a term) are returned.
-        <class_stream> may just be a class, but it may also have a stream tag.
-        There must be a matching entry in the configuration module.
-        Return a list of tuples:
-            [(report type, template name), ...].
-        The first entry is the default.
-        """
-        if term:
-            try:
-                return GRADE_REPORT_TERM[self.term][self.class_stream]
-            except KeyError:
-                pass
-            # If <class_stream> includes a stream, try just the class
-            if self.stream:
-                try:
-                    return GRADE_REPORT_TERM[self.term][self.klass]
-                except KeyError:
-                    pass
-            raise GradeConfigError(_BAD_TERM_GROUP.format(
-                    term = self.term, group = self.class_stream))
-        else:
-            try:
-                return GRADE_REPORT_ANYTIME[self.class_stream]
-            except KeyError:
-                pass
-            # If <class_stream> includes a stream, try just the class
-            if self.stream:
-                try:
-                    return GRADE_REPORT_ANYTIME[self.klass]
-                except KeyError:
-                    pass
-            return GRADE_REPORT_ANYTIME['*']
-
-###
-
-    def makeReports(self, class_stream, issue_date, grades_date = None, pids = None):
-        """Generate a single file containing grade reports for a group of
-        pupils. The group is supplied as <class_stream>, which can be a class
-        name or a class name with stream tag (e.g. '11.Gym').
-        A subset of the group can be chosen by passing a list of pupil-ids
-        as <pids>.
-        The grade information is extracted from the database for the current
-        school-year and term – this batch report generation is only available
-        for the current year and term, other reports must be generated
-        individually.
-        If double-sided printing is to be done, some care will be necessary
-        with the template design and processing to ensure that empty pages
-        are inserted as necessary.
-        """
-        self.class_stream = class_stream
-        try:
-            self.klass, self.stream = class_stream.split('.')
-        except:
-            self.klass, self.stream = class_stream, None
-        self.schoolyear = CURRENT_YEAR
-        self.term = CURRENT_TERM
-        self.pupils = Pupils(self.schoolyear)
-        self.issue_date = issue_date
-        self.grades_date = grades_date
-        # Get report type and template
-        self.report_type, self.template_name = self.selectTemplates()[0]
-        self.pdata_list = pupils.classPupils(self.klass, self.stream, issue_date)
-        if pid_list:
-            pid_set = set(pid_list)
-            pltemp = self.pdata_list
-            self.pdata_list = []
-            for pdata in pltemp:
-                try:
-                    pid_set.remove(pdata['PID'])
-                except KeyError:
-                    # Don't include this pupil
-                    continue
-                self.pdata_list.append(pdata)
-            fail_list = [self.pupils.pid2name(pid) for pid in pid_set]
-            if fail_list:
-                raise Bug(_PUPILS_NOT_IN_CLASS_STREAM.format(
-                        group = self.class_stream, names = ', '.join(fail_list)))
-#TODO: Check this ...
-        GMan = Manager(self.klass, self.stream, self.term)
-        for pdata in self.pdata_list:
-            grades = getGrades(self.schoolyear, pdata['PID'], self.term)
-            if grades['CLASS'] == self.klass:
-                if (not self.stream) or grades['STREAM'] == self.stream:
-                    pdata.grades = GMan(self.schoolyear, self.klass,
-                            self.stream, str2list(grades['GRADES']))
-                    continue
-            csgrades = grades['CLASS']
-            if grades['STREAM']:
-                csgrades += '.' + grades['STREAM']
-                raise GradeError(_GRADE_WRONG_CLASS_STREAM.format(
-                        name = self.pupils.pdata2name(pdata),
-                        cs = self.class_stream, csn = csgrades))
-            # Also check for already "finalised" grades
-            if grades['REPORT_TYPE']:
-                raise GradeError(_GRADES_FINALISED.format(
-                        name = self.pupils.pdata2name(pdata))
-
-        return self.build()
-
-###
 
     def makeOneReport(self, schoolyear, pid, term_or_date):
         """Generate a file containing the grade report for the given pupil.
@@ -203,17 +338,18 @@ class GradeReports:
         """
         self.schoolyear = schoolyear
         self.pupils = Pupils(schoolyear)
+        # First try to find grades assuming <term_or_date> is a term
         grades = getGrades(schoolyear, pid, term_or_date)
         if not grades:
+            # Otherwise assume it is a date
             for grades in getGrades(schoolyear, pid):
                 if grades['ISSUE_D'] == term_or_date:
                     break
             else:
                 raise GradeError(_NO_GRADES_ENTRY.format(
-                        name = self.pupils.pid2name(pid), date = term_or_date)
+                        name = self.pupils.pid2name(pid), date = term_or_date))
         pdata = self.pupils[pid]
 
-        self.report_type = grades['REPORT_TYPE']
         self.issue_date = grades['ISSUE_D']
         self.term = grades['TERM']
         self.grades_date = grades['GRADES_D']
@@ -231,99 +367,14 @@ class GradeReports:
             raise GradeConfigError(_NO_TEMPLATE.format(
                     group = self.class_stream, term = self.term,
                     rtype = self.report_type))
-#???
-        GMan = Manager(self.klass, self.stream, self.term)
-        pdata.grades = GMan(self.schoolyear, self.klass,
-                self.stream, str2list(grades['GRADES']))
+        gmap = gradeMap(grades)
+        pdata.grades = Manager(self.schoolyear, self.klass,
+                self.stream, gmap)
         self.pdata_list = [pdata]
         return self.build()
 
 ###
 
-    def build(self):
-
-        template = Template(template_name)
-        texlist = []
-        subdata = {
-            'SCHOOLYEAR': print_schoolyear(self.schoolyear),
-#TODO: <quali> ... actually, it could well be pupil-dependant!
-            'LEVEL': print_level(self.report_type, quali,
-                    self.klass, self.stream),
-            'TITLE': print_title(self.report_type),
-            'YEAR': print_year(self.klass),
-####
-            'CLASS': self.klass,
-            'ISSUE_D': Dates.print_date(self.issue_date),
-
-        'Massstab': 'Maßstab Gymnasium',
-#        'Massstab': 'Erweiterter Sekundarabschluss I',
-#        'abschluss': 'x',
-#        'abschluss': 'a',
-        'abschluss': '0',
-#        'gleichstellung': 'h',
-
-
-
-        }
-        for pdata in self.pdata_list:
-            grades = pdata.grades
-
-        for pgrades in grades:
-            # Get pupil's personal data
-            data = {}
-            pdata = pupils[pgrades['PID']]
-            data.update(pdata)
-
-# How to manage multipart templates?!
-# 1) Separate the frame and the body
-# 2) Substitute the individual fields in the body for each pupil (ignore
-#   missing general fields). It would be good if missing individual
-#   fields were reported?
-# 3) Construct the whole tex file (frame + n*body)
-# 4) Substitute the general fields – now report anything missing
-# 5) Build pdf
-
-    # School name (+ image, etc.?)
-
-    # School year, e.g. 2019 – 2020
-    # Term ("1. Halbjahr" / "1. und 2. Halbjahr" in Qualiphase)
-    # Class and stream. The pupil-entries could be checked for conformity
-    # before passing them here.
-    # "Jahrgang".
-    # Date of issue.
-    # Date of Notenkonferenz.
-
-    ### ?Possibly pupil-dependent?
-    # Report type (Zeugnis / Abgangszeugnis / Abschlusszeugnis / ...)
-    # All reports must have same type?
-    #   Failed Abschluss -> Warning/Error? ... or automatic Zeugnis/Abgang
-    #   As an Abschluss is potentially a different template: Error and fail
-    #   or Error and skip.
-    # Level (Maßstab Realschule, etc.)
-    #   Abschluss: Erw/RS can be in the same group (like Versetzung in Quali)
-    #   Because of the grade level, HS must be a separate group, even if
-    #   the group was RS until the grades were "adjusted".
-
-    # For RS/HS in class 12.2, the two parameters Abschluss (Erw/RS/HS/None)
-    # and Gleichstellungsvermerk (HS/None) are required.
-    # Grades.
-    # Personal data (date and place of birth, place of dwelling, first
-    # names, last name, date of entry, date of exit).
-
-    # As far as possible, no processing should be done here which depends
-    # on the regulations. Try to keep that in a regional/local module.
-
-    # Qualification (not all valid in every group): HS, RS, Erw(/13), Q, None.
-    # The meaning can vary according to year and stream.
-
-    template = Template(template_name)
-    texlist = []
-    pupils = Pupils(schoolyear)
-    for pgrades in grades:
-        # Get pupil's personal data
-        data = {}
-        pdata = pupils[pgrades['PID']]
-        data.update(pdata)
 
 #TODO: grades
 # The grades should be supplied as a list of pupil-grade tuples.
@@ -351,13 +402,7 @@ class GradeReports:
 
 
 
-SCHOOL_DATA = {
-    'Schule': 'Freie Michaelschule',
-#TODO: absolute path?
-    'LOGO': 'School-Logo.sgv'
-}
-
-def prepareData(schoolyear, class_stream, ...):
+def prepareData(schoolyear, class_stream):
     """This can contain region/locality-dependent code preparing the
     information needed by the template.
     """
@@ -386,15 +431,6 @@ QUALI_VALID = { # Levels of qualification for stream and class.
             '*': ['HS', '-']}
 }
 
-# Grade report types.
-GRADE_REPORTS = { # Map to titles of reports
-    'Zeugnis':      'Zeugnis',
-    'Abschluss':    'Abschlusszeugnis',
-    'Abgang':       'Abgangszeugnis',
-    'Orientierung': 'Orientierungsnoten',
-    'Zwischen':     'Zwischenzeugnis'
-}
-
 
 
 #
@@ -415,15 +451,6 @@ GRADE_REPORTS = { # Map to titles of reports
 #        return gtemplates[0]
 
 
-
-FIELDS_SI = {
-    'Zeugnis', 'Klasse', 'Schule', 'Massstab', 'Jahrgang', 'Schuljahr',
-    'P.G.DAT', 'P.G.ORT', 'X.DAT', 'I.DAT', 'E.DAT', 'K.DAT',
-    'abschluss', 'gleichstellung',
-    'P.VORNAMEN', 'P.NACHNAME',
-    'Note.xx' & 'Fach.xx' for xx in 01 to 16,
-    'NoteKP.xx' & 'FachKP.xx' for xx in 01 to 08,
-}
 
 
 def old_makeReports(klass_streams, pids=None):
@@ -449,7 +476,7 @@ def old_makeReports(klass_streams, pids=None):
         REPORT.Fail(_BAD_DATE_GROUP, group = ks)
     DATE_D = dateInfo.DATE_D
     if not DATE_D:
-        REPORT.Fail(_NO_ISSUE_DATE, klass = ks)
+        REPORT.Fail(_NO_ISSUE_DATE, cs = ks)
     # GDATE_D is not necessarily needed by the report, so don't report
     # it missing – the conversion will catch the null value later.
     GDATE_D = dateInfo.GDATE_D
@@ -618,6 +645,34 @@ def makeOneSheet(schoolyear, pdata, term):
     REPORT.Info(_MADEPREPORT, pupil=pdata.name())
     return pdfBytes
 
+
+if __name__ == '__main__':
+    _year = 2016
+    _issue = '2016-06-16'
+    from core.base import init
+    init('TESTDATA')
+
+    _class_stream = '11'
+    _term = '2'
+    _grades_date = '2016-06-06'
+
+    dbconn = DB(_year)
+    with dbconn:
+        key = 'ISSUE_D-' + _class_stream
+        dbconn.updateOrAdd('OCCASION_INFO', {
+                    'OCCASION': _term,
+                    'INFO': key,
+                    'VALUE': _issue
+                }, OCCASION = _term, INFO = key)
+        key = 'GRADES_D-' + _class_stream
+        dbconn.updateOrAdd('OCCASION_INFO', {
+                    'OCCASION': _term,
+                    'INFO': key,
+                    'VALUE': _grades_date
+                }, OCCASION = _term, INFO = key)
+
+    gr = makeReports(_year, _term, _class_stream)
+    print("\nKeys:", sorted(gr))
 
 
 ##################### Test functions
