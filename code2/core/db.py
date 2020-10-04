@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/db.py - last updated 2020-09-30
+core/db.py - last updated 2020-10-04
 
 Database access.
 
@@ -59,6 +59,10 @@ import local.grade_config
 from tables.spreadsheet import Spreadsheet
 
 
+def year_path(schoolyear, *a):
+    return os.path.join(DATA, 'SCHOOLYEARS', str(schoolyear), *a)
+
+
 class DBerror(Exception):
     pass
 
@@ -78,7 +82,7 @@ class DB:
         self.exclusive = exclusive
         if schoolyear:
             self.schoolyear = schoolyear
-            ydir = os.path.join(DATA, 'SCHOOLYEARS', str(schoolyear))
+            ydir = year_path(schoolyear)
             if not os.path.isdir(ydir):
                 os.makedirs(ydir)
             self.filepath = os.path.join(ydir, 'db_%d.sqlite3' % schoolyear)

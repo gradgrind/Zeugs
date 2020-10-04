@@ -3,7 +3,7 @@
 """
 tables/spreadsheet.py
 
-Last updated:  2020-09-14
+Last updated:  2020-10-04
 
 Spreadsheet file reader, returning all cells as strings.
 For reading, simple tsv files (no quoting, no escapes), Excel files (.xlsx)
@@ -211,20 +211,21 @@ class Spreadsheet:
             self.filename = os.path.basename(filepath)
             try:
                 ending = self.filename.rsplit('.', 1)[1]
-            except:
+            except IndexError as e:
                 ending = None
                 # No type-extension provided, test valid possibilities
                 fpbase = filepath
-                for e in self._SUPPORTED_TYPES:
-                    fp = '%s.%s' % (fpbase, e)
+                for x in self._SUPPORTED_TYPES:
+                    fp = '%s.%s' % (fpbase, x)
                     if os.path.isfile(fp):
                         if ending:
                             raise TableError(_MULTIPLEMATCHINGFILES.format(
-                                    path=fpbase))
-                        ending = e
+                                    path = fpbase)) # from e
+                        ending = x
                         filepath = fp
                 if not ending:
-                    raise TableError(_TABLENOTFOUND.format(path=filepath))
+                    raise TableError(_TABLENOTFOUND.format(
+                            path = filepath)) # from e
             else:
                 # Check that file exists
                 if not os.path.isfile(filepath):

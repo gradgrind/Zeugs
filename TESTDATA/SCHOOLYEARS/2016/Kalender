@@ -1,0 +1,30 @@
+### Holidays, etc
+### Version: 2020-10-04
+
+# Entries starting with '_' are holiday dates.
+# The entries may be a single date, for single holidays
+# ... or pairs for ranges: "first free day : last free day".
+# Weekends are generally not counted, as these count as free anyway.
+
+# Entries not starting with '_' are for special dates required by the
+# program.
+
+# First school day:
+START = 2015-09-03
+# Last school day:
+END = 2016-06-22
+
+_Sommer =         2015-08-01 : 2015-09-02
+_Herbst =         2015-10-19 : 2015-10-30
+_Weihnachten =    2015-12-23 : 2016-01-08
+_Ostern =         2016-03-14 : 2016-04-01
+_Sommer2 =        2016-06-23 : 2016-07-31
+
+_TdDE = 2015-10-03
+#_RefTag = 2015-10-31   ... noch nicht eingeführt
+_TagdArb = 2016-05-01
+_Himmelfahrt = 2016-05-05 : 2016-05-06
+_Pfingsten = 2016-05-16 : 2016-05-17
+
+#TERM_1 = 2015-08-01
+#TERM_2 = 2016-02-01

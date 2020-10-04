@@ -4,7 +4,7 @@
 """
 local/base_config.py
 
-Last updated:  2020-09-20
+Last updated:  2020-10-04
 
 General configuration items.
 ============================
@@ -16,6 +16,8 @@ SCHOOL_NAME = 'Freie Michaelschule'
 SCHOOLYEAR_MONTH_1 = 8
 # Format for printed dates (as used by <datetime.datetime.strftime>):
 DATEFORMAT = '%d.%m.%Y'
+
+CALENDAR_FILE = 'Kalender'
 
 def print_schoolyear(schoolyear):
     """Convert a school-year (<int>) to the format used for output

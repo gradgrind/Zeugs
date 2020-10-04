@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-09-30
+grades/gradetable.py - last updated 2020-10-01
 
 Access grade data, read and build grade tables.
 
@@ -82,7 +82,8 @@ def getGrades(schoolyear, pid, term = None):
         return dbconn.select('GRADES', PID = pid)
 #
 def gradeMap(grade_row):
-    """
+    """Return a mapping {sid -> grade} for the given database row from
+    the GRADES table.
     """
     grades = {}
     for sg in str2list(grade_row['GRADES']):

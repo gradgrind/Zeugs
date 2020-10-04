@@ -3,7 +3,7 @@
 """
 core/base.py
 
-Last updated:  2020-09-26
+Last updated:  2020-10-04
 
 Basic configuration and structural stuff.
 
@@ -26,8 +26,10 @@ Copyright 2020 Michael Towers
 """
 
 ### Messages
-_INVALID_DATE = "Ungültiges Datum: {date}"
+_BAD_DATE = "Ungültiges Datum im Kalender: {line}"
 _INVALID_SCHOOLYEAR = "Ungültiges Schuljahr: {year}"
+_BAD_CALENDAR_LINE = "Ungültige Zeile im Kalender: {line}"
+_DOUBLE_DATE_TAG = "Mehrfacher Kalendereintrag: {tag} = ..."
 
 
 import sys, os, builtins, datetime
@@ -41,14 +43,22 @@ class Bug(Exception):
 builtins.Bug = Bug
 
 # First month of school year (Jan -> 1, Dec -> 12):
-from local.base_config import SCHOOLYEAR_MONTH_1, DATEFORMAT
-import core.db  # needed for initialisation
+import local.base_config as CONFIG
+from core.db import year_path # core.db is also needed for initialisation
 
 def init(datadir = 'DATA'):
     appdir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     builtins.ZEUGSDIR = os.path.join(os.path.dirname (appdir))
     builtins.DATA = os.path.join(ZEUGSDIR, datadir)
     builtins.RESOURCES = os.path.join(DATA, 'RESOURCES')
+
+
+def report(text):
+    """The default reporting function prints to stdout.
+    It can be overridden later.
+    """
+    print(text)
+builtins.REPORT = report
 
 #    set_schoolyear()
 
@@ -99,11 +109,27 @@ class Dates:
         """
         try:
             d = datetime.datetime.strptime(date, "%Y-%m-%d")
-            return d.strftime(DATEFORMAT)
+            return d.strftime(CONFIG.DATEFORMAT)
         except:
             if trap:
                 raise DateError("Ungültiges Datum: '%s'" % date)
         return None
+
+    @classmethod
+    def convert_dates(cls, mapping):
+        """Convert all date values in the given mapping to the format
+        used for output (see method <print_date>). The date values are
+        those with keys ending '_D'.
+        Return a list of the keys for failed conversions.
+        """
+        fails = []
+        for key, val in mapping.items():
+            if key.endswith('_D'):
+                try:
+                    mapping[key] = cls.print_date(val)
+                except DateError:
+                    fails.append(key)
+        return fails
 
     @classmethod
     def today(cls, iso = True):
@@ -112,8 +138,8 @@ class Dates:
 
     @staticmethod
     def day1(schoolyear):
-        return '%d-%02d-01' % (schoolyear if SCHOOLYEAR_MONTH_1 == 1
-                else schoolyear - 1, SCHOOLYEAR_MONTH_1)
+        return '%d-%02d-01' % (schoolyear if CONFIG.SCHOOLYEAR_MONTH_1 == 1
+                else schoolyear - 1, CONFIG.SCHOOLYEAR_MONTH_1)
 
     @classmethod
     def check_schoolyear(cls, schoolyear, d = None):
@@ -163,6 +189,47 @@ class Dates:
                 pass
         return sorted(years, reverse=True)
 
+    @classmethod
+    def get_calendar(cls, schoolyear):
+        """Read the calendar file for the given school year.
+        """
+        fpath = year_path(schoolyear, CONFIG.CALENDAR_FILE)
+        calendar = {}
+        with open(fpath, encoding = 'utf-8') as fi:
+            for l in fi:
+                line = l.strip()
+                if (not line) or line[0] == '#':
+                    continue
+                try:
+                    k, v = line.split('=')
+                except ValueError as e:
+                    raise DateError(_BAD_CALENDAR_LINE.format(
+                            line = l)) from e
+                k = k.strip()
+                if not k:
+                    raise DateError(_BAD_CALENDAR_LINE.format(line = l))
+                if k in calendar:
+                    raise DateError(_DOUBLE_DATE_TAG.format(tag = k))
+                try:
+                    v1, v2 = v.split(':')
+                except:
+                    # single day
+                    date = v.strip()
+                    # check validity
+                    if cls.check_schoolyear(schoolyear, date):
+                        calendar[k] = date
+                        continue
+                else:
+                    # range of days
+                    date1, date2 = v1.strip(), v2.strip()
+                    if (cls.check_schoolyear(schoolyear, date1)
+                            and cls.check_schoolyear(schoolyear, date2)):
+                        calendar[k] = (date1, date2)
+                        continue
+                raise DateError(_BAD_DATE.format(line = l))
+        return calendar
+
+
 
 
 if __name__ == '__main__':
@@ -173,3 +240,4 @@ if __name__ == '__main__':
         print("BAD Date:", Dates.print_date('2016-02-30'))
     except DateError as e:
         print(" ... trapped:", e)
+    print("\nCalendar for 2016:\n", Dates.get_calendar(2016))

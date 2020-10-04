@@ -4,7 +4,7 @@
 """
 grades/makereports.py
 
-Last updated:  2020-09-30
+Last updated:  2020-10-02
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -81,7 +81,7 @@ from core.pupils import Pupils
 from core.db import DB
 from local.base_config import print_schoolyear
 from local.grade_config import (GradeConfigError, cs_split,
-        GRADE_REPORT_TERM, #GRADE_REPORT_ANYTIME,
+        REPORT_TYPES, GRADE_REPORT_TERM,
         GRADE_REPORT_TEMPLATE, print_level, print_title, print_year)
 from local.grade_functions import GradeError, Manager
 from grades.gradetable import getGrades, gradeMap
@@ -136,6 +136,7 @@ def makeReports(schoolyear, occasion, class_stream, pids = None):
     except KeyError as e:
         raise GradeConfigError(_INVALID_TERM_GROUP.format(
                 term = occasion, cs = class_stream)) from e
+    data.dmap = {'REPORT': REPORT_TYPES[data.report_type]}
 
     dbconn = DB(schoolyear)
     with dbconn:
@@ -184,21 +185,22 @@ def makeReports(schoolyear, occasion, class_stream, pids = None):
         if not grades:
             raise GradeError(_NO_GRADES_TERM.format(
                     name = data.pupils.pdata2name(pdata)))
-        if grades['CLASS'] == data.klass:
-            if (not data.stream) or grades['STREAM'] == data.stream:
-                data.plist.append((pdata,
-                        Manager(data.schoolyear, data.klass,
-                                data.stream, gradeMap(grades))))
-                continue
         # Check for already "finalised" grades. This assumes that the
         # ISSUE_D, GRADES_D (and COMMENTS) fields are all set at the same
         # time as REPORT_TYPE.
         if grades['REPORT_TYPE']:
             raise GradeError(_GRADES_FINALISED.format(
                     name = data.pupils.pdata2name(pdata)))
-        csgrades = grades['CLASS']
-        if grades['STREAM']:
-            csgrades += '.' + grades['STREAM']
+        # Check that class and stream of pupil match the <data> versions
+        data.gstream = grades['STREAM']
+        if grades['CLASS'] == data.klass:
+            if (not data.stream) or data.gstream == data.stream:
+                # Include pupil
+                data.plist.append((pdata,
+                        Manager(data.schoolyear, data.klass,
+                                data.stream, gradeMap(grades))))
+                continue
+        csgrades = cs_join(grades['CLASS'], data.gstream)
         raise GradeError(_GRADE_WRONG_CLASS_STREAM.format(
                 name = data.pupils.pdata2name(pdata),
                 cs = data.class_stream, csn = csgrades))
@@ -208,35 +210,48 @@ def makeReports(schoolyear, occasion, class_stream, pids = None):
 
 def _build(data):
     allkeys = data.template.allkeys()
-    return allkeys
+#    return allkeys
 
     texlist = []
     subdata = {
         'SCHOOLYEAR': print_schoolyear(data.schoolyear),
         'REPORT': print_title(data.report_type),
         'CLASSYEAR': print_year(data.klass),
-####
         'CLASS': data.klass,
-        'ISSUE_D': Dates.print_date(data.issue_date),
-
-#        'Massstab': 'Maßstab Gymnasium',
-#        'Massstab': 'Erweiterter Sekundarabschluss I',
-### delegate these to the local grades support module
-#        'abschluss': 'x',
-#        'abschluss': 'a',
-#        'abschluss': '0',
-#        'gleichstellung': 'h',
 
 #TODO
     }
-    for pdata in data.pdata_list:
-        gman = pdata.grades
+    for pdata, gman in data.plist:
         gman.addDerivedEntries()
 #?
-        data = dict(pdata)
-        data['LEVEL'] = print_level(data.report_type,
-                gman.XINFO['Q12'], data.klass, data.stream)
-        data.update(subdata)
+        gdata = dict(pdata)
+# Should LEVEL be user-input? If so, where would it be stored?
+        gdata['LEVEL'] = print_level(data.report_type,
+                gman.XINFO['Q12'], data.klass, data.gstream)
+
+###### For Sek I template
+# 'gleichstellung':
+#   'h' (Hauptschulabschluss)
+#   '0' (none)
+# 'abschluss':
+#   'a' (Abschluss)
+#   'v' (Versetzung in die Qualifikationsphase)
+#   'x' (Abgang)
+#   '0' (normales Zeugnis)
+###
+# Zeugnis – with or without "Versetzung" (12:Gym, 11:Gym) – needs GRADES_D
+# Abschluss – (12:RS – Erw/RS/HS/..., 11:RS – RS/HS/..., 11&12:HS?);
+#   what about "None"?
+# Abgang – with or without "Gleichstellungsvermerk" (12:Gym – Erw/RS/HS,
+#     sonst – HS/None)
+# Orientierungsnoten / Zwischenzeugnis – nothing special
+
+
+        gdata.update(subdata)
+        gdata.update(data.dmap)
+        Dates.convert_dates(gdata)
+
+        return gdata
 #TODO: divide up subjects and grades into groups
 # Try (for Sek I) without group lists, using composite status to decide?
 
@@ -672,7 +687,8 @@ if __name__ == '__main__':
                 }, OCCASION = _term, INFO = key)
 
     gr = makeReports(_year, _term, _class_stream)
-    print("\nKeys:", sorted(gr))
+#    print("\nKeys:", sorted(gr))
+    print("\nPupil data:", gr)
 
 
 ##################### Test functions
