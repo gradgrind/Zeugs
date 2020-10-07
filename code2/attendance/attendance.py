@@ -20,12 +20,15 @@ Copyright 2017-2020 Michael Towers
    See the License for the specific language governing permissions and
    limitations under the License.
 """
+#TODO: rework for new code base ...
 
 #TODO: Sheet 'Notizen' – At present this sheet will be the second, before
 # the individual months. If it should be after all the months, it may be
 # necessary to copy it and then delete the original.
 
 ### Messages
+_INVALID_DATE = "Ungültiges Datum: {date}"
+_DATE_NOT_IN_YEAR = "Datum nicht im aktuellen Schuljahr: {date}"
 _BAD_RANGE = ("Ungültige Ferienangabe, Startdatum ist nach dem Enddatum:\n"
         "  {key} = {val}")
 _MAKE_ATTENDANCE_TABLE = "Erstelle Anwesenheitstabelle für Klasse {klass}"
@@ -36,9 +39,6 @@ _TABLE_ERROR = ("Code-Fehler in Anwesenheitsvorlage:"
                 " {pinfo}.{cell0} ≠ {month}.{cell1}\n  file: {tpfile}")
 _BAD_FORMULA = ("Ungültige Formelbezeichnung in Anwesenheitsvorlage, cell:"
         " {month}.{cell}\n   file: {tpfile}")
-_WARN_CHANGED_DAY_TAG = ("{day}. {month}: problematische Änderung der"
-        " Tagesbezeichnung von '{tag1}' zu '{tag2}'")
-_MISSING_PUPIL = "Schüler(in) {pid} ist nicht mehr in der Tabelle"
 
 
 # Instead of these lists, one could use datetime functions
@@ -471,15 +471,15 @@ class AttendanceTable:
                 if newval:  # ('+')
                     # ok: +, ~, P, K  //  not ok: <empty>, !
                     if (not val) or val == '!':
-                        REPORT(_WARN_CHANGED_DAY_TAG.format(
-                                day = i, month = month,
-                                tag1 = '+', tag2 = val or '<leer>'))
+#warn
+                        REPORT("%d. %s: Problematische Änderung der Tagesbezeichnung von '+' zu '%s'"
+                                % (i, month, val or '<leer>'))
                 else:
                     # ok: <empty>, !, P, K  //  not ok: +, ~
                     if val == '+' or val == '~':
-                        REPORT(_WARN_CHANGED_DAY_TAG.format(
-                                day = i, month = month,
-                                tag1 = '<leer>', tag2 = val))
+#warn
+                        REPORT("%d. %s: Problematische Änderung der Tagesbezeichnung von '<leer>' zu '%s'"
+                                % (i, month, val))
                 self._table.setCell(A1, val, sheet = month)
 
         # Copy pupil attendance data
@@ -502,8 +502,9 @@ class AttendanceTable:
                                 self._table.setCell(colA + str(row2),
                                         val, sheet = month)
                             else:
-                                raise AttendanceError(_MISSING_PUPIL.format(
-                                        pid = pid))
+#error: raise
+                                REPORT.Error (("Schüler(in) %s ist nicht"
+                                        " mehr in der Tabelle") % pid)
             row += 1
 
         # Additional notes

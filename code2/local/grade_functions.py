@@ -151,9 +151,6 @@ class _GradeManager(dict):
         # Run through the subjects to sort out components and process grades
         subjects = Subjects(schoolyear)
         gsubjects = subjects.grade_subjects(klass, stream)
-
-# Keep the subject data / <subjects> / subject name for later use?
-
         for sid, sdata in gsubjects.items():
             if sdata.tids:
                 # Normal graded subject (incl. composite components)
