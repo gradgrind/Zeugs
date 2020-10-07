@@ -4,7 +4,7 @@
 """
 grades/makereports.py
 
-Last updated:  2020-10-02
+Last updated:  2020-10-05
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -52,6 +52,9 @@ _PUPILS_NOT_IN_CLASS_STREAM = "BUG: Pupils not in class {group}\n  {names}"
 _GRADE_WRONG_CLASS_STREAM = "{name} ist in Klasse {cs}, aber Noten in Klasse {csn}"
 _GRADES_FINALISED = "Das Zeugnis für {name} wurde schon fertiggestellt"
 _NO_GRADES_TERM = "Keine Noten für {name}"
+_GROUP_TOO_SMALL = "Zu viele Fächer in Zeugnisgruppe {tag}"
+_MULTIPLE_GROUPS = "Fach {sid} in mehreren Fachgruppen"
+
 #?
 #_BAD_TERM_GROUP = ("Keine Zeugnistypen sind vorgesehen für Halbjahr {term}"
 #        "in Klasse {group}")
@@ -82,7 +85,9 @@ from core.db import DB
 from local.base_config import print_schoolyear
 from local.grade_config import (GradeConfigError, cs_split,
         REPORT_TYPES, GRADE_REPORT_TERM,
-        GRADE_REPORT_TEMPLATE, print_level, print_title, print_year)
+        GRADE_REPORT_TEMPLATE, print_level, print_title, print_year,
+        NO_SUBJECT
+)
 from local.grade_functions import GradeError, Manager
 from grades.gradetable import getGrades, gradeMap
 from template_engine.template_sub import Template
@@ -254,8 +259,115 @@ def _build(data):
         return gdata
 #TODO: divide up subjects and grades into groups
 # Try (for Sek I) without group lists, using composite status to decide?
+# in local package ...
+        gmap = group_grades(allkeys, gman) #?
 
 
+def group_grades(allkeys):
+    """Determin the subjects and grade slots in the template.
+    """
+#    G_REGEXP = re.compile(r'G\.([A-Za-z]+)\.([0-9]+)$')
+    tags = {}
+    subjects = set()
+    for key in allkeys:
+        if key.startswith('G.'):
+            ksplit = key.split('.')
+            if len(ksplit) == 3:
+                # G.<group tag>.<index>
+                tag, index = ksplit[1], int(ksplit[2])
+                try:
+                    tags[tag].add(index)
+                except KeyError:
+                    tags[tag] = {index}
+            elif len(ksplit) == 2:
+                # G.<subject tag>
+                gsubjects.add(ksplit[1])
+    tags[None] = subjects
+    return tags
+
+# Sek I: Non-component grades go to V, components to K. Unused slots
+# are filled with '––––––––––'.
+def sort_grades(tags, gman):
+    gmap = {}
+    i_k = 0
+    i_v = 0
+    for sid, g in gman.items():
+#TODO
+        if is_component(sid):
+            i_k += 1
+            if i_k in tags['K']:
+#TODO
+                gmap['S.K.%02d' % i_k] = subject_name(sid)
+                gmap['G.K.%02d' % i_k] = g
+            else:
+                raise GradeConfigError(_GROUP_TOO_SMALL.format(tag = 'K'))
+        else:
+            i_v += 1
+            if i_v in tags['V']:
+#TODO
+                gmap['S.V.%02d' % i_v] = subject_name(sid)
+                gmap['G.V.%02d' % i_v] = g
+            else:
+                raise GradeConfigError(_GROUP_TOO_SMALL.format(tag = 'V'))
+
+# If the group tags are in the subject table:
+    allsids = set(gman)
+    for sid, g in gman.items():
+        for gtag in g.grade_tags:
+            if gtag[0] == '*':
+                # component of  gtag[1:]
+                continue
+            try:
+                gtagmap[gtag].append(sid)
+            except KeyError:
+                gtagmap[gtag] = [sid]
+
+    sidlist = list(gman)
+    # Make lists of indexes, sorted in reverse order (so that they can be
+    # "popped" as ascending indexes.
+# Rather keep the indexes as strings?
+    keys = {}
+    #noslot = set()  # set of unused sids
+    for tag, indexes in tags.items():
+        # keys[tag] = sorted(indexes, reverse = True)
+
+        sidlist = gtagmap.get(tag) or []
+
+
+        while True:
+            try:
+                i = indexes.pop()
+            except IndexError:
+                #noslot.update(sidlist)
+                break
+            try:
+                s = sidlist.pop()
+            except IndexError:
+                # No subject for slot, set to empty
+# Uses string indexes
+                gmap['S.%s.%s' % (tag, i)] = NO_SUBJECT
+                gmap['G.%s.%s' % (tag, i)] = NO_SUBJECT
+            else:
+                try:
+                    allsids.remove(s)
+                except KeyError as e:
+                    # This means the subject has been used as member
+                    # of another group – this is an error.
+                    raise GradeConfigError(_MULTIPLE_GROUPS.format(
+                            sid = s)) from e
+
+#TODO
+                gmap['S.%s.%s' % (tag, i)] = gman.name(s)
+                gmap['G.%s.%s' % (tag, i)] = gman[s]
+
+# Another try ...? I'm not really sure where I'd got to, what I was thinking!
+        _sidlist = sidlist.copy()
+        for i in sorted(indexes, reverse = True):
+            for s in _sidlist:
+#???
+
+
+#...
 
 
 # How to manage multipart templates?!

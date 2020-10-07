@@ -4,7 +4,7 @@
 """
 local/grade_config.py
 
-Last updated:  2020-09-30
+Last updated:  2020-10-05
 
 Configuration for grade handling.
 ====================================
@@ -16,6 +16,7 @@ Configuration for grade handling.
 UNCHOSEN = '/'
 NO_GRADE = '*'
 MISSING_GRADE = '?'
+NO_SUBJECT = '––––––––––'   # entry in grade report for excess subject slot
 
 # GRADE field in CLASS_SUBJECTS table
 NULL_COMPOSITE = '/'
