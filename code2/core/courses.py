@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/courses.py - last updated 2020-09-27
+core/courses.py - last updated 2020-10-08
 
 Database access for reading course data.
 
@@ -23,13 +23,14 @@ Copyright 2020 Michael Towers
 """
 
 ### Messages
+#_INVALID_STREAMS_FIELD = ("In Tabelle CLASS_SUBJECT: ungültiges GRP_Feld für"
 _UNKNOWN_SID = "Fach-Kürzel „{sid}“ ist nicht bekannt"
-_INVALID_STREAMS_FIELD = ("In Tabelle CLASS_SUBJECT: ungültiges GRP_Feld für"
-        " Fach-Kürzel „{sid}“ ({grp})")
+_MULTIPLE_COMPOSITE = ("Fach mit Kürzel „{sid}“ ist Unterfach für mehrere"
+        " Sammelfächer")
 _COMPOSITE_IS_COMPONENT = ("Fach-Kürzel „{sid}“ ist sowohl als „Sammelfach“"
         " als auch als „Unterfach“ definiert")
 _UNUSED_COMPOSITE = "Unterfach {sid}: Sammelfach „{sidc}“ wird nicht benutzt"
-_UNKNOWN_COMPOSITE = "Unterfach {sid}: Sammelfach „{sidc}“ ist nicht definiert"
+#_UNKNOWN_COMPOSITE = "Unterfach {sid}: Sammelfach „{sidc}“ ist nicht definiert"
 _NOT_A_COMPOSITE = "Unterfach {sid}: „{sidc}“ ist kein Sammelfach"
 _NO_COMPONENTS = "Sammelfach {sid} hat keine Unterfächer"
 
@@ -41,8 +42,8 @@ if __name__ == '__main__':
     sys.path[0] = os.path.dirname(this)
 
 from collections import namedtuple
-SubjectData = namedtuple("SubjectData", ('streams', 'composite', 'tids',
-        'name'))
+SubjectData = namedtuple("SubjectData", ('pgroup', 'composite', 'tids',
+        'report_groups', 'name'))
 
 from core.db import DB
 from core.base import str2list
@@ -54,6 +55,8 @@ from tables.spreadsheet import Spreadsheet
 class CourseError(Exception):
     pass
 
+#TODO: Can't index on sid anymore because there is no general sid -> name
+# mapping!
 class Subjects:
     """Manage the SUBJECT and CLASS_SUBJECT tables.
     """
@@ -76,48 +79,45 @@ class Subjects:
         with self.dbconn:
             return list(self.dbconn.select('CLASS_SUBJECT', CLASS = klass))
 #
-    def grade_subjects(self, klass, stream = None):
+    def grade_subjects(self, klass):
         """Return a mapping {sid -> subject data} for the given class.
-        Only subjects relevant for grade reports are included. The subject
-        data is in the form of a <SubjectData> named tuple with fields:
-            streams: a list of streams for which this subject is relevant;
-            composite: a list of sids for which the subject is a component
-                (may be more than one entry, in case the streams are
-                handled differently);
+        Only subjects relevant for grade reports are included, i.e. those
+        with non-empty report_groups (see below). That does not mean
+        they will all be included in the report – that depends on the
+        slots in the template. However, note that "component" subjects
+        may be specified withoout a report_group.
+        The subject data is in the form of a <SubjectData> named tuple with
+        the following fields:
+            pgroup: the tag of the pupil-group for which this subject is
+                relevant, '*' if whole class;
+            composite: if the subject is a component, this will be the
+                sid of its composite (the pupil-group must match);
             tids: a list of teacher ids, empty if the subject is a composite;
+            report_groups: a list of tags representing a particular block
+                of grades in the report template;
             name: the full name of the subject.
-        If <stream> is supplied, only subjects relevant for this stream
-        will be included.
         """
         composites = {}
         subjects = {}
         for sdata in self.for_class(klass):
             sid = sdata['SID']
-            comp = sdata['GRADE']
-            if comp == NOT_GRADED:
-                continue
-            groups = str2list(sdata['STREAMS'])
-            if not groups:
+            _rgroups = sdata['GRADE']
+            if (not _rgroups) or _rgroups == NOT_GRADED:
                 # Subject not relevant for grades
                 continue
-            try:
-                groups.remove(ALL_STREAMS)
-            except ValueError:
-                # Check streams
-                streams = []
-                for g in all_streams(klass):
-                    try:
-                        groups.remove(g)
-                    except ValueError:
-                        continue
-                    streams.append(g)
-                # If <streams> is still empty, <groups> will not be,
-                # which will lead to an exception below.
-            else:
-                streams = all_streams(klass)
-            if groups:
-                raise CourseError(_INVALID_STREAMS_FIELD.format(
-                        sid = sid, grp = sdata['STREAMS']))
+            rgroups = []    # Collect report_groups
+            comp = None     # Associated composite
+            for rg in str2list(_rgroups):
+                if rg[0] == '*':
+                    # It is a component
+                    if comp:
+                        raise CourseError(_MULTIPLE_COMPOSITE.format(
+                                sid = sid))
+                    comp = rg[1:]
+                    continue
+                # report_group
+                rgroups.append(rg)
+
             tids = sdata['TIDS']
             if not tids:
                 # composite subject
@@ -126,52 +126,40 @@ class Subjects:
                             sid = sid))
                 composites[sid] = []
             ### Here is the subject data item:
-            subjects[sid] = SubjectData(streams, str2list(comp),
-                    str2list(tids), self[sid])
+            pgroup = sdata['GRP']
+#TODO: Check validity of <pgroup>? - at least not empty ...
+            if not pgroup:
+                print("NO PUPIL GROUP: %s" % sid)
+                continue
 
-        # Check that the referenced composites are valid and useable,
-        # filter for <stream>
-        result = {}
+            subjects[sid] = SubjectData(pgroup, comp, str2list(tids),
+                    rgroups, self[sid])
+        ### Check that the referenced composites are valid
+        # For checking that all composites have components:
+        cset = set(composites)
         for sid, sbjdata in subjects.items():
             if sbjdata.composite:
-                streams = set(sbjdata.streams)
-                for sidc in sbjdata.composite:
-                    if not streams:
-                        raise CourseError(_UNUSED_COMPOSITE.format(
-                                sidc = sidc, sid = sid))
-                    if sidc == NULL_COMPOSITE:
-                        # Must be the last one ...
-                        streams.clear()
-                        continue
-                    try:
-                        sbjcomp = subjects[sidc]
-                    except KeyError:
-                        raise CourseError(_UNKNOWN_COMPOSITE.format(
-                                sidc = sidc, sid = sid))
-                    if sidc not in composites:
-                        # The target is not a composite
-                        raise CourseError(_NOT_A_COMPOSITE.format(
-                                sidc = sidc, sid = sid))
-                    ok = False
-                    for s in list(streams):
-                        if s in sbjcomp.streams:
-                            streams.remove(s)
-                            ok = True
-                    if not ok:
-                        raise CourseError(_UNUSED_COMPOSITE.format(
-                                sidc = sidc, sid = sid))
-                    composites[sidc].append(sid)
-
-            if (not stream) or (stream in sbjdata.streams):
-                # Subject valid for given stream
-                result[sid] = sbjdata
-
+                sidc = sbjdata.composite
+                if sidc == NULL_COMPOSITE:
+                    continue
+                if sidc not in composites:
+                    # The target is not a composite
+                    raise CourseError(_NOT_A_COMPOSITE.format(
+                            sidc = sidc, sid = sid))
+                # Check pupil group
+                cdata = subjects[sbjdata.composite]
+                if cdata.pgroup != '*' and cdata.pgroup != sbjdata.pgroup:
+                    # group mismatch
+                    raise CourseError(_GROUP_MISMATCH.format(
+                            sidc = sidc, sid = sid))
+                try:
+                    cset.remove(sidc)
+                except:
+                    pass
         # Check that all composites have components
-        for sid, slist in composites.items():
-            if not slist:
-                raise CourseError(_NO_COMPONENTS.format(sid = sid))
-
-        return result
+        if cset:
+            raise CourseError(_NO_COMPONENTS.format(sids = repr(cset)))
+        return subjects
 
 
 
@@ -181,10 +169,6 @@ if __name__ == '__main__':
     init('TESTDATA')
 
     dbconn = DB(_year)
-    filepath = os.path.join(DATA, 'testing', 'Subjects.ods')
-    fname = os.path.basename(filepath)
-    with dbconn:
-        dbconn.from_table('SUBJECT', filepath)
     filepath = os.path.join(DATA, 'testing', 'Class-Subjects.ods')
     fname = os.path.basename(filepath)
     with dbconn:
