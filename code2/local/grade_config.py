@@ -14,9 +14,6 @@ Configuration for grade handling.
 _INVALID_GRADE = "Ungültige Note: {grade}"
 _BAD_GROUP = "Ungültige Schülergruppe: {group}"
 _NO_QUALIFICATION = "Kein Abschluss erreicht"
-_BAD_QUALI = "Ungültiger Eintrag im Feld 'Qualifikation': '{tag}'"
-_BAD_RTYPE = "Ungültiger Zeugnistyp für {name}: '{rtype}'"
-_INVALID_RTYPE = "Ungültiger Zeugnistyp: '{rtype}'"
 
 # Special "grades"
 UNCHOSEN = '/'
@@ -39,11 +36,6 @@ STREAMS = {
     'GS': 'Grundschule'
 }
 #
-
-
-import os
-
-#from core.base import Dates
 
 
 def all_streams(klass):
@@ -173,10 +165,6 @@ class GradeValues:
     def categories(cls):
         return cls._CATEGORIES
 
-    def get_template(self, basicname):
-        return os.path.join(RESOURCES, 'templates', 'grades',
-                basicname + '.odt')
-
 #
 # Localized field names.
 # This also determines the fields for the GRADES table.
@@ -197,28 +185,33 @@ DB_TABLES['__INDEX__']['GRADES'] = (('PID', 'TERM'),)
 
 ###
 
+#TODO: change this so that only the default report type is given – the
+# code for fetching the template checks other types against pupil groups,
+# etc.
+# Move the actual referencing of the templates to the template manager
+# module – here just deal in types.
 GRADE_REPORT_CATEGORY = {
     # Valid types for term/category and class/group.
-    # The first entry in each list is the default.
+#TODO: What about the template's parameter list (with descriptions?)
     '1': {
-        '11': ('Orientierung', 'Abgang'),
-        '12.G': ('Zeugnis', 'Abgang'),
-        '12.R': ('Zeugnis', 'Abgang'),
-        '13': ('Zeugnis', 'Abgang')
+        '11': 'Orientierung',           #('Orientierung', 'Abgang'),
+        '12.G': 'Zeugnis',              #('Zeugnis', 'Abgang'),
+        '12.R': 'Zeugnis',              #('Zeugnis', 'Abgang'),
+        '13': 'Zeugnis'                 #('Zeugnis', 'Abgang')
 # "Abgang" in class 13 probably needs to be done manually because of
 # the complexity of the form ...
         },
 #
     '2': {
-        '10': ('Orientierung', 'Abgang'),
-        '11': ('Zeugnis', 'Abgang'),
-        '12.G': ('Zeugnis', 'Abgang'),
-        '12.R': ('Abschluss', 'Zeugnis', 'Abgang')
+        '10': 'Orientierung',           #('Orientierung', 'Abgang'),
+        '11': 'Zeugnis',                #('Zeugnis', 'Abgang'),
+        '12.G': 'Zeugnis',              #('Zeugnis', 'Abgang'),
+        '12.R': 'Abschluss'             #('Abschluss', 'Zeugnis', 'Abgang')
         },
 #
-    'A': ('Abitur', 'Kein-Abitur', 'FHS-Reife'),
+    'A': 'Abitur',                      #('Abitur', 'Kein-Abitur', 'FHS-Reife'),
 #
-    'S': ('Abgang', 'Zwischen')
+    'S': 'Abgang'                       #('Abgang', 'Zwischen')
 # Types 'A' and 'S' should present not classes but a list of pupils.?
     }
 
@@ -239,111 +232,6 @@ GRADE_REPORT_CATEGORY = {
 #SekII:
 # grades-SekII-12           grades-SekII-12-Abgang
 # grades-SekII-13_1         abitur              grades-SekII-13-Abgang
-
-
-class Orientierung(GradeValues):
-    NAME = 'Orientierungsnoten'
-    TAG = 'Orientierung'
-
-    def template(self, grades):
-        gclass = grades['CLASS']
-        if gclass >= '12' or (gclass >= '11' and grades['TERM'] != '1'):
-            raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
-        return self.getTemplate('grades-Orientierung')
-
-
-class Zeugnis(GradeValues):
-    NAME = 'Zeugnis'
-    TAG = 'Zeugnis'
-
-# Make it depend on a table field value? e.g. HS/RS/Erw, term?
-    def template(self, grades):
-        gclass = grades['CLASS']
-        glevel = grades['LEVEL']
-        gquali = grades['QUALI']
-        if glevel == 'Gym':
-            if gclass >= '13':
-                if grades['TERM'] == '1':
-                    return self.getTemplate('grades-SekII-13_1')
-                raise GradeConfigError(_BAD_RTYPE.format(
-                    rtype = self.TAG, pupil = grades['NAME']))
-            if gclass >= '12':
-                if gquali not in ('HS', 'RS', 'Erw'):
-                    raise GradeConfigError(_BAD_QUALI.format(tag = gquali))
-                return self.getTemplate('grades-SekII')
-        else:
-            return self.getTemplate('grades-SekI')
-
-
-class Abschluss(GradeValues):
-    NAME = 'Abschlusszeugnis'
-    TAG = 'Abschluss'
-
-    def template(self, grades):
-        t = self.getTemplate('grades-SekI-Abschluss')
-        gclass = grades['CLASS']
-        glevel = grades['LEVEL']
-        gquali = grades['QUALI']
-        if gclass in ('12', '11'):
-            if glevel == 'HS' and gquali == 'HS':
-                return t
-            elif (glevel == 'RS' and
-                    (gquali == 'RS'
-                     or (gquali == 'Erw' and gclass == '12'))):
-                return t
-        raise GradeConfigError(_BAD_RTYPE.format(
-                rtype = self.TAG, pupil = grades['NAME']))
-
-
-class Abgang(GradeValues):
-    NAME = 'Abgangszeugnis'
-    TAG = 'Abgang'
-
-    def template(self, grades):
-        gclass = grades['CLASS']
-        glevel = grades['LEVEL']
-        gquali = grades['QUALI']
-        if glevel == 'Gym':
-            if gclass >= '13':
-                return self.getTemplate('grades-SekII-13-Abgang')
-            elif gclass >= '12':
-                # <gquali> can be only 'HS', 'RS' or 'Erw'
-                # (the criteria are a bit different to the other streams!)
-                if gquali not in ('HS', 'RS', 'Erw'):
-                    raise GradeConfigError(_BAD_QUALI.format(tag = gquali))
-                if grades['TERM'] != '2':
-                    grades['QUALI'] = 'HS'
-                return self.getTemplate('grades-SekII-12-Abgang')
-            elif gclass >= '11':
-                # <gquali> can be only '/', 'HS', 'Erw'
-                # (the criteria for 'Erw' is rather special ...)
-                 if gquali not in ('/', 'HS', 'Erw'):
-                    raise GradeConfigError(_BAD_QUALI.format(tag = gquali))
-        if gclass >= '11' or (gclass >= '10' and grades['TERM'] == '2'):
-            if gquali in ('HS', 'RS', 'Erw'):
-                return self.getTemplate('grades-SekI-AbgangHS')
-        return self.getTemplate('grades-SekI-Abgang')
-
-
-class Zwischen(GradeValues):
-    NAME = 'Zwischenzeugnis'
-    TAG = 'Zwischen'
-
-    def template(self, grades):
-        if self.klass >= '11':
-            raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
-        return self.getTemplate('grades-SekI')
-
-
-#Abgang Quali:HS/RS/Erw/-
-#Abschluss Quali:HS/RS/Erw (no Quali => no Abschluss!)
-#Zeugnis 12G/2: Quali must be Erw for Versetzung
-#Zeugnis 11G/2: Average < 3,00 for Versetzung
-# Could calculate a suggested Quali value?
-
-# Map report-type tags to management classes
-REPORT_TYPES = {rclass.TAG: rclass
-        for rclass in (Orientierung, Zeugnis, Abgang, Abschluss, Zwischen)}
 
 
 

@@ -102,6 +102,7 @@ from core.courses import Subjects
 from core.pupils import Pupils
 from local.base_config import print_schoolyear
 from local.grade_config import GRADE_REPORT_CATEGORY, GradeValues
+from local.grade_template import REPORT_TYPES
 
 #TODO: It would probably be good to display at least the date, perhaps
 # also the schoolyear (somewhere).
@@ -484,6 +485,7 @@ class _GradeEdit(QDialog):
 
     def changedCategory(self, key):
         print("Change Category:", key)
+#TODO: choices -> ???
         self.choices = GRADE_REPORT_CATEGORY[key]
         self.select.clear()
 

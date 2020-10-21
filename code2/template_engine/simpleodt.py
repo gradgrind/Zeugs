@@ -313,7 +313,7 @@ if __name__ == '__main__':
 
 
 
-    _odtfile = os.path.join(RESOURCES, 'templates', 'grades', 'abitur.odt')
+    _odtfile = os.path.join(RESOURCES, 'templates', 'grades', 'Abitur.odt')
 #    print("TAGS in %s:\n" % _odtfile, OdtFields.listUserFields(_odtfile))
     _school = 'Freie Michaelschule'
     _itemdict = {

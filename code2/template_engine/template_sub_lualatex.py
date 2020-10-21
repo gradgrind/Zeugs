@@ -4,9 +4,9 @@
 """
 template_engine/template_sub.py
 
-Last updated:  2020-10-21
+Last updated:  2020-09-26
 
-Manage the substitution of "special" fields in an odt template.
+Manage the substitution of "special" fields in a latex template.
 
 =+LICENCE=============================
 Copyright 2020 Michael Towers
@@ -25,20 +25,10 @@ Copyright 2020 Michael Towers
 
 =-LICENCE========================================
 
-The special substitution fields in a template start with '[[' and end
-with ']]'. Between these delimiters there may be only ASCII-alphanumeric
-characters, '_' and '.'.
-
-There is always the danger that editing the templates (in LibreOffice)
-can lead to the substitution fields being internally split up by styling
-tags. This can generally be "repaired" by marking the edited field,
-selecting "clear formatting" in the style selection pop-down (top left
-of the window) and then reselecting the desired style. If that doesn't
-help, it may be necessary to retype the field.
+The special substitution fields in a template start with '(*' and end
+with '*)'. Between these delimiters there may be only ASCII-alphanumeric
+characters and '.'.
 """
-
-#TODO: adapt to odt ...
-
 
 #TODO: Change the templates to use the pupil data fields without
 # "translation". This would add some flexibility concerning exactly
@@ -59,24 +49,60 @@ if __name__ == '__main__':
     this = sys.path[0]
     sys.path[0] = os.path.dirname(this)
 
-#from core.run_extern import libreoffice
-from template_engine.simpleodt import OdtFields
+import re
+
+from core.run_extern import lualatex2pdf
+
+RX_SUB = re.compile(r'\(\*([A-Za-z][A-Za-z0-9.]*?)\*\)')
+TEX_ESC = {
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '#': r'\#',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
+        '~': r'\textasciitilde{}',
+        '^': r'\^{}',
+        '\\': r'\textbackslash{}',
+        '<': r'\textless{}',
+        '>': r'\textgreater{}',
+    }
+RX_TEX_ESC = re.compile('|'.join(re.escape(key) for key in TEX_ESC.keys()))
+
+def tex_escape(text):
+    """
+        :param text: a plain text message
+        :return: the message escaped to appear correctly in LaTeX
+    """
+    return RX_TEX_ESC.sub(lambda match: TEX_ESC[match.group()], text)
 
 
-class TemplateError(Exception):
-    pass
 
-class Template:
-    def __init__(self, template_file):
-        filepath = template_file.split('/')
-        self.template_path = os.path.join(RESOURCES, 'templates', *filepath)
+def substitute(text, sdict):
+    """Substitute keys in the string <text> using the mapping <sdict>.
+    Return a tuple (new text, {substituted keys}, {unsubstituted keys}).
+    """
+    subbed = set()
+    unsubbed = set()
+    def fsub(m):
+        s = m.group(1)
+        try:
+            val = tex_escape(sdict[s])
+            subbed.add(s)
+        except KeyError:
+            unsubbed.add(s)
+            return '?' + s + '?'
+        return val
+    stext = RX_SUB.sub(fsub, text)
+    return (stext, subbed, unsubbed)
 
-
-# map type to template file ...
-
-
-##########################################
-
+# Blocks (may be nested):
+#   Start: %[*tag*
+#   End:   %]*tag*
+RX_BLOCK_START = re.compile(r'\s*\%\[\*([A-Za-z][A-Za-z0-9.]*?)\*')
+RX_BLOCK_END = re.compile(r'\s*\%\]\*([A-Za-z][A-Za-z0-9.]*?)\*')
+SUB_BLOCK = '!!!!!*%s*'
 class TemplateError(Exception):
     pass
 class Template:

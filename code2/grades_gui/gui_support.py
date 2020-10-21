@@ -107,7 +107,7 @@ class KeySelect(QComboBox):
 
 class ZIcon(QIcon):
     def __init__(self, filename):
-        super().__init__(os.path.join(RESOURCES, 'icons', filename + '.svg'))
+        super().__init__(os.path.join(ZEUGSDIR, 'icons', filename + '.svg'))
 
 
 
