@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/courses.py - last updated 2020-10-08
+core/courses.py - last updated 2020-10-18
 
 Database access for reading course data.
 
@@ -77,7 +77,9 @@ class Subjects:
         """Return a list of subject-data rows for the given class.
         """
         with self.dbconn:
-            return list(self.dbconn.select('CLASS_SUBJECT', CLASS = klass))
+            # Use <order> parameter to get table order
+            return list(self.dbconn.select('CLASS_SUBJECT',
+                    CLASS = klass, order = 'rowid'))
 #
     def grade_subjects(self, klass):
         """Return a mapping {sid -> subject data} for the given class.
@@ -133,7 +135,7 @@ class Subjects:
                 continue
 
             subjects[sid] = SubjectData(pgroup, comp, str2list(tids),
-                    rgroups, self[sid])
+                    rgroups, sdata['SUBJECT'])
         ### Check that the referenced composites are valid
         # For checking that all composites have components:
         cset = set(composites)
@@ -175,10 +177,9 @@ if __name__ == '__main__':
         dbconn.from_table('CLASS_SUBJECT', filepath)
 
     subjects = Subjects(_year)
-    print("En ->", subjects['En'])
     print("\n**** raw subject data for class 11 ****")
     for row in subjects.for_class('11'):
         print("  ", dict(row))
     print("\n**** Subject data for class 11.RS: grading ****")
-    for sid, sdata in subjects.grade_subjects('11', 'RS').items():
+    for sid, sdata in subjects.grade_subjects('11').items():
         print("  %s:" % sid, sdata)

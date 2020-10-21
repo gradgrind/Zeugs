@@ -4,13 +4,19 @@
 """
 local/grade_config.py
 
-Last updated:  2020-10-05
+Last updated:  2020-10-21
 
 Configuration for grade handling.
 ====================================
 """
 
-#from core.base import Dates
+### Messages
+_INVALID_GRADE = "Ungültige Note: {grade}"
+_BAD_GROUP = "Ungültige Schülergruppe: {group}"
+_NO_QUALIFICATION = "Kein Abschluss erreicht"
+_BAD_QUALI = "Ungültiger Eintrag im Feld 'Qualifikation': '{tag}'"
+_BAD_RTYPE = "Ungültiger Zeugnistyp für {name}: '{rtype}'"
+_INVALID_RTYPE = "Ungültiger Zeugnistyp: '{rtype}'"
 
 # Special "grades"
 UNCHOSEN = '/'
@@ -34,8 +40,10 @@ STREAMS = {
 }
 #
 
-# Messages
-_NO_QUALIFICATION = "Kein Abschluss erreicht"
+
+import os
+
+#from core.base import Dates
 
 
 def all_streams(klass):
@@ -60,13 +68,115 @@ def all_streams(klass):
             return ['HS', 'FS']
         return ['GS']
 #
-REPORT_TYPES = {
-    'Orientierung': 'Orientierungsnoten',
-    'Zeugnis':      'Zeugnis',
-    'Abgang':       'Abgangszeugnis',
-    'Abschluss':    'Abschlusszeugnis',
-    'Zwischen':     'Zwischenzeugnis'
-}
+
+### Grade handling
+class GradeValues:
+    _CATEGORIES = (
+        ('1', '1. Halbjahr'),
+        ('2', '2.Halbjahr'),
+        ('A', 'Abitur'),
+        ('S', 'Sonderzeugnisse')
+    )
+    _GROUPS = { # Classes which are split for grade reports.
+        # The internal mappings give the streams covered by the groups.
+        # { class -> { group -> (stream, ...)}}
+        '12': {'G': ('Gym',), 'R': ('RS', 'HS')}
+    }
+    _NORMAL_GRADES = (
+        '1+', '1', '1-',
+        '2+', '2', '2-',
+        '3+', '3', '3-',
+        '4+', '4', '4-',
+        '5+', '5', '5-',
+        '6',
+        '*',    # ("no grade" ->) "––––––"
+        'nt',   # "nicht teilgenommen"
+        't',    # "teilgenommen"
+        'nb',   # "kann nich beurteilt werden"
+        #'ne',   # "nicht erteilt"
+        UNCHOSEN # Subject not included in report
+    )
+    _ABITUR_GRADES = ( # class 12 and 13, 'Gym'
+        '15', '14', '13',
+        '12', '11', '10',
+        '09', '08', '07',
+        '06', '05', '04',
+        '03', '02', '01',
+        '00',
+        '*', 'nt', 't', 'nb', #'ne',
+        UNCHOSEN
+    )
+    _PRINT_GRADE = {
+        '1': "sehr gut",
+        '2': "gut",
+        '3': "befriedigend",
+        '4': "ausreichend",
+        '5': "mangelhaft",
+        '6': "ungenügend",
+        '*': "––––––",
+        'nt': "nicht teilgenommen",
+        't': "teilgenommen",
+#            'ne': "nicht erteilt",
+        'nb': "kann nicht beurteilt werden",
+    }
+    def setGroup(self, group):
+        self.group = group
+        self.streams = None
+        try:
+            self.klass, g = group.split('.', 1)
+        except ValueError:
+            self.klass, g = group, None
+        else:
+            try:
+                gmap = self._GROUPS[self.klass]
+            except KeyError:
+                pass
+            else:
+                try:
+                    self.streams = gmap[g]
+                except KeyError as e:
+                    raise GradeConfigError(_BAD_GROUP.format(group = group))
+        if group in ('13', '12.G'):
+            self.valid_grades = self._ABITUR_GRADES
+            self.isAbitur = True
+        else:
+            self.valid_grades = self._NORMAL_GRADES
+            self.isAbitur = False
+
+    def printGrade(self, grade):
+        """Fetch the grade for the given subject id and return the
+        string representation required for the reports.
+        The SekII forms have no space for longer remarks, but the
+        special "grades" are retained for "Notenkonferenzen".
+        """
+        try:
+            if self.isAbitur:
+                if grade in self.valid_grades:
+                    try:
+                        int(grade)
+                        return grade
+                    except:
+                        if grade == UNCHOSEN:
+                            raise
+                        return "––––––"
+            else:
+                return self._PRINT_GRADE[grade.rstrip('+-')]
+        except:
+            pass
+        if grade:
+            raise GradeConfigError(_INVALID_GRADE.format(
+                    grade = repr(grade)))
+        # No grade
+        return '?'
+
+    @classmethod
+    def categories(cls):
+        return cls._CATEGORIES
+
+    def get_template(self, basicname):
+        return os.path.join(RESOURCES, 'templates', 'grades',
+                basicname + '.odt')
+
 #
 # Localized field names.
 # This also determines the fields for the GRADES table.
@@ -87,28 +197,158 @@ DB_TABLES['__INDEX__']['GRADES'] = (('PID', 'TERM'),)
 
 ###
 
-GRADE_REPORT_TERM = {
-    # Valid types for term and class.
+GRADE_REPORT_CATEGORY = {
+    # Valid types for term/category and class/group.
     # The first entry in each list is the default.
     '1': {
         '11': ('Orientierung', 'Abgang'),
-        '12:Gym': ('Zeugnis', 'Abgang'),
-# An exit from class 12:Gym before the report for the first half year
-# can be a problem if there are no grades yet. Perhaps those from
-# class 11 could be converted (manually)?
-        '12:RS': ('Zeugnis', 'Abgang'),
-        '12:HS': ('Abgang',)
+        '12.G': ('Zeugnis', 'Abgang'),
+        '12.R': ('Zeugnis', 'Abgang'),
+        '13': ('Zeugnis', 'Abgang')
+# "Abgang" in class 13 probably needs to be done manually because of
+# the complexity of the form ...
         },
 #
     '2': {
         '10': ('Orientierung', 'Abgang'),
         '11': ('Zeugnis', 'Abgang'),
-        '12:Gym': ('Zeugnis', 'Abgang'),
-        '12:RS': ('Abschluss', 'Zeugnis', 'Abgang'),
-        '12:HS': ('Abschluss', 'Abgang')
-        }
+        '12.G': ('Zeugnis', 'Abgang'),
+        '12.R': ('Abschluss', 'Zeugnis', 'Abgang')
+        },
+#
+    'A': ('Abitur', 'Kein-Abitur', 'FHS-Reife'),
+#
+    'S': ('Abgang', 'Zwischen')
+# Types 'A' and 'S' should present not classes but a list of pupils.?
     }
+
+# An exit from 12.G before the report for the first half year
+# can be a problem if there are no grades yet. Perhaps those from
+# class 11 could be converted (manually)?
 #?
+#    '10/Orientierung': ...
+#    'date/Abgang/pid'
+#    'date/Zwischen/pid'
+#######
+#TEMPLATES (*.odt):
+#SekI:
+# grades-Orientierung
+# grades-SekI               // Zeugnis & Zwischen
+# grades-SekI-Abgang      grades-SekI-AbgangHS
+# grades-SekI-Abschluss     // HS & RS & Erw
+#SekII:
+# grades-SekII-12           grades-SekII-12-Abgang
+# grades-SekII-13_1         abitur              grades-SekII-13-Abgang
+
+
+class Orientierung(GradeValues):
+    NAME = 'Orientierungsnoten'
+    TAG = 'Orientierung'
+
+    def template(self, grades):
+        gclass = grades['CLASS']
+        if gclass >= '12' or (gclass >= '11' and grades['TERM'] != '1'):
+            raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
+        return self.getTemplate('grades-Orientierung')
+
+
+class Zeugnis(GradeValues):
+    NAME = 'Zeugnis'
+    TAG = 'Zeugnis'
+
+# Make it depend on a table field value? e.g. HS/RS/Erw, term?
+    def template(self, grades):
+        gclass = grades['CLASS']
+        glevel = grades['LEVEL']
+        gquali = grades['QUALI']
+        if glevel == 'Gym':
+            if gclass >= '13':
+                if grades['TERM'] == '1':
+                    return self.getTemplate('grades-SekII-13_1')
+                raise GradeConfigError(_BAD_RTYPE.format(
+                    rtype = self.TAG, pupil = grades['NAME']))
+            if gclass >= '12':
+                if gquali not in ('HS', 'RS', 'Erw'):
+                    raise GradeConfigError(_BAD_QUALI.format(tag = gquali))
+                return self.getTemplate('grades-SekII')
+        else:
+            return self.getTemplate('grades-SekI')
+
+
+class Abschluss(GradeValues):
+    NAME = 'Abschlusszeugnis'
+    TAG = 'Abschluss'
+
+    def template(self, grades):
+        t = self.getTemplate('grades-SekI-Abschluss')
+        gclass = grades['CLASS']
+        glevel = grades['LEVEL']
+        gquali = grades['QUALI']
+        if gclass in ('12', '11'):
+            if glevel == 'HS' and gquali == 'HS':
+                return t
+            elif (glevel == 'RS' and
+                    (gquali == 'RS'
+                     or (gquali == 'Erw' and gclass == '12'))):
+                return t
+        raise GradeConfigError(_BAD_RTYPE.format(
+                rtype = self.TAG, pupil = grades['NAME']))
+
+
+class Abgang(GradeValues):
+    NAME = 'Abgangszeugnis'
+    TAG = 'Abgang'
+
+    def template(self, grades):
+        gclass = grades['CLASS']
+        glevel = grades['LEVEL']
+        gquali = grades['QUALI']
+        if glevel == 'Gym':
+            if gclass >= '13':
+                return self.getTemplate('grades-SekII-13-Abgang')
+            elif gclass >= '12':
+                # <gquali> can be only 'HS', 'RS' or 'Erw'
+                # (the criteria are a bit different to the other streams!)
+                if gquali not in ('HS', 'RS', 'Erw'):
+                    raise GradeConfigError(_BAD_QUALI.format(tag = gquali))
+                if grades['TERM'] != '2':
+                    grades['QUALI'] = 'HS'
+                return self.getTemplate('grades-SekII-12-Abgang')
+            elif gclass >= '11':
+                # <gquali> can be only '/', 'HS', 'Erw'
+                # (the criteria for 'Erw' is rather special ...)
+                 if gquali not in ('/', 'HS', 'Erw'):
+                    raise GradeConfigError(_BAD_QUALI.format(tag = gquali))
+        if gclass >= '11' or (gclass >= '10' and grades['TERM'] == '2'):
+            if gquali in ('HS', 'RS', 'Erw'):
+                return self.getTemplate('grades-SekI-AbgangHS')
+        return self.getTemplate('grades-SekI-Abgang')
+
+
+class Zwischen(GradeValues):
+    NAME = 'Zwischenzeugnis'
+    TAG = 'Zwischen'
+
+    def template(self, grades):
+        if self.klass >= '11':
+            raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
+        return self.getTemplate('grades-SekI')
+
+
+#Abgang Quali:HS/RS/Erw/-
+#Abschluss Quali:HS/RS/Erw (no Quali => no Abschluss!)
+#Zeugnis 12G/2: Quali must be Erw for Versetzung
+#Zeugnis 11G/2: Average < 3,00 for Versetzung
+# Could calculate a suggested Quali value?
+
+# Map report-type tags to management classes
+REPORT_TYPES = {rclass.TAG: rclass
+        for rclass in (Orientierung, Zeugnis, Abgang, Abschluss, Zwischen)}
+
+
+
+
+
 GRADE_REPORT_ANYTIME = {
     # ... any class, any time
     '12.Gym': [
@@ -229,10 +469,10 @@ def print_level(report_type, quali, klass, stream):
         }[quali]
     return 'Maßstab %s' % STREAMS[stream]
 #
-def print_title(report_type):
-    """Return the title of the report.
-    """
-    return REPORT_TYPES[report_type]
+#def print_title(report_type):
+#    """Return the title of the report.
+#    """
+#    return REPORT_TYPES[report_type]
 #
 def print_year(class_stream):
     """Return the "year" of the given class/group.
