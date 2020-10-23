@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-10-01
+grades/gradetable.py - last updated 2020-10-22
 
 Access grade data, read and build grade tables.
 
@@ -25,7 +25,24 @@ Copyright 2020 Michael Towers
 _SCHOOLYEAR = 'Schuljahr'
 _CLASS = 'Klasse'
 _TERM = 'Halbjahr'
+# ... rather 'Anlass' / 'Kategorie' / ...?
+# The value could be "1. Halbjahr", "2. Halbjahr", "Abitur", "Sonderzeugnis".
+# The first letter would then be the key (a scheme which might not work
+# so well for other localities), or there could be a text -> key mapping.
+_ISSUE_D = 'Ausstellungsdatum'
+_GRADES_D = 'Notenkonferenz'
 _TID = 'Kürzel'
+# Perhaps a COMMENT, but insertion of a multiparagraph comment is not so
+# easy in odt ... this part is non-trivial to implement!
+# This is what I found in one template:
+#    <text:p text:style-name="rText">[[COMMENT]]</text:p>
+#    <text:p text:style-name="P16">[[NOCOMMENT]]</text:p>
+# ... so perhaps it would be doable.
+# If the style (rText) is fixed, that should simplify it.
+# Would it be possible to manage without [[NOCOMMENT]] by making the
+# default [[COMMENT]] do its job? This could be an alternative
+# style? Include tags?
+# In any case, the xmlescape would have to be overridden ...
 
 # Messages
 _TID_MISMATCH = ("Unerwartete Lehrkraft in Tabellendatei:\n"

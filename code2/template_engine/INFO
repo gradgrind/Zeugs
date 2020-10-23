@@ -1,6 +1,45 @@
-This package deals with generating pdf documents using lualatex.
+This package deals with generating pdf documents
 
-Template files contain specially marked fields which can be substituted
-by program-supplied data.
+Three approaches have been tested:
 
-Escaping of characters which are special in latex must also be handled.
+ *) using HTML templates and weasyprint;
+
+ *) using lualatex templates;
+
+ *) using odt templates, with LibreOffice to produce pdf.
+
+Each of the approaches has advantages and disadvantages, all can produce
+good quality pdf results.
+
+The latest code uses odt templates because
+
+ *) it is easier to make slight modifications to individual reports if they
+    are available as odt-files than if only pdf is available;
+
+ *) if necessary, the templates can be filled out manually by normal
+    mortals (using LibreOffice);
+
+ *) it is probably easier for inexperienced people to make or customise
+    templates if these are odt-files rather than HTML-files or tex-files.
+
+Other observations:
+
+Although HTML templates have several attractions, weasyprint is not such
+an established project as lualatex or LibreOffice, which might mean more
+risk of support problems. The HTML/CSS support of weasyprint differs in
+some areas (especially concerning flexbox) from standard browsers,
+which makes designing the templates a bit more difficult.
+
+As the odt-format and LibreOffice itself are rather complicated beasts,
+it is difficult to offer as many templating features and as much
+flexibility as the other approaches. I found it was possible with lualatex
+or weasyprint to cover more report types in a single template than I
+could manage (easily) in LibreOffice.
+
+Although all of the formats require some care regarding "special"
+characters in the text, handling these seems a bit more straightforward
+in odt (XML) and HTML than in TeX, which wasn't originally designed for
+automatic generation. LaTeX has very advanced formatting capabilities
+and is very stable (it is a very old project). There is also extensive
+documentation, but it can nevertheless be difficult to find a way of
+producing exactly the desired results.

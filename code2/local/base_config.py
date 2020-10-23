@@ -4,7 +4,7 @@
 """
 local/base_config.py
 
-Last updated:  2020-10-04
+Last updated:  2020-10-22
 
 General configuration items.
 ============================
@@ -24,5 +24,10 @@ def print_schoolyear(schoolyear):
     """
     return '%d – %d' % (schoolyear-1, schoolyear)
 
-
-
+def class_year(klass):
+    """Get just the year part of a class name.
+    """
+    try:
+        return int(klass[:2])
+    except:
+        return int(klass[0])

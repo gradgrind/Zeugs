@@ -32,8 +32,8 @@ STREAMS = {
     'RS': 'Realschule',
     'HS': 'Hauptschule',
 #TODO:
-    'FS': 'Förderschule',
-    'GS': 'Grundschule'
+#    'FS': 'Förderschule',
+#    'GS': 'Grundschule'
 }
 #
 
