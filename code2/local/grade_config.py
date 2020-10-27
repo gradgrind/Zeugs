@@ -4,7 +4,7 @@
 """
 local/grade_config.py
 
-Last updated:  2020-10-21
+Last updated:  2020-10-26
 
 Configuration for grade handling.
 ====================================
@@ -25,7 +25,7 @@ NO_SUBJECT = '––––––––––'   # entry in grade report for exce
 NULL_COMPOSITE = '/'
 NOT_GRADED = '-'
 
-# Streams for higher classes
+# Streams/levels
 ALL_STREAMS = '*'
 STREAMS = {
     'Gym': 'Gymnasium',
@@ -62,17 +62,34 @@ def all_streams(klass):
 #
 
 ### Grade handling
-class GradeValues:
+class GradeBase:
     _CATEGORIES = (
-        ('1', '1. Halbjahr'),
-        ('2', '2.Halbjahr'),
-        ('A', 'Abitur'),
-        ('S', 'Sonderzeugnisse')
+        # term/category-tag, text version, relative path to files
+        ('1', '1. Halbjahr', 'NOTEN/HJ1'),
+        ('2', '2. Halbjahr', 'NOTEN/HJ2'),
+        ('A', 'Abitur', 'NOTEN/Abitur'),
+        ('S', 'Einzelzeugnisse', 'NOTEN/Einzel')
     )
-    _GROUPS = { # Classes which are split for grade reports.
+    _GROUP_STREAMS = { # Classes which are split for grade reports.
         # The internal mappings give the streams covered by the groups.
         # { class -> { group -> (stream, ...)}}
         '12': {'G': ('Gym',), 'R': ('RS', 'HS')}
+    }
+    _REPORT_GROUPS = { # Groups for which scheduled reports are to be
+        # prepared. Mapped from school term. Also the default report type
+        # is given.
+        '1': (
+            ('13', 'Zeugnis'),
+            ('12.G', 'Zeugnis'),
+            ('12.R', 'Zeugnis'),
+            ('11', 'Orientierung')
+        ),
+        '2': (
+            ('12.G', 'Zeugnis'),
+            ('12.R', 'Abschluss'),
+            ('11', 'Zeugnis'),
+            ('10', 'Orientierung')
+        )
     }
     _NORMAL_GRADES = (
         '1+', '1', '1-',
@@ -111,30 +128,33 @@ class GradeValues:
 #            'ne': "nicht erteilt",
         'nb': "kann nicht beurteilt werden",
     }
-    def setGroup(self, group):
-        self.group = group
-        self.streams = None
+#
+    @classmethod
+    def group2klass_streams(cls, group):
+        """Return the class and a list (tuple) of streams for the given
+        pupil group. Only those groups relevant for grade reports are
+        acceptable.
+        """
         try:
-            self.klass, g = group.split('.', 1)
+            klass, g = group.split('.', 1)
         except ValueError:
-            self.klass, g = group, None
-        else:
-            try:
-                gmap = self._GROUPS[self.klass]
-            except KeyError:
-                pass
-            else:
-                try:
-                    self.streams = gmap[g]
-                except KeyError as e:
-                    raise GradeConfigError(_BAD_GROUP.format(group = group))
+            # Whole class
+            return (group, ())
+        try:
+            return (klass, cls.GROUP_STREAMS[klass][g])
+        except KeyError as e:
+            raise GradeConfigError(_BAD_GROUP.format(group = group)) from e
+#
+    def __init__(self, group):
+        self.group = group
+        self.klass, self.streams = self.group2klass_streams(group)
         if group in ('13', '12.G'):
             self.valid_grades = self._ABITUR_GRADES
             self.isAbitur = True
         else:
             self.valid_grades = self._NORMAL_GRADES
             self.isAbitur = False
-
+#?
     def printGrade(self, grade):
         """Fetch the grade for the given subject id and return the
         string representation required for the reports.
@@ -163,20 +183,29 @@ class GradeValues:
 
     @classmethod
     def categories(cls):
-        return cls._CATEGORIES
+        """Return list of tuples: (term tag, term name).
+        """
+        return [(cat[0], cat[1]) for cat in cls._CATEGORIES]
 
+    @classmethod
+    def grade_path(cls, term):
+        for cat in cls._CATEGORIES:
+            if cat[0] == term:
+                return cat[2]
+        raise Bug("Bad category/type: %s" % term)
 #
 # Localized field names.
 # This also determines the fields for the GRADES table.
 GRADES_FIELDS = {
     'PID'       : 'ID',
     'CLASS'     : 'Klasse',
-    'STREAM'    : 'Maßstab',
-    'TERM'      : 'Halbjahr',
+    'STREAM'    : 'Maßstab',    # Grading level, etc.
+    'TERM'      : 'Anlass',     # Term/Category
     'GRADES'    : 'Noten',
     'REPORT_TYPE': 'Zeugnistyp',
     'ISSUE_D'   : 'Ausstellungsdatum',
     'GRADES_D'  : 'Notenkonferenz',
+    'QUALI'     : 'Qualifikation',
     'COMMENTS'  : 'Bemerkungen'
 }
 #

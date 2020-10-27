@@ -4,7 +4,7 @@
 """
 grades/makereports.py
 
-Last updated:  2020-10-05
+Last updated:  2020-10-26
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -89,10 +89,10 @@ from local.grade_config import (GradeConfigError, cs_split,
         NO_SUBJECT
 )
 from local.grade_functions import GradeError, Manager
-from grades.gradetable import getGrades, gradeMap
+from grades.gradetable import GradeGroup, GradeData#, getGrades, gradeMap
 from template_engine.template_sub import Template
 
-
+#?
 def get_template(class_stream, report_type = None):
     """If <report_type> is supplied, return the corresponding template
     file (name).
@@ -116,25 +116,46 @@ def get_template(class_stream, report_type = None):
 
 ###
 
-def makeReports(schoolyear, occasion, class_stream, pids = None):
+
+def makeReports(schoolyear, term, group, pids = None):
     """Generate a single file containing grade reports for a group of
-    pupils. The group is supplied as <class_stream>, which can be a class
-    name or a class name with stream tag (e.g. '11:Gym').
+    pupils. The group is supplied as <group>, which can be a class
+    name or a class name with a group tag (e.g. '12.G').
     A subset of the group can be chosen by passing a list of pupil-ids
     as <pids>.
     The grade information is extracted from the database for the given
-    school-year and "occasion" (term or other category).
+    school-year and "term".
     If double-sided printing is to be done, some care will be necessary
     with the template design and processing to ensure that empty pages
     are inserted as necessary.
     """
+#TODO
     data = SimpleNamespace()
     data.class_stream = class_stream
     data.klass, data.stream = cs_split(class_stream)
     data.schoolyear = schoolyear
-    data.occasion = occasion
+    data.term = term
+#?    data.category = term
+#?
     data.pupils = Pupils(schoolyear)
+#?
     data.dmap = {}
+
+
+    gdata_map = {}
+    grade_group = GradeGroup(schoolyear, group, term)
+    for gdata_row in grade_group.gdata_list():
+        gdata = GradeData(gdata_row)
+        rtype = gdata.report_type
+        try:
+            gdata_map[rtype].append(gdata)
+        except KeyError:
+            gdata_map[rtype] = [gdata]
+
+
+
+
+
 
     try:
         data.report_type = GRADE_REPORT_TERM[occasion][class_stream][0]

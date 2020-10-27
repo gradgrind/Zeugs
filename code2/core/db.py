@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/db.py - last updated 2020-10-04
+core/db.py - last updated 2020-10-24
 
 Database access.
 
@@ -59,8 +59,14 @@ import local.grade_config
 from tables.spreadsheet import Spreadsheet
 
 
-def year_path(schoolyear, *a):
-    return os.path.join(DATA, 'SCHOOLYEARS', str(schoolyear), *a)
+def year_path(schoolyear, fpath = None):
+    """Return a path within the data folder for a school year.
+    <fpath> is a '/' separated path relative to the year folder.
+    """
+    if fpath:
+        os.path.join(DATA, 'SCHOOLYEARS', str(schoolyear),
+                *fpath.split('/'))
+    return os.path.join(DATA, 'SCHOOLYEARS', str(schoolyear))
 
 
 class DBerror(Exception):

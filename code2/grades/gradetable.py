@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-10-22
+grades/gradetable.py - last updated 2020-10-27
 
 Access grade data, read and build grade tables.
 
@@ -29,7 +29,7 @@ _TERM = 'Halbjahr'
 # The value could be "1. Halbjahr", "2. Halbjahr", "Abitur", "Sonderzeugnis".
 # The first letter would then be the key (a scheme which might not work
 # so well for other localities), or there could be a text -> key mapping.
-_ISSUE_D = 'Ausstellungsdatum'
+_ISSUE_D = 'Ausstellungsdatum'      # or 'Ausgabedatum'?
 _GRADES_D = 'Notenkonferenz'
 _TID = 'Kürzel'
 # Perhaps a COMMENT, but insertion of a multiparagraph comment is not so
@@ -79,7 +79,7 @@ if __name__ == '__main__':
 from core.base import str2list
 from core.db import DB
 from tables.spreadsheet import Spreadsheet, DBtable
-from local.gradefunctions import UNCHOSEN
+#from local.grade_config import UNCHOSEN
 
 #from wz_core.configuration import Paths, Dates
 #from wz_core.db import DBT
@@ -97,7 +97,7 @@ def getGrades(schoolyear, pid, term = None):
         if term:
             return dbconn.select1('GRADES', PID = pid, TERM = term)
         return dbconn.select('GRADES', PID = pid)
-#
+#? see <GradeData>
 def gradeMap(grade_row):
     """Return a mapping {sid -> grade} for the given database row from
     the GRADES table.
@@ -107,6 +107,77 @@ def gradeMap(grade_row):
         sid, g, tid = sg.split(':')
         grades[sid] = g
     return grades
+
+#
+
+class GradeData:
+    """A (read-only) representation of a set of grades for a pupil,
+    corresponding to a row in the GRADES database table.
+    """
+    def __init__(gdata):
+        self.gklass = gdata['CLASS']
+        self.gterm = gdata['TERM']
+        self.gstream = gdata['STREAM']
+        self.pid = gdata['PID']
+        self.report_type = gdata['REPORT_TYPE']
+        self.issue_d = gdata['ISSUE_D']
+        self.grades_d = gdata['GRADES_D']
+        self.quali = gdata['QUALI']
+        self.comments = gdata['COMMENTS']
+        self._gradedata = gdata['GRADES']
+        self._grades = None
+        self._sid2tid = None
+#
+    def grades(self):
+        """Return the grade mapping, {sid -> grade}
+        """
+        if self._grades == None:
+            self._grades = {}
+            self._sid2tid = {}
+            for sg in str2list(self._gradedata):
+                sid, g, tid = sg.split(':')
+                self._grades[sid] = g
+                self._sid2tid[sid] = tid
+        return self._grades
+#
+    def sid2tid(self, sid):
+        """Return the tag for the teacher who graded the given subject.
+        """
+        while True:
+            try:
+                return self._sid2tid[sid]
+            except KeyError as e:
+                raise Bug("Unknown subject key: %s" % sid)
+            except TypeError:
+                self.grades()   # Ensure cache is loaded
+
+#
+#    def name(self):
+#TODO: this can only work with access to the pupils' data, which
+# requires at least the school-year ...
+#        raise Bug("TODO: GradeData.name")
+
+#
+
+class GradeGroup(GradeBase):
+    """Manage grade information for the given group and term/category.
+    """
+    def __init__(self, schoolyear, group, term):
+        self.schoolyear = schoolyear
+        self.term = term
+        # Set (at least) <self.klass>, <self.streams>, <self.group>,
+        # <self.valid_grades> (a list/tuple)
+        super().__init__(group)
+
+    def gdata_list(self):
+        with DB(schoolyear) as dbconn:
+            rows = dbconn.select('GRADES', CLASS = self.klass,
+                    TERM = self.term)
+        if self.streams:
+            return [row for row in rows if row['STREAM'] in self.streams]
+        else:
+            return list(rows)   # <rows> itself is an iterator, not a list
+
 
 #######################################################
 

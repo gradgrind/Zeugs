@@ -3,7 +3,7 @@
 """
 core/run_extern.py
 
-Last updated:  2020-08-30
+Last updated:  2020-10-27
 
 
 =+LICENCE=============================
@@ -35,8 +35,7 @@ _NOPDF              = "Keine PDF-Datei wurde erstellt"
 import os, platform, subprocess, tempfile
 
 
-def run_extern(command, *args, cwd=None, xpath=None,
-        capture_output=False, feedback=None):
+def run_extern(command, *args, cwd = None, xpath = None, feedback = None):
     """Run an external program.
     Pass the command and the arguments as individual strings.
     The command must be either a full path or a command known in the
@@ -53,11 +52,14 @@ def run_extern(command, *args, cwd=None, xpath=None,
     If return-code = -1, return a message reporting the command.
     """
 #TODO: Is timeout appropriate?
+# Not for subprocess.Popen!
     params = {
         'stdout': subprocess.PIPE,
         'stderr': subprocess.STDOUT,
-        'universal_newlines':True,
-        'timeout': 30} # timeout in seconds
+        'universal_newlines':True
+    }
+    if not feedback:
+        params['timeout'] = 30  # timeout in seconds
     my_env = os.environ.copy()
     if platform.system() == 'Windows':
         # Suppress the console

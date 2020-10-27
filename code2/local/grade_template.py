@@ -4,7 +4,7 @@
 """
 local/grade_template.py
 
-Last updated:  2020-10-21
+Last updated:  2020-10-27
 
 Manage templates for grade reports.
 
@@ -28,16 +28,13 @@ Copyright 2020 Michael Towers
 """
 
 ### Messages
-_BAD_QUALI = "Ungültiger Eintrag im Feld 'Qualifikation': '{tag}'"
-_BAD_RTYPE = "Ungültiger Zeugnistyp für {name}: '{rtype}'"
 _INVALID_RTYPE = "Ungültiger Zeugnistyp: '{rtype}'"
 
 
-from local.grade_config import GradeConfigError
+from local.grade_config import GradeConfigError, GradeBase
 from template_engine.template_sub import Template
 
 
-# Could define <TEMPLATE_FILE> elsewhere and "update" it here for grades?
 TEMPLATE_FILE = {
     'grades-Orientierung':      'grades/Orientierung.odt',
     'grades-SekII-13_1':        'grades/SekII-13_1.odt',
@@ -46,7 +43,6 @@ TEMPLATE_FILE = {
     'grades-SekI-Abschluss':    'grades/SekI-Abschluss.odt',
     'grades-SekII-13-Abgang':   'grades/SekII-13-Abgang.odt',
     'grades-SekII-12-Abgang':   'grades/SekII-12-Abgang.odt',
-    'grades-SekI-AbgangHS':     'grades/SekI-Abgang.odt',
     'grades-SekI-Abgang':       'grades/SekI-Abgang.odt',
     'grades-Abitur':            'grades/Abitur.odt',
     'grades-Kein-Abitur':       'grades/Abitur-nicht-bestanden.odt',
@@ -54,16 +50,51 @@ TEMPLATE_FILE = {
 #
 }
 
+
+#TODO
+def todo():
+        if data_list.term == 'S':
+            # Unscheduled report, must be a single data set
+            if len(data_list) != 1:
+                raise Bug("Unscheduled reports are handled individually" \
+                        "\n  [in %s]" % __file)
+            gdata = data_list[0]
+            filebase = '%s_%s_%s' % (data_list.ISSUE_D, gdata.report_type,
+#data_list.ISSUE_D? It should be YYYY-MM-DD.
+#gdata.report_type?
+                    gdata['PSORT'])
+            filedir = year_path(data_list.schoolyear, _Grades_Single)
+
+
+        else:
+            filebase = gdata.group
+#gdata.group?
+            if data_list.term == 'A':
+                # Abitur certificates
+                filedir = year_path(data_list.schoolyear, _Grades_Abitur)
+
+            else:
+                # Term reports
+                filedir = year_path(data_list.schoolyear,
+                        _Grades_Term % data_list.term)
+
+            odt_dir = os.path.join(filedir, filebase = gdata.group)
+            os.makedirs(odt_dir, exist_ok = True)
+
+
+
 class Orientierung(Template):
     NAME = 'Orientierungsnoten'
     TAG = 'Orientierung'
     GROUPS = ('V', 'K')
-
-    def __init__(self, grades):
-        gclass = grades['CLASS']
-        if gclass >= '12' or (gclass >= '11' and grades['TERM'] != '1'):
+#
+    def __init__(self, group, term):
+        if group >= '12' or (group >= '11' and term != '1'):
             raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
-        super().__init__(TEMPLATE_FILE('grades-Orientierung'))
+        self.FILES_PATH = GradeBase.grade_path(term)
+        self._term = term
+        self._group = group
+        super().__init__(TEMPLATE_FILE['grades-Orientierung'])
 
 
 class Zeugnis(Template):
@@ -72,51 +103,39 @@ class Zeugnis(Template):
     GROUPS_SekI = ('V', 'K')
     GROUPS_SekII_12 = ('A', 'B', 'C', 'D', 'X')
     GROUPS_SekII_13 = ('E', 'G')
-
-    def __init__(self, grades):
-        gclass = grades['CLASS']
-        glevel = grades['LEVEL']
-        gquali = grades['QUALI']
-        t = 'grades-SekI'
-        self.GROUPS = self.GROUPS_SekI
-        if glevel == 'Gym':
-            if gclass >= '13':
-                if grades['TERM'] != '1':
-                    t = 'grades-SekII-13_1'
-                    self.GROUPS = self.GROUPS_SekII_13
-                else:
-                    raise GradeConfigError(_BAD_RTYPE.format(
-                            rtype = self.TAG, pupil = grades['NAME']))
-            elif gclass >= '12':
-                if gquali not in ('HS', 'RS', 'Erw'):
-                    raise GradeConfigError(_BAD_QUALI.format(tag = gquali))
-                t = 'grades-SekII'
-                self.GROUPS = self.GROUPS_SekII_12
-        super().__init__(t)
+#
+    def __init__(self, group, term):
+        if group >='13':
+            if term == '1':
+                t = 'grades-SekII-13_1'
+                self.GROUPS = self.GROUPS_SekII_13
+            else:
+                raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
+        elif group == '12.G':
+            t = 'grades-SekII'
+            self.GROUPS = self.GROUPS_SekII_12
+        else:
+            t = 'grades-SekI'
+            self.GROUPS = self.GROUPS_SekI
+        self.FILES_PATH = GradeBase.grade_path(term)
+        self._term = term
+        self._group = group
+        super().__init__(grades, t)
 
 
 class Abschluss(Template):
     NAME = 'Abschlusszeugnis'
     TAG = 'Abschluss'
     GROUPS = ('V', 'K')
-
-    def __init__(self, grades):
-        t = False
-        gclass = grades['CLASS']
-        glevel = grades['LEVEL']
-        gquali = grades['QUALI']
-        if gclass in ('12', '11'):
-            if glevel == 'HS' and gquali == 'HS':
-                t = True
-            elif (glevel == 'RS' and
-                    (gquali == 'RS'
-                     or (gquali == 'Erw' and gclass == '12'))):
-                t = True
-        if t:
-            super().__init__('grades-SekI-Abschluss')
+#
+    def __init__(self, group, term):
+        if group in ('12.R', '11') and term == '2':
+            self.FILES_PATH = GradeBase.grade_path(term)
+            self._term = term
+            self._group = group
+            super().__init__(grades, 'grades-SekI-Abschluss')
         else:
-            raise GradeConfigError(_BAD_RTYPE.format(
-                    rtype = self.TAG, pupil = grades['NAME']))
+            raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
 
 
 class Abgang(Template):
@@ -125,8 +144,47 @@ class Abgang(Template):
     GROUPS_SekI = ('V', 'K')
     GROUPS_SekII_12 = ('A', 'B', 'C', 'D', 'X')
     GROUPS_SekII_13 = ('E', 'G')
+#
+    def __init__(self, group, term):
+        if group >='13':
+            if term == '1':
+                t = 'grades-SekII-13_1'
+                self.GROUPS = self.GROUPS_SekII_13
+            else:
+                raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
+        elif group == '12.G':
+            t = 'grades-SekII'
+            self.GROUPS = self.GROUPS_SekII_12
+        else:
+            t = 'grades-SekI'
+            self.GROUPS = self.GROUPS_SekI
+        self.FILES_PATH = GradeBase.grade_path(term)
+        self._term = term
+        self._group = group
+        super().__init__(t)
 
-    def __init__(self, grades):
+
+class Zwischen(Template):
+    NAME = 'Zwischenzeugnis'
+    TAG = 'Zwischen'
+    GROUPS = ('V', 'K')
+#
+    def __init__(self, group, term):
+        if grades['CLASS'] >= '12':
+            raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
+        self.FILES_PATH = GradeBase.grade_path(term)
+        self._term = term
+        self._group = group
+        super().__init__('grades-SekI')
+
+
+# Map report-type tags to management classes
+REPORT_TYPES = {rclass.TAG: rclass
+        for rclass in (Orientierung, Zeugnis, Abgang, Abschluss, Zwischen)}
+
+
+
+"""
         t = 'grades-SekI-Abgang'
         self.GROUPS = self.GROUPS_SekI
         gclass = grades['CLASS']
@@ -156,23 +214,10 @@ class Abgang(Template):
                 grades['QUALI'] = 'HS'
             else:
                 grades['QUALI'] = None
-        super().__init__(t)
+        super().__init__(grades, t)
+"""
 
 
-class Zwischen(Template):
-    NAME = 'Zwischenzeugnis'
-    TAG = 'Zwischen'
-    GROUPS = ('V', 'K')
-
-    def __init__(self, grades):
-        if grades['CLASS'] >= '11':
-            raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
-        super().__init__('grades-SekI')
-
-
-# Map report-type tags to management classes
-REPORT_TYPES = {rclass.TAG: rclass
-        for rclass in (Orientierung, Zeugnis, Abgang, Abschluss, Zwischen)}
 
 
 #Abgang Quali:HS/RS/Erw/-
@@ -258,14 +303,19 @@ def xxx():
     data['SCHOOLBIG'] = school_name.upper()
     data['SCHOOL'] = school_name
     data['SCHOOLYEAR'] = print_schoolyear(self.schoolyear)
+    data['issued_d'] = grades.ISSUE_D
     data['ISSUE_D'] = Dates.print_date(grades.ISSUE_D)
     data['ZEUGNIS'] = self.NAME.upper()
     data['Zeugnis'] = self.NAME
     data['LEVEL'] = LEVEL_TEXT[grades.LEVEL] # or grades['LEVEL']?
     data['CLASS'] = grades.CLASS
     data['COMMENT'] = ""
+# Field NOCOMMENT should be handled by the template manager, according
+# to whether field COMMENT is empty.
     data['NOCOMMENT'] = "––––––––––"
     data['CYEAR'] = class_year(grades.CLASS)
+# Field GSVERMERK should be handled by the template manager, according
+# to whether field GS is empty.
     data['GSVERMERK'] = ""      # can be "Gleichstellungsvermerk"
     data['GS'] = ""             # from GS_TEXT, if appropriate
 
