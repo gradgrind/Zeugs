@@ -4,7 +4,7 @@
 """
 grades/makereports.py
 
-Last updated:  2020-10-26
+Last updated:  2020-10-28
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -44,6 +44,10 @@ if __name__ == '__main__':
     sys.path[0] = os.path.dirname(this)
 
 ## Messages
+_NO_REPORT_TYPE = "Kein Zeugnistyp für Schüler {pid}"
+
+
+
 _NO_ISSUE_DATE = "Kein Ausstellungsdatum für Klasse {cs}"
 _NO_GRADES_DATE = "Kein Notendatum (Notenkonferenz) für Klasse {cs}"
 _INVALID_TERM_GROUP = "Keine Notenzeugnis-Vorlage für Klasse {cs}, Anlass {term}"
@@ -77,58 +81,103 @@ _BAD_DATE_GROUP = "Gruppe {group} ist keine Zeugnisgruppe"
 _TOO_MANY_SUBJECTS = ("Zu wenig Platz für Fachgruppe {group} in Vorlage:"
         "\n  {template}\n  {pname}: {sids}")
 
-from types import SimpleNamespace
+#from types import SimpleNamespace
 
 from core.base import Dates
 from core.pupils import Pupils
-from core.db import DB
-from local.base_config import print_schoolyear
-from local.grade_config import (GradeConfigError, cs_split,
-        REPORT_TYPES, GRADE_REPORT_TERM,
-        GRADE_REPORT_TEMPLATE, print_level, print_title, print_year,
-        NO_SUBJECT
-)
-from local.grade_functions import GradeError, Manager
-from grades.gradetable import GradeGroup, GradeData#, getGrades, gradeMap
-from template_engine.template_sub import Template
+from local.grade_template import REPORT_TYPES
+from grades.gradetable import Grades, GradeTableError
 
-#?
-def get_template(class_stream, report_type = None):
-    """If <report_type> is supplied, return the corresponding template
-    file (name).
-    Otherwise return a list of (report type, template name) tuples for
-    the given class/group.
-    """
-    rtlist = GRADE_REPORT_TEMPLATE.get(class_stream)
-    if not rtlist:
-        klass, stream = cs_split(class_stream)
-        if stream:
-            rtlist = GRADE_REPORT_TEMPLATE.get(klass)
-        if not rtlist:
-            rtlist = GRADE_REPORT_TEMPLATE['*']
-    if report_type:
-        for rtype, tfile in rtlist:
-            if rtype == report_type:
-                return tfile
-        raise GradeConfigError(_NO_GRADE_TEMPLATE.format(cs = class_stream,
-                rtype = report_type))
-    return rtlist
-
-###
-
+#from core.db import DB
+#from local.base_config import print_schoolyear
+#from local.grade_config import (GradeConfigError, cs_split,
+#        REPORT_TYPES, GRADE_REPORT_TERM,
+#        GRADE_REPORT_TEMPLATE, print_level, print_title, print_year,
+#        NO_SUBJECT
+#)
+#from local.grade_functions import GradeError, Manager
 
 def makeReports(schoolyear, term, group, pids = None):
-    """Generate a single file containing grade reports for a group of
-    pupils. The group is supplied as <group>, which can be a class
-    name or a class name with a group tag (e.g. '12.G').
+    """Generate the grade reports for the given group of pupils.
+    The group can be a class name or a class name with a group tag
+    (e.g. '12.G') – the valid groups are specified (possibly dependant
+    on the term – in the 'grade_config' module.
     A subset of the group can be chosen by passing a list of pupil-ids
     as <pids>.
     The grade information is extracted from the database for the given
     school-year and "term".
-    If double-sided printing is to be done, some care will be necessary
-    with the template design and processing to ensure that empty pages
-    are inserted as necessary.
+    The resulting pdfs will be combined into a single pdf-file for each
+    report type. If the reports are double-sided, empty pages can be
+    added as necessary.
     """
+    ### Fetch grade data and split according to report type
+    greport_type = {}
+    for gdata in Grades.forGroupTerm(schoolyear, term, group):
+        if pids and (gdata['PID'] not in pids):
+            continue
+        rtype = gdata['REPORT_TYPE']
+        try:
+            greport_type[rtype].append(gdata)
+        except KeyError:
+            greport_type[rtype] = [gdata]
+
+    ### Pupil data
+    pupils = Pupils(schoolyear)
+    # The individual pupil data can be fetched using pupils[pid].
+    # Fetching the whole class may not be good enough, as it is vaguely
+    # possible that a pupil has changed class.
+
+    ### Get the template and build reports for each report type separately
+    for rtype, gdatalist in greport_type.items():
+        try:
+            GradeTemplate = REPORT_TYPES[rtype]
+        except KeyError as e:
+            if rtype:
+                raise Bug("Invalid report type for pupil %s: %s" %
+                        (gdata['PID'], rtype)) from e
+            raise GradeTableError(_NO_REPORT_TYPE.format(
+                    pid = gdata['PID'])) from e
+        gTemplate = GradeTemplate(group, term)
+
+        ## Build the data mappings and generate the reports
+        gmap = {}
+        for gdata in gdatalist:
+            pid = gdata['PID']
+            # Get pupil data, an <sqlite3.Row> instance
+            pdata = pupils[pid]
+# could just do gmap[k] = pdata[k] or '' and later substitute all dates?
+            for k in pdata.keys():
+                v = pdata[k]
+                if v:
+                    if k.endswith('_D'):
+                        v = Dates.print_date(v)
+                else:
+                    v = ''
+                gmap[k] = v
+            # Grade parameters, from <Grade> instance
+#TODO: copy explicitly?
+            # Process the grades themselves ...
+            raw_grades = gdata.get_raw_grades()
+
+            # ... add composites
+            # ... sort into grade groups
+            #
+# Testing ...
+        return gmap
+
+
+
+
+# grade parameters (convert dates)
+# grades: basic + composites -> grade groups
+# school data
+
+# call gTemplate.make_pdf(self, data_list, working_dir = ???)
+
+
+
+
+
 #TODO
     data = SimpleNamespace()
     data.class_stream = class_stream
@@ -385,6 +434,7 @@ def sort_grades(tags, gman):
         _sidlist = sidlist.copy()
         for i in sorted(indexes, reverse = True):
             for s in _sidlist:
+                pass
 #???
 
 
@@ -434,6 +484,31 @@ def sort_grades(tags, gman):
 # The meaning can vary according to year and stream.
 
 
+
+
+#?
+def get_template(class_stream, report_type = None):
+    """If <report_type> is supplied, return the corresponding template
+    file (name).
+    Otherwise return a list of (report type, template name) tuples for
+    the given class/group.
+    """
+    rtlist = GRADE_REPORT_TEMPLATE.get(class_stream)
+    if not rtlist:
+        klass, stream = cs_split(class_stream)
+        if stream:
+            rtlist = GRADE_REPORT_TEMPLATE.get(klass)
+        if not rtlist:
+            rtlist = GRADE_REPORT_TEMPLATE['*']
+    if report_type:
+        for rtype, tfile in rtlist:
+            if rtype == report_type:
+                return tfile
+        raise GradeConfigError(_NO_GRADE_TEMPLATE.format(cs = class_stream,
+                rtype = report_type))
+    return rtlist
+
+###
 
 
 class GradeReports:
@@ -800,9 +875,16 @@ if __name__ == '__main__':
     from core.base import init
     init('TESTDATA')
 
-    _class_stream = '11'
+    _group = '12.R'
     _term = '2'
     _grades_date = '2016-06-06'
+
+    r = makeReports(_year, _term, _group)
+    print(" -->", r)
+    quit(0)
+
+
+
 
     dbconn = DB(_year)
     with dbconn:

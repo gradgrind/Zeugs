@@ -4,7 +4,7 @@
 """
 local/grade_template.py
 
-Last updated:  2020-10-27
+Last updated:  2020-10-28
 
 Manage templates for grade reports.
 
@@ -82,11 +82,15 @@ def todo():
             os.makedirs(odt_dir, exist_ok = True)
 
 
+# Although most of the template classes specify DOUBLE_SIDED (via the
+# default value in the <Template> class), this should normally not be
+# necessary because the templates are (mostly) fixed with two pages.
 
 class Orientierung(Template):
     NAME = 'Orientierungsnoten'
     TAG = 'Orientierung'
     GROUPS = ('V', 'K')
+    DOUBLE_SIDED = False
 #
     def __init__(self, group, term):
         if group >= '12' or (group >= '11' and term != '1'):
@@ -120,7 +124,7 @@ class Zeugnis(Template):
         self.FILES_PATH = GradeBase.grade_path(term)
         self._term = term
         self._group = group
-        super().__init__(grades, t)
+        super().__init__(t)
 
 
 class Abschluss(Template):
@@ -133,7 +137,7 @@ class Abschluss(Template):
             self.FILES_PATH = GradeBase.grade_path(term)
             self._term = term
             self._group = group
-            super().__init__(grades, 'grades-SekI-Abschluss')
+            super().__init__('grades-SekI-Abschluss')
         else:
             raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
 

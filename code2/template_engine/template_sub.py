@@ -43,9 +43,6 @@ LIBREOFFICE = 'libreoffice'     # external program (command to run)
 _MISSING_PDFS = "pdf-Erstellung schlug fehl:\n  von {spath}\n  nach {dpath}"
 _MISSING_PDF = "pdf-Erstellung schlug fehl: {fpath}"
 
-
-
-
 ### Paths:
 _Grades_Single = 'Notenzeugnisse/Einzeln'
 _Grades_Term = 'Notenzeugnisse/HJ%s'
@@ -137,7 +134,8 @@ class Template:
     The method <all_keys> returns a <set> of all field names from the
     template.
     """
-    TAG = "___"     # This should be overridden in a subclass.
+    TAG = "___"         # This should be overridden in a subclass.
+    DOUBLE_SIDED = True # This can be overridden in a subclass.
 #
     def __init__(self, template_file):
         """<template_file> is the path to the template file (without the
@@ -147,14 +145,10 @@ class Template:
                 *(template_file + '.odt').split('/'))
 #
     def all_keys(self):
-        return OdtFields.listUserFields(self.template_path)
+        return {k for k,s in OdtFields.listUserFields(self.template_path)}
 #
 
-#TODO: possible blank pages for double-sided printing?
-
-
-#TODO: "Single" reports must be handled differently! -> make_pdf1
-# possibly pass schoolyear as parameter?
+#TODO: possibly pass schoolyear as parameter?
     def make_pdf(self, data_list, working_dir = None):
         """From the supplied list of data mappings produce a pdf
         containing the concatenated individual reports.
@@ -197,14 +191,11 @@ class Template:
                     dpath = pdf_dir))
 # Maybe there's output from libreoffice somewhere?
 
-#TODO: Concatenate the pdf-files – possibly padding with empty pages –
-# to build the final result.
-        print("TODO: Template.make_pdf")
-
-# Get pad2sided from the template data ... (single-sided documents
-# should not be padded!). It could be that the templates always have
-# the correct number of pages – at least for the grade forms.
-        pdf_bytes = merge_pdf([], pad2sided = False)
+        # Concatenate the pdf-files – possibly padding with empty pages –
+        # to build the final result.
+        # Get pad2sided from the template data (single-sided documents
+        # should not be padded!).
+        pdf_bytes = merge_pdf([], pad2sided = self.DOUBLE_SIDED)
         # If a working folder is provided, store the result in it
         pdf_file = dir_name + '.pdf'
         with open(os.path.join(wdir, pdf_file), 'wb') as fout:
@@ -222,8 +213,6 @@ class Template:
 #                                         – 12.G_Zeugnis.pdf
 #                                   – <Single> – Behrens_Fritz_2016-03-12_Zwischen.odt
 #                                              – Behrens_Fritz_2016-03-12_Zwischen.pdf
-
-# map type to template file ...
 
     def make_pdf1(self, datamap, working_dir = None):
         """From the supplied data mapping produce a pdf of the
@@ -275,7 +264,6 @@ if __name__ == '__main__':
 #            fout.write(bfile)
 #    quit(0)
 
-#TODO
     sdict0 = {
         'SCHOOL': 'Freie Michaelschule',
         'SCHOOLBIG': 'FREIE MICHAELSCHULE',

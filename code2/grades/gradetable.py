@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-10-27
+grades/gradetable.py - last updated 2020-10-28
 
 Access grade data, read and build grade tables.
 
@@ -44,7 +44,9 @@ _TID = 'Kürzel'
 # style? Include tags?
 # In any case, the xmlescape would have to be overridden ...
 
-# Messages
+### Messages
+
+
 _TID_MISMATCH = ("Unerwartete Lehrkraft in Tabellendatei:\n"
         "    erwartet – {arg} / in Tabelle – {tid}\n  Datei: {fpath}")
 
@@ -79,7 +81,7 @@ if __name__ == '__main__':
 from core.base import str2list
 from core.db import DB
 from tables.spreadsheet import Spreadsheet, DBtable
-#from local.grade_config import UNCHOSEN
+from local.grade_config import GradeBase#, UNCHOSEN
 
 #from wz_core.configuration import Paths, Dates
 #from wz_core.db import DBT
@@ -88,6 +90,67 @@ from tables.spreadsheet import Spreadsheet, DBtable
 #from wz_table.matrix import KlassMatrix
 #from wz_compat.grade_classes import gradeGroups, validTermTag
 #from .gradedata import GradeData, CurrentTerm
+
+class GradeTableError(Exception):
+    pass
+
+
+#TODO: The question is: how to handle the grade scale, etc. I can base it
+# on the group, if a group is given, but for single reports I may have
+# no group – it would then have to be based on class/stream.
+class Grades(GradeBase):
+    @classmethod
+    def forGroupTerm(cls, schoolyear, term, group):
+        """Return a list of <Grades> instances for the given group and term.
+        This is not intended for 'Single' reports.
+        """
+        klass, streams = cls.group2klass_streams(group)
+        with DB(schoolyear) as dbconn:
+            rows = dbconn.select('GRADES', CLASS = klass, TERM = term)
+        if streams:
+            return [cls(row) for row in rows if row['STREAM'] in streams]
+        else:
+            return [cls(row) for row in rows]
+#
+# Do I need the school-year?
+    def __init__(self, grade_row):
+        self.grade_row = grade_row
+        super().__init__(grade_row)
+        self._grades = None
+        self._sid2tid = None
+#
+    def __getitem__(self, key):
+        return self.grade_row[key]
+#
+    def get_raw_grades(self):
+        """Return the mapping {sid -> grade} for the "real" grades.
+        """
+        if self._grades == None:
+            self._grades = {}
+            self._sid2tid = {}
+            self.empty_grades = []
+            for sg in str2list(self._gradedata):
+                sid, g, tid = sg.split(':')
+                self._grades[sid] = self.filter_grade(sid, g)
+                self._sid2tid[sid] = tid
+        return self._grades
+#
+    def sid2tid(self, sid):
+        """Return the tag for the teacher who graded the given subject.
+        """
+        while True:
+            try:
+                return self._sid2tid[sid]
+            except KeyError as e:
+                raise Bug("Unknown subject key: %s" % sid) from e
+            except TypeError:
+                self.grades()   # Ensure cache is loaded
+#
+
+
+
+
+#==========================================
 
 def getGrades(schoolyear, pid, term = None):
     """Get the grade entry for the given year, term and pupil.
@@ -180,9 +243,6 @@ class GradeGroup(GradeBase):
 
 
 #######################################################
-
-class GradeTableError(Exception):
-    pass
 
 class GradeTable(dict):
     def __init__(self, filepath, tid = None):

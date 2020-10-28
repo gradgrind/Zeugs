@@ -4,14 +4,16 @@
 """
 local/grade_config.py
 
-Last updated:  2020-10-26
+Last updated:  2020-10-28
 
 Configuration for grade handling.
 ====================================
 """
 
 ### Messages
-_INVALID_GRADE = "Ungültige Note: {grade}"
+_BAD_GRADE = "Ungültige \"Note\" im Fach {sid}: {g}"
+
+_INVALID_GRADE = "Ungültige \"Note\": {grade}"
 _BAD_GROUP = "Ungültige Schülergruppe: {group}"
 _NO_QUALIFICATION = "Kein Abschluss erreicht"
 
@@ -35,8 +37,32 @@ STREAMS = {
 #    'FS': 'Förderschule',
 #    'GS': 'Grundschule'
 }
-#
 
+
+# Localized field names.
+# This also determines the fields for the GRADES table.
+GRADES_FIELDS = {
+    'PID'       : 'ID',
+    'CLASS'     : 'Klasse',
+    'STREAM'    : 'Maßstab',    # Grading level, etc.
+    'TERM'      : 'Anlass',     # Term/Category
+    'GRADES'    : 'Noten',
+    'REPORT_TYPE': 'Zeugnistyp',
+    'ISSUE_D'   : 'Ausstellungsdatum',
+    'GRADES_D'  : 'Notenkonferenz',
+    'QUALI'     : 'Qualifikation',
+    'COMMENTS'  : 'Bemerkungen'
+}
+#
+DB_TABLES['GRADES'] = GRADES_FIELDS
+DB_TABLES['__INDEX__']['GRADES'] = (('PID', 'TERM'),)
+
+
+class GradeConfigError(Exception):
+    pass
+
+class GradeError(Exception):
+    pass
 
 def all_streams(klass):
     """Return a list of streams available in the given class.
@@ -63,6 +89,10 @@ def all_streams(klass):
 
 ### Grade handling
 class GradeBase:
+    """The base class for grade handling. It provides information
+    specific to the locality. A subclass handles the set of
+    grades for a particular report for a pupil in a more general way.
+    """
     _CATEGORIES = (
         # term/category-tag, text version, relative path to files
         ('1', '1. Halbjahr', 'NOTEN/HJ1'),
@@ -141,19 +171,40 @@ class GradeBase:
             # Whole class
             return (group, ())
         try:
-            return (klass, cls.GROUP_STREAMS[klass][g])
+            return (klass, cls._GROUP_STREAMS[klass][g])
         except KeyError as e:
             raise GradeConfigError(_BAD_GROUP.format(group = group)) from e
 #
-    def __init__(self, group):
-        self.group = group
-        self.klass, self.streams = self.group2klass_streams(group)
-        if group in ('13', '12.G'):
+    def __init__(self, grade_row):
+        klass, stream = grade_row['CLASS'], grade_row['STREAM']
+        self.i_grade = {}
+        if klass >= '12' and stream == 'Gym':
             self.valid_grades = self._ABITUR_GRADES
             self.isAbitur = True
         else:
             self.valid_grades = self._NORMAL_GRADES
             self.isAbitur = False
+#
+    def filter_grade(self, sid, g):
+        """Return the possibly filtered grade <g> for the subject <sid>.
+        Integer values are stored additionally in the mapping
+        <self.i_grade> (only for subjects with numerical grades).
+        """
+        # There can be normal, empty, non-numeric and badly-formed grades
+        if g:
+            if g not in self.valid_grades:
+                raise GradeError(_BAD_GRADE.format(sid = sid, g = g)
+            # Separate out numeric grades, ignoring '+' and '-'.
+            # This can also be used for the Abitur scale, though the
+            # stripping is superfluous.
+            try:
+                self.i_grade[sid] = int(g.rstrip('+-'))
+            except ValueError:
+                pass
+        else:
+            g = ''  # ensure that the grade is a <str>
+        self._grades[sid] = g
+
 #?
     def printGrade(self, grade):
         """Fetch the grade for the given subject id and return the
@@ -193,24 +244,6 @@ class GradeBase:
             if cat[0] == term:
                 return cat[2]
         raise Bug("Bad category/type: %s" % term)
-#
-# Localized field names.
-# This also determines the fields for the GRADES table.
-GRADES_FIELDS = {
-    'PID'       : 'ID',
-    'CLASS'     : 'Klasse',
-    'STREAM'    : 'Maßstab',    # Grading level, etc.
-    'TERM'      : 'Anlass',     # Term/Category
-    'GRADES'    : 'Noten',
-    'REPORT_TYPE': 'Zeugnistyp',
-    'ISSUE_D'   : 'Ausstellungsdatum',
-    'GRADES_D'  : 'Notenkonferenz',
-    'QUALI'     : 'Qualifikation',
-    'COMMENTS'  : 'Bemerkungen'
-}
-#
-DB_TABLES['GRADES'] = GRADES_FIELDS
-DB_TABLES['__INDEX__']['GRADES'] = (('PID', 'TERM'),)
 
 ###
 
@@ -426,5 +459,3 @@ def cs_join(klass, stream = None):
     return klass
 ########
 
-class GradeConfigError(Exception):
-    pass
