@@ -4,7 +4,7 @@
 """
 template_engine/template_sub.py
 
-Last updated:  2020-10-27
+Last updated:  2020-10-30
 
 Manage the substitution of "special" fields in an odt template.
 
@@ -141,6 +141,7 @@ class Template:
         """<template_file> is the path to the template file (without the
         type-suffix), relative to the templates folder.
         """
+        self.template_file = template_file
         self.template_path = os.path.join(RESOURCES, 'templates',
                 *(template_file + '.odt').split('/'))
 #

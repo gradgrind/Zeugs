@@ -4,7 +4,7 @@
 """
 grades/makereports.py
 
-Last updated:  2020-10-28
+Last updated:  2020-11-02
 
 Generate the grade reports for a given class/stream.
 Fields in template files are replaced by the report information.
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     sys.path[0] = os.path.dirname(this)
 
 ## Messages
-_NO_REPORT_TYPE = "Kein Zeugnistyp für Schüler {pid}"
+_NO_REPORT_TYPE = "Kein Zeugnistyp für Schüler {pids}"
 
 
 
@@ -85,6 +85,7 @@ _TOO_MANY_SUBJECTS = ("Zu wenig Platz für Fachgruppe {group} in Vorlage:"
 
 from core.base import Dates
 from core.pupils import Pupils
+from local.base_config import SCHOOL_NAME, class_year, print_schoolyear
 from local.grade_template import REPORT_TYPES
 from grades.gradetable import Grades, GradeTableError
 
@@ -96,6 +97,53 @@ from grades.gradetable import Grades, GradeTableError
 #        NO_SUBJECT
 #)
 #from local.grade_functions import GradeError, Manager
+
+# !!! Should I rather omit the group filtering of the subjects?
+# It is rather complicated and still somewhat limited. The simplification
+# which could be achieved by removing it could make the whole thing a
+# bit more accessible. The basic question is, how much should be
+# automated and how much should the operator be expected to do? All sorts
+# of things could be automated, checked, calculated, an so on, but at
+# what cost in terms of implementation complexity? I suspect it is not
+# really worth it.
+# This thing with subject list filtering could be better off in the
+# hands of the operator ...
+
+# There is also the question of choosing the grade scale and the template.
+# This can be left up to the local grade configuration.
+# So: retain the groups for grade reports, dump the subject selection based
+# on grades. If the subjects diverge a lot between two groups in the same
+# class, one could (perhaps?) split the class for the reports ... (not
+# likely in a Waldorf school). Or ... have a separate mechanism for
+# determining relevant subjects.
+
+#LOOK at single reports – the template subclasses take a GROUP as
+# parameter, which a single pupil can't (or at least shouldn't need to)
+# provide.
+
+#TODO: Does this handle Abitur reports?
+def makeReport1(schoolyear, term_date, pid):
+    """Generate the grade report for the given pupil.
+    The grade information is extracted from the database for the given
+    school-year and "term". In the case of a "non-scheduled" report,
+    the date (YYYY-MM-DD) is passed instead of the term.
+    A pdf-file is produced.
+    """
+    ### Fetch grade data
+    gdata = Grades.forPupil(schoolyear, term_date, pid)
+
+    ### Get the report type
+    rtype = gdata['REPORT_TYPE']
+    if not rtype:
+        raise GradeTableError(_NO_REPORT_TYPE.format(pids = pid))
+
+    ### Get the grade group and build the report
+    # The templates are selected according to pupil-group, so this must
+    # be determined, based on the pupil's stream.
+    group = Grades.klass_stream2group(gdata['CLASS'], gdata['STREAM'])
+    buildReports(schoolyear, rtype, group, [gdata])
+
+###
 
 def makeReports(schoolyear, term, group, pids = None):
     """Generate the grade reports for the given group of pupils.
@@ -112,174 +160,129 @@ def makeReports(schoolyear, term, group, pids = None):
     """
     ### Fetch grade data and split according to report type
     greport_type = {}
+    no_report_type = []
     for gdata in Grades.forGroupTerm(schoolyear, term, group):
+        # <forGroupTerm> accepts only valid grade-groups.
+        # Check pupil filter, <pids>:
         if pids and (gdata['PID'] not in pids):
             continue
         rtype = gdata['REPORT_TYPE']
-        try:
-            greport_type[rtype].append(gdata)
-        except KeyError:
-            greport_type[rtype] = [gdata]
+        if rtype:
+            try:
+                greport_type[rtype].append(gdata)
+            except KeyError:
+                greport_type[rtype] = [gdata]
+        else:
+            no_report_type.append(gdata['PID'])
+    if no_report_type:
+        raise GradeTableError(_NO_REPORT_TYPE.format(
+                pids = ', '.join(no_report_type)))
 
+    ### Build reports for each report-type separately
+    for rtype, gdatalist in greport_type.items():
+        buildReports(schoolyear, rtype, group, gdata_list)
+
+###
+
+def buildReports(schoolyear, rtype, group, gdata_list):
+    """
+    """
     ### Pupil data
     pupils = Pupils(schoolyear)
     # The individual pupil data can be fetched using pupils[pid].
     # Fetching the whole class may not be good enough, as it is vaguely
     # possible that a pupil has changed class.
 
-    ### Get the template and build reports for each report type separately
-    for rtype, gdatalist in greport_type.items():
-        try:
-            GradeTemplate = REPORT_TYPES[rtype]
-        except KeyError as e:
-            if rtype:
-                raise Bug("Invalid report type for pupil %s: %s" %
-                        (gdata['PID'], rtype)) from e
-            raise GradeTableError(_NO_REPORT_TYPE.format(
-                    pid = gdata['PID'])) from e
-        gTemplate = GradeTemplate(group, term)
+    ### Subject data (for whole class)
+    courses = Subjects(schoolyear)
+#TODO: Does this really need to be a mapping? would a list be ok/better?
+    sdata_map = courses.grade_subjects(klass)
 
-        ## Build the data mappings and generate the reports
+    ### Grade report template
+    try:
+        GradeTemplate = REPORT_TYPES[rtype]
+    except KeyError as e:
+        raise Bug("Invalid report type for group %s: %s" %
+                (group, rtype)) from e
+    gTemplate = GradeTemplate(group, term)
+
+    ## Build the data mappings and generate the reports
+    for gdata in gdata_list:
         gmap = {}
-        for gdata in gdatalist:
-            pid = gdata['PID']
-            # Get pupil data, an <sqlite3.Row> instance
-            pdata = pupils[pid]
+        pid = gdata['PID']
+        # Get pupil data, an <sqlite3.Row> instance
+        pdata = pupils[pid]
 # could just do gmap[k] = pdata[k] or '' and later substitute all dates?
-            for k in pdata.keys():
-                v = pdata[k]
-                if v:
-                    if k.endswith('_D'):
-                        v = Dates.print_date(v)
-                else:
-                    v = ''
-                gmap[k] = v
-            # Grade parameters, from <Grade> instance
-#TODO: copy explicitly?
-            # Process the grades themselves ...
-            raw_grades = gdata.get_raw_grades()
+        for k in pdata.keys():
+            v = pdata[k]
+            if v:
+                if k.endswith('_D'):
+                    v = Dates.print_date(v)
+            else:
+                v = ''
+            gmap[k] = v
+        # Grade parameters, from <Grade> instance
+        for field in ('CLASS', 'STREAM', 'TERM', 'REPORT_TYPE',
+                'QUALI', 'COMMENT'):
+            # The CLASS and STREAM fields overwrite those from the
+            # pupil – they could differ ...
+            gmap[field] = gdata[field]
+        gmap['CYEAR'] = class_year(gmap['CLASS'])
+        gmap['issued_d'] = gdata['ISSUE_D']     # for file-names
+        gmap['ISSUE_D'] = Dates.print_date(gdata['ISSUE_D'])
+        gmap['GRADES_D'] = Dates.print_date(gdata['GRADES_D'])
 
-            # ... add composites
-            # ... sort into grade groups
-            #
+
+        ### Process the grades themselves ...
+
+        # ... add composites
+#?
+        grades = gdata.get_full_grades(sdata_map)
+        # ... sort into grade groups
+        #
+
+
+        ### Add general data
+        gmap['SCHOOL'] = SCHOOL_NAME
+        gmap['SCHOOLBIG'] = SCHOOL_NAME.upper()
+        gmap['schoolyear'] = str(schoolyear)
+        gmap['SCHOOLYEAR'] = print_schoolyear(schoolyear)
+        gmap['Zeugnis'] = gTemplate.NAME
+        gmap['ZEUGNIS'] = gTemplate.NAME.upper()
+        # Add local stuff
+        gTemplate.quali(gmap)
+
+        stream = gdata['STREAM']
+        gmap['LEVEL'] = STREAMS[stream] # SekI, not 'Abschluss'
+
+
+# call gTemplate.make_pdf(self, data_list, working_dir = ???)
+
+
 # Testing ...
         return gmap
 
 
 
 
-# grade parameters (convert dates)
-# grades: basic + composites -> grade groups
-# school data
-
-# call gTemplate.make_pdf(self, data_list, working_dir = ???)
 
 
 
-
-
-#TODO
-    data = SimpleNamespace()
-    data.class_stream = class_stream
-    data.klass, data.stream = cs_split(class_stream)
-    data.schoolyear = schoolyear
-    data.term = term
-#?    data.category = term
-#?
-    data.pupils = Pupils(schoolyear)
-#?
-    data.dmap = {}
-
-
-    gdata_map = {}
-    grade_group = GradeGroup(schoolyear, group, term)
-    for gdata_row in grade_group.gdata_list():
-        gdata = GradeData(gdata_row)
-        rtype = gdata.report_type
-        try:
-            gdata_map[rtype].append(gdata)
-        except KeyError:
-            gdata_map[rtype] = [gdata]
+    return
 
 
 
 
 
 
-    try:
-        data.report_type = GRADE_REPORT_TERM[occasion][class_stream][0]
-    except KeyError as e:
-        raise GradeConfigError(_INVALID_TERM_GROUP.format(
-                term = occasion, cs = class_stream)) from e
-    data.dmap = {'REPORT': REPORT_TYPES[data.report_type]}
+######################?????
 
-    dbconn = DB(schoolyear)
-    with dbconn:
-        row = dbconn.select1('OCCASION_INFO',
-                OCCASION = occasion, INFO = 'ISSUE_D-' + class_stream)
-        if row:
-            issue_date = row['VALUE']
-            data.dmap['ISSUE_D'] = issue_date
-        else:
-            raise GradeConfigError(_NO_ISSUE_DATE.format(cs = class_stream))
 
-        row = dbconn.select1('OCCASION_INFO',
-                OCCASION = occasion, INFO = 'GRADES_D-' + class_stream)
-        if row:
-            data.dmap['GRADES_D'] = row['VALUE']
-        else:
-            raise GradeConfigError(_NO_GRADES_DATE.format(cs = class_stream))
 
-#  Other items depending on locality, etc.?
 
-    # Get template
-    data.template = Template(get_template(class_stream, data.report_type))
-    # Get pupils' data
-    pdata_list = data.pupils.classPupils(data.klass, data.stream,
-            issue_date)
-    if pids:
-        pid_set = set(pids)
-        pltemp = pdata_list
-        pdata_list = []
-        for pdata in pltemp:
-            try:
-                pid_set.remove(pdata['PID'])
-            except KeyError:
-                # Don't include this pupil
-                continue
-            pdata_list.append(pdata)
-        fail_list = [data.pupils.pid2name(pid) for pid in pid_set]
-        if fail_list:
-            raise Bug(_PUPILS_NOT_IN_CLASS_STREAM.format(
-                    group = data.class_stream,
-                    names = ', '.join(fail_list)))
-    data.plist = []
-    for pdata in pdata_list:
-        # Get grades
-        grades = getGrades(data.schoolyear, pdata['PID'], data.occasion)
-        if not grades:
-            raise GradeError(_NO_GRADES_TERM.format(
-                    name = data.pupils.pdata2name(pdata)))
-        # Check for already "finalised" grades. This assumes that the
-        # ISSUE_D, GRADES_D (and COMMENTS) fields are all set at the same
-        # time as REPORT_TYPE.
-        if grades['REPORT_TYPE']:
-            raise GradeError(_GRADES_FINALISED.format(
-                    name = data.pupils.pdata2name(pdata)))
-        # Check that class and stream of pupil match the <data> versions
-        data.gstream = grades['STREAM']
-        if grades['CLASS'] == data.klass:
-            if (not data.stream) or data.gstream == data.stream:
-                # Include pupil
-                data.plist.append((pdata,
-                        Manager(data.schoolyear, data.klass,
-                                data.stream, gradeMap(grades))))
-                continue
-        csgrades = cs_join(grades['CLASS'], data.gstream)
-        raise GradeError(_GRADE_WRONG_CLASS_STREAM.format(
-                name = data.pupils.pdata2name(pdata),
-                cs = data.class_stream, csn = csgrades))
-    return _build(data)
+
+
+
 
 ###
 
@@ -334,7 +337,7 @@ def _build(data):
 
 
 def group_grades(allkeys):
-    """Determin the subjects and grade slots in the template.
+    """Determine the subjects and grade slots in the template.
     """
 #    G_REGEXP = re.compile(r'G\.([A-Za-z]+)\.([0-9]+)$')
     tags = {}
@@ -486,161 +489,12 @@ def sort_grades(tags, gman):
 
 
 
-#?
-def get_template(class_stream, report_type = None):
-    """If <report_type> is supplied, return the corresponding template
-    file (name).
-    Otherwise return a list of (report type, template name) tuples for
-    the given class/group.
-    """
-    rtlist = GRADE_REPORT_TEMPLATE.get(class_stream)
-    if not rtlist:
-        klass, stream = cs_split(class_stream)
-        if stream:
-            rtlist = GRADE_REPORT_TEMPLATE.get(klass)
-        if not rtlist:
-            rtlist = GRADE_REPORT_TEMPLATE['*']
-    if report_type:
-        for rtype, tfile in rtlist:
-            if rtype == report_type:
-                return tfile
-        raise GradeConfigError(_NO_GRADE_TEMPLATE.format(cs = class_stream,
-                rtype = report_type))
-    return rtlist
-
-###
-
-
-class GradeReports:
-
-#    def selectTemplates(self):
-#        """Fetch a list of possible report types and the associated template
-#        name based on the class/group and term.
-#
-#??
-#        If term is <None>, the types available for "irregular" reports (not
-#        at the end of a term) are returned.
-#        <class_stream> may just be a class, but it may also have a stream tag.
-#        There must be a matching entry in the configuration module.
-#        Return a list of tuples:
-#            [(report type, template name), ...].
-#        The first entry is the default.
-#        """
-#        if term:
-#            try:
-#                return GRADE_REPORT_TERM[self.term][self.class_stream]
-#            except KeyError:
-#                pass
-#            # If <class_stream> includes a stream, try just the class
-#            if self.stream:
-#                try:
-#                    return GRADE_REPORT_TERM[self.term][self.klass]
-#                except KeyError:
-#                    pass
-#            raise GradeConfigError(_BAD_TERM_GROUP.format(
-#                    term = self.term, group = self.class_stream))
-#        else:
-#            try:
-#                return GRADE_REPORT_ANYTIME[self.class_stream]
-#            except KeyError:
-#                pass
-#            # If <class_stream> includes a stream, try just the class
-#            if self.stream:
-#                try:
-#                    return GRADE_REPORT_ANYTIME[self.klass]
-#                except KeyError:
-#                    pass
-#            return GRADE_REPORT_ANYTIME['*']
-
-
-    def makeOneReport(self, schoolyear, pid, term_or_date):
-        """Generate a file containing the grade report for the given pupil.
-        <schoolyear> and <term_or_date> determine which grade entry in the
-        database should be used.
-        <term_or_date> can be either a term or the date-of-issue.
-        """
-        self.schoolyear = schoolyear
-        self.pupils = Pupils(schoolyear)
-        # First try to find grades assuming <term_or_date> is a term
-        grades = getGrades(schoolyear, pid, term_or_date)
-        if not grades:
-            # Otherwise assume it is a date
-            for grades in getGrades(schoolyear, pid):
-                if grades['ISSUE_D'] == term_or_date:
-                    break
-            else:
-                raise GradeError(_NO_GRADES_ENTRY.format(
-                        name = self.pupils.pid2name(pid), date = term_or_date))
-        pdata = self.pupils[pid]
-
-        self.issue_date = grades['ISSUE_D']
-        self.term = grades['TERM']
-        self.grades_date = grades['GRADES_D']
-
-        # Get template
-        self.klass = grades['CLASS']
-        self.stream = grades['STREAM']
-        self.class_stream = self.klass
-        if self.stream:
-            self.class_stream += '.' + self.stream
-        for rt, self.template_name in selectTemplates():
-            if rt == self.report_type:
-                break
-        else:
-            raise GradeConfigError(_NO_TEMPLATE.format(
-                    group = self.class_stream, term = self.term,
-                    rtype = self.report_type))
-        gmap = gradeMap(grades)
-        pdata.grades = Manager(self.schoolyear, self.klass,
-                self.stream, gmap)
-        self.pdata_list = [pdata]
-        return self.build()
-
-###
-
-
 #TODO: grades
 # The grades should be supplied as a list of pupil-grade tuples.
 # The pupil-grade tuples should be <Dictuples>.
 # Initially these should be purely "real" grades for actual graded courses.
 # The various special fields are then obtained by processing the grades
 # (possibly in conjunction with other data).
-
-
-#TODO: do two substitutions? Firstly the individual data (reporting no
-# errors), then join all the bits together and substitute the general
-# data (with error reporting)
-        data.update(general_data)
-
-
-        # Substitute pupil data, ignore missing fields
-        texlist.append(template.substitute(data, tag='body')[0])
-        tex0 = '\n\n\\newpage\n\n'.join(texlist)
-        # Insert in frame, substitute general data
-#TODO: gather all the parameters in an info-block somehow?
-        gdata = prepareData(schoolyear, class_stream, term,
-                report_type, issuedate, fixdate)
-        tex =insert_and_substitute(gdata, ':', body=tex0)
-        return template.makepdf(tex)
-
-
-
-def prepareData(schoolyear, class_stream):
-    """This can contain region/locality-dependent code preparing the
-    information needed by the template.
-    """
-    data = {}
-
-
-    for k, v in data.items():
-        if k.endswith('.DAT'):
-            data[k] = date_conv(v)
-    # Assume the class always starts with two digits.
-#TODO: How to get <class_stream>?
-    data['Jahrgang'] = class_stream[:2]
-#TODO: <schoolyear>?
-    data['Schuljahr'] = '%d – %d' % (schoolyear - 1, schoolyear)
-    data.update(SCHOOL_DATA)
 
 
 
@@ -654,24 +508,6 @@ QUALI_VALID = { # Levels of qualification for stream and class.
             '*': ['HS', '-']}
 }
 
-
-
-#
-#def getTemplateName(class_stream, term = None, report_type = None):
-#    mapping = GRADE_REPORT_TERM[term] if term else GRADE_REPORT_ANYTIME
-#    gtemplates = mapping.get(class_stream)
-#    if not gtemplates:
-#        gtemplates = mapping.get(class_stream.split('.')[0])
-#        if not gtemplates:
-#            return None
-#    if report_type:
-#        for rtype, gtemplate in gtemplates:
-#            if report_type == rtype:
-#                return gtemplate
-#        return None
-#    else:
-#        #
-#        return gtemplates[0]
 
 
 

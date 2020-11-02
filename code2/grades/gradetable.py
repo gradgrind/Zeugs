@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-10-28
+grades/gradetable.py - last updated 2020-11-02
 
 Access grade data, read and build grade tables.
 
@@ -45,6 +45,7 @@ _TID = 'Kürzel'
 # In any case, the xmlescape would have to be overridden ...
 
 ### Messages
+_NO_GRADES_ENTRY = "Keine Noten für Schüler {pid} zum {date}"
 
 
 _TID_MISMATCH = ("Unerwartete Lehrkraft in Tabellendatei:\n"
@@ -104,13 +105,47 @@ class Grades(GradeBase):
         """Return a list of <Grades> instances for the given group and term.
         This is not intended for 'Single' reports.
         """
-        klass, streams = cls.group2klass_streams(group)
+        klass, streams = self.group2klass_streams(group)
         with DB(schoolyear) as dbconn:
             rows = dbconn.select('GRADES', CLASS = klass, TERM = term)
         if streams:
             return [cls(row) for row in rows if row['STREAM'] in streams]
         else:
             return [cls(row) for row in rows]
+#
+    @classmethod
+    def list_pupil(cls, schoolyear, pid):
+        """List all grade entries for the given pupil.
+        """
+        with DB(schoolyear) as dbconn:
+            return list(dbconn.select('GRADES', PID = pid))
+#
+    @classmethod
+    def forPupil(cls, schoolyear, term_or_date, pid):
+        """Return <Grades> instance for the given pupil and term. If
+        an unscheduled report is sought, <term_or_date> should be the
+        date (YYYY-MM-DD) of the report.
+        """
+        # Determine whether <term_or_date> is a date
+        for c, t in cls.categories():
+            if c == term_or_date:
+                # not a date
+                with DB(schoolyear) as dbconn:
+                    row = dbconn.select1('GRADES', PID = pid,
+                            TERM = term_or_date)
+                if not row:
+                    raise GradeTableError(_NO_GRADES_ENTRY.format(
+                            pid = pid, zum = t))
+                break
+        else:
+            # date
+            with DB(schoolyear) as dbconn:
+                row = dbconn.select1('GRADES', PID = pid, TERM = 'S',
+                        ISSUE_D = term_or_date)
+            if not row:
+                raise GradeTableError(_NO_GRADES_ENTRY.format(
+                        pid = pid, zum = term_or_date))
+        return cls(row)
 #
 # Do I need the school-year?
     def __init__(self, grade_row):
@@ -146,6 +181,52 @@ class Grades(GradeBase):
             except TypeError:
                 self.grades()   # Ensure cache is loaded
 #
+#TODO
+    def get_full_grades(self, sdata_map):
+        """Return the full grade mapping including for those items/subjects
+        which are determined by processing the other grades. This requires
+        the appropriate (ordered) list/map of <SubjectData> instances,
+            <sdata_map>: {sid -> <SubjectData>, ...}.
+        This mapping is already filtered for the relevant pupikl-group.
+        Further information is included as additional attributes on the
+        result mapping: <composites> {sid -> [int, ... ]} is a mapping
+        of "composite" subjects, whose grade is the average of its
+        "components"; <ngcomposites> {sid -> [str, ...]} is similar, but
+        for component "grades" which are not numerical.
+        A <SubjectData> tuple has the following fields:
+            pgroup: the tag of the pupil-group for which this subject is
+                relevant, '*' if whole class;
+            composite: if the subject is a component, this will be the
+                sid of its composite (the pupil-group must match);
+# + weighting?
+            tids: a list of teacher ids, empty if the subject is a composite;
+            report_groups: a list of tags representing a particular block
+                of grades in the report template;
+            name: the full name of the subject.
+        """
+        raw_grades = self.get_raw_grades()
+        # Process composites
+        grades = {}
+        composites = {}
+        ngcomposites = {}
+        for sid, sdata in sdata_map.items():
+            grades[sid] = raw_grades.pop(sid, '')
+
+
+
+
+
+        for sid, glist in self.composites.items():
+            if glist:
+                asum = 0
+                for g in glist:
+                    asum += g
+                g = Frac(asum, len(glist)).round()
+                self[sid] = g.zfill(self.ZPAD)
+                self.grades[sid] = int(g)
+            else:
+                self[sid] = NO_GRADE
+        self.evaluateGrades()
 
 
 

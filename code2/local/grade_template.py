@@ -4,7 +4,7 @@
 """
 local/grade_template.py
 
-Last updated:  2020-10-28
+Last updated:  2020-10-31
 
 Manage templates for grade reports.
 
@@ -27,18 +27,48 @@ Copyright 2020 Michael Towers
 =-LICENCE========================================
 """
 
+#TODO:
+#? ... this one is only for Abitur:
+#    data['FrHr'] = 'Herr' if grades.pdata['SEX'] == 'm' else 'Frau'
+
+
+
 ### Messages
 _INVALID_RTYPE = "Ungültiger Zeugnistyp: '{rtype}'"
 
 
-from local.grade_config import GradeConfigError, GradeBase
+from local.grade_config import GradeConfigError, GradeBase, STREAMS
 from template_engine.template_sub import Template
 
+VERSETZUNG_11_12 = "Durch Konferenzbeschluss vom {grades_d} in die" \
+                        " Qualifikationsphase versetzt."
+VERSETZUNG_12_13 = "Durch Konferenzbeschluss vom {grades_d} in die" \
+                        " 13. Klasse versetzt."
+QP12_TEXT = "hat den 12. Jahrgang der Qualifikationsphase vom {vom}" \
+        " bis zum {bis} besucht."
+GS_TEXT = {
+    'HS': "Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss" \
+            " gleichgestellt. Es vermittelt die gleiche Berechtigung wie" \
+            " das Zeugnis über den Sekundarabschluss I – Hauptschulabschluss.",
+    'RS': "Dieses Zeugnis ist dem Sekundarabschluss I – Realschulabschluss" \
+            " gleichgestellt. Es vermittelt die gleiche Berechtigung wie" \
+            " das Zeugnis über den Sekundarabschluss I – Realschulabschluss.",
+    'Erw': "Dieses Zeugnis ist dem Erweiterten Sekundarabschluss I" \
+            " gleichgestellt. Es vermittelt die gleiche Berechtigung wie" \
+            " das Zeugnis über den Erweiterten Sekundarabschluss I."
+}
+SEKI_TEXT = {
+    'HS': "Sekundarabschluss I – Hauptschulabschluss",
+    'RS': "Sekundarabschluss I – Realschulabschluss",
+    'Erw': "Erweiterter Sekundarabschluss I"
+}
+
+_NOCOMMENT = '––––––––––'
 
 TEMPLATE_FILE = {
     'grades-Orientierung':      'grades/Orientierung.odt',
     'grades-SekII-13_1':        'grades/SekII-13_1.odt',
-    'grades-SekII':             'grades/SekII.odt',
+    'grades-SekII-12':          'grades/SekII-12.odt',
     'grades-SekI':              'grades/SekI.odt',
     'grades-SekI-Abschluss':    'grades/SekI-Abschluss.odt',
     'grades-SekII-13-Abgang':   'grades/SekII-13-Abgang.odt',
@@ -100,6 +130,12 @@ class Orientierung(Template):
         self._group = group
         super().__init__(TEMPLATE_FILE['grades-Orientierung'])
 
+    def quali(self, grade_map):
+        # These reports have no notion of qualification
+        stream = grade_map['STREAM']
+        grade_map['LEVEL'] = STREAMS[stream]
+
+###
 
 class Zeugnis(Template):
     NAME = 'Zeugnis'
@@ -116,7 +152,7 @@ class Zeugnis(Template):
             else:
                 raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
         elif group == '12.G':
-            t = 'grades-SekII'
+            t = 'grades-SekII-12'
             self.GROUPS = self.GROUPS_SekII_12
         else:
             t = 'grades-SekI'
@@ -125,7 +161,41 @@ class Zeugnis(Template):
         self._term = term
         self._group = group
         super().__init__(t)
+#
+    def quali(self, grade_map):
+        if self.template_file == 'grades-SekI':
+            stream = grade_map['STREAM']
+            grade_map['LEVEL'] = STREAMS[stream] # SekI, not 'Abschluss'
+            # Versetzung 11.Gym -> 12.Gym
+            if (stream == 'Gym' and grade_map['TERM'] == '2'
+                    and grade_map['CLASS'] >= '11'
+                    and grade_map['QUALI'] == 'Erw'):
+                comment = grade_map['COMMENT']
+                newcomment = VERSETZUNG_11_12
+                if comment:
+                    newcomment += '\n' + comment
+                grade_map['COMMENT'] = newcomment
+        elif self.template_file == 'grades-SekII-12':
+            grade_map['QP12'] = ''
+            term = grade_map['TERM']
+            if term == '1':
+                grade_map['HJ'] = '1'
+            elif term == '2':
+                grade_map['HJ'] = '1. und 2.'
+                grade_map['QP12'] = QP12_TEXT.format(
+                        vom = grade_map['QUALI_D'],
+                        bis = grade_map['ISSUE_D'])
+                if grade_map['QUALI'] == 'Erw':
+                    # Versetzung 12.Gym -> 13.Gym
+                    comment = grade_map['COMMENT']
+                    newcomment = VERSETZUNG_12_13
+                    if comment:
+                        newcomment += '\n' + comment
+                    grade_map['COMMENT'] = newcomment
 
+        grade_map['NOCOMMENT'] = '' if grade_map['COMMENT'] else _NOCOMMENT
+
+###
 
 class Abschluss(Template):
     NAME = 'Abschlusszeugnis'
@@ -140,7 +210,15 @@ class Abschluss(Template):
             super().__init__('grades-SekI-Abschluss')
         else:
             raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
+#
+    def quali(self, grade_map):
+        q = grade_map['QUALI']
+        if q == 'Erw' and grade_map['CYEAR'] == '11':
+            q = 'RS'    # 'Erw' not possible in class 11
+        grade_map['SEKI'] = SEKI_TEXT[stream] # SekI 'Abschluss' only
+        grade_map['NOCOMMENT'] = '' if grade_map['COMMENT'] else _NOCOMMENT
 
+###
 
 class Abgang(Template):
     NAME = 'Abgangszeugnis'
@@ -157,7 +235,7 @@ class Abgang(Template):
             else:
                 raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
         elif group == '12.G':
-            t = 'grades-SekII'
+            t = 'grades-SekII-12'
             self.GROUPS = self.GROUPS_SekII_12
         else:
             t = 'grades-SekI'
@@ -166,7 +244,37 @@ class Abgang(Template):
         self._term = term
         self._group = group
         super().__init__(t)
+#
+    def quali(self, grade_map):
+        if self.template_file == 'grades-SekI':
+            grade_map['GSVERMERK'] = ''
+            grade_map['GS'] = ''
+            stream = grade_map['STREAM']
+            grade_map['LEVEL'] = STREAMS[stream] # SekI, not 'Abschluss'
+            # Gleichstellungsvermerk
+            klass = grade_map['CLASS']
+            term = grade_map['TERM']
+            q = grade_map['QUALI']
+            if (klass == '10' and term == '2') or klass in ('11', '12'):
+                if q in ('Erw', 'RS', 'HS'):
+                    grade_map['GS'] = GS_TEXT['HS']     # only HS-Abschluss
+                    grade_map['GSVERMERK'] = "Gleichstellungsvermerk"
 
+        elif self.template_file == 'grades-SekII-12':
+            grade_map['QP12'] = QP12_TEXT.format(
+                    vom = grade_map['QUALI_D'],
+                    bis = grade_map['EXIT_D'])
+            term = grade_map['TERM']
+            grade_map['GS'] = GS_TEXT['HS']
+            if term == '2':
+                try:
+                    grade_map['GS'] = GS_TEXT[grade_map['QUALI']]
+                except KeyError:
+                    pass
+
+        grade_map['NOCOMMENT'] = '' if grade_map['COMMENT'] else _NOCOMMENT
+
+###
 
 class Zwischen(Template):
     NAME = 'Zwischenzeugnis'
@@ -180,46 +288,18 @@ class Zwischen(Template):
         self._term = term
         self._group = group
         super().__init__('grades-SekI')
+#
+    def quali(self, grade_map):
+        stream = grade_map['STREAM']
+        grade_map['LEVEL'] = STREAMS[stream] # SekI, not 'Abschluss'
+        grade_map['NOCOMMENT'] = '' if grade_map['COMMENT'] else _NOCOMMENT
 
+###
 
 # Map report-type tags to management classes
 REPORT_TYPES = {rclass.TAG: rclass
         for rclass in (Orientierung, Zeugnis, Abgang, Abschluss, Zwischen)}
 
-
-
-"""
-        t = 'grades-SekI-Abgang'
-        self.GROUPS = self.GROUPS_SekI
-        gclass = grades['CLASS']
-        glevel = grades['LEVEL']
-        gquali = grades['QUALI']
-        if glevel == 'Gym':
-            if gclass >= '13':
-                t = 'grades-SekII-13-Abgang'
-                self.GROUPS = self.GROUPS_SekII_13
-            elif gclass >= '12':
-                # <gquali> can be only 'HS', 'RS' or 'Erw'
-                # (the criteria are a bit different to the other streams!)
-                if gquali not in ('HS', 'RS', 'Erw'):
-                    raise GradeConfigError(_BAD_QUALI.format(tag = gquali))
-                if grades['TERM'] != '2':
-                    grades['QUALI'] = 'HS'
-                t = 'grades-SekII-12-Abgang'
-                self.GROUPS = self.GROUPS_SekII_12
-            elif gclass >= '11':
-                # <gquali> can be only '/', 'HS', 'Erw'
-                # (the criteria for 'Erw' is rather special ...)
-                 if gquali not in ('/', 'HS', 'Erw'):
-                    raise GradeConfigError(_BAD_QUALI.format(tag = gquali))
-        elif gclass >= '11' or (gclass >= '10' and grades['TERM'] == '2'):
-            if gquali in ('HS', 'RS', 'Erw'):
-                t = 'grades-SekI-AbgangHS'
-                grades['QUALI'] = 'HS'
-            else:
-                grades['QUALI'] = None
-        super().__init__(grades, t)
-"""
 
 
 
@@ -273,61 +353,3 @@ Abitur (etc):
     FrHr
     calculated abi grades, etc.
 """
-
-from local.base_config import print_schoolyear, class_year
-
-LEVEL_TEXT = {
-    'HS': 'Hauptschule',
-    'RS': 'Realschule',
-    'Gym': 'Gymnasium'
-}
-GS_TEXT = {
-    'HS': "Dieses Zeugnis ist dem Sekundarabschluss I – Hauptschulabschluss" \
-            " gleichgestellt. Es vermittelt die gleiche Berechtigung wie" \
-            " das Zeugnis über den Sekundarabschluss I – Hauptschulabschluss.",
-    'RS': "Dieses Zeugnis ist dem Sekundarabschluss I – Realschulabschluss" \
-            " gleichgestellt. Es vermittelt die gleiche Berechtigung wie" \
-            " das Zeugnis über den Sekundarabschluss I – Realschulabschluss.",
-    'Erw': "Dieses Zeugnis ist dem Erweiterten Sekundarabschluss I" \
-            " gleichgestellt. Es vermittelt die gleiche Berechtigung wie" \
-            " das Zeugnis über den Erweiterten Sekundarabschluss I."
-}
-SEKI_TEXT = {
-    'HS': "Sekundarabschluss I – Hauptschulabschluss",
-    'RS': "Sekundarabschluss I – Realschulabschluss",
-    'Erw': "Erweiterter Sekundarabschluss I"
-}
-
-
-# Here I am accessing the group data of the grade table as attributes of
-# <grades>, rather than as dict-items (as in the above code). If <grades>
-# is a GradeManager, the dict-items should probably just be the grades.
-def xxx():
-    school_name = "Freie Michaelschule"
-    data['SCHOOLBIG'] = school_name.upper()
-    data['SCHOOL'] = school_name
-    data['SCHOOLYEAR'] = print_schoolyear(self.schoolyear)
-    data['issued_d'] = grades.ISSUE_D
-    data['ISSUE_D'] = Dates.print_date(grades.ISSUE_D)
-    data['ZEUGNIS'] = self.NAME.upper()
-    data['Zeugnis'] = self.NAME
-    data['LEVEL'] = LEVEL_TEXT[grades.LEVEL] # or grades['LEVEL']?
-    data['CLASS'] = grades.CLASS
-    data['COMMENT'] = ""
-# Field NOCOMMENT should be handled by the template manager, according
-# to whether field COMMENT is empty.
-    data['NOCOMMENT'] = "––––––––––"
-    data['CYEAR'] = class_year(grades.CLASS)
-# Field GSVERMERK should be handled by the template manager, according
-# to whether field GS is empty.
-    data['GSVERMERK'] = ""      # can be "Gleichstellungsvermerk"
-    data['GS'] = ""             # from GS_TEXT, if appropriate
-
-    if grades.TERM == '1': data['HJ'] = "1."
-    elif grades.TERM == '2': data['HJ'] = "1. und 2."
-    else: data['HJ'] = ""
-
-# add the pupil data ...
-#? ... this one is only for Abitur:
-    data['FrHr'] = 'Herr' if grades.pdata['SEX'] == 'm' else 'Frau'
-# then allocate the subjects/grades to the slots ...

@@ -4,7 +4,7 @@
 """
 local/grade_functions.py
 
-Last updated:  2020-09-27
+Last updated:  2020-10-31
 
 Calculations needed for grade handling in Niedersachsen.
 
@@ -27,7 +27,12 @@ Copyright 2020 Michael Towers
 =-LICENCE========================================
 """
 
+#TODO!
+
 # Messages
+
+
+
 _GRADE_MISSING = "Keine Note in {sbj}"
 _BAD_GRADE = "Ungültige Note im Fach {sid}: {grade}"
 _UNEXPECTED_GRADE = "Unerwartete Note im Fach {sbj}: {grade}"
@@ -86,6 +91,14 @@ class Frac(Fraction):
         v = int(self * 10**decimal_places + f)
         sval = ("{:0%dd}" % (decimal_places+1)).format(v)
         return (sval[:-decimal_places] + ',' + sval[-decimal_places:])
+
+
+
+
+
+
+
+
 
 
 
