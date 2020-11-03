@@ -194,9 +194,8 @@ def buildReports(schoolyear, rtype, group, gdata_list):
     # possible that a pupil has changed class.
 
     ### Subject data (for whole class)
-    courses = Subjects(schoolyear)
-#TODO: Does this really need to be a mapping? would a list be ok/better?
-    sdata_map = courses.grade_subjects(klass)
+    _courses = Subjects(schoolyear)
+    sdata_list = _courses.grade_subjects(klass)
 
     ### Grade report template
     try:
@@ -237,7 +236,7 @@ def buildReports(schoolyear, rtype, group, gdata_list):
 
         # ... add composites
 #?
-        grades = gdata.get_full_grades(sdata_map)
+        grades = gdata.get_full_grades(sdata_list)
         # ... sort into grade groups
         #
 

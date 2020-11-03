@@ -25,16 +25,10 @@ Copyright 2020 Michael Towers
 ### Messages
 _MULTI_COMPOSITE = "Fach mit Kürzel „{sid}“ ist Unterfach für mehrere" \
         " Sammelfächer"
-
-
-#_INVALID_STREAMS_FIELD = ("In Tabelle CLASS_SUBJECT: ungültiges GRP_Feld für"
-_UNKNOWN_SID = "Fach-Kürzel „{sid}“ ist nicht bekannt"
-_COMPOSITE_IS_COMPONENT = ("Fach-Kürzel „{sid}“ ist sowohl als „Sammelfach“"
-        " als auch als „Unterfach“ definiert")
-_UNUSED_COMPOSITE = "Unterfach {sid}: Sammelfach „{sidc}“ wird nicht benutzt"
-#_UNKNOWN_COMPOSITE = "Unterfach {sid}: Sammelfach „{sidc}“ ist nicht definiert"
-_NOT_A_COMPOSITE = "Unterfach {sid}: „{sidc}“ ist kein Sammelfach"
 _NO_COMPONENTS = "Sammelfach {sid} hat keine Unterfächer"
+_NOT_A_COMPOSITE = "Unterfach {sid}: „{sidc}“ ist kein Sammelfach"
+_COMPOSITE_IS_COMPONENT = "Fach-Kürzel „{sid}“ ist sowohl als „Sammelfach“" \
+        " als auch als „Unterfach“ definiert"
 
 
 import sys, os
@@ -44,7 +38,7 @@ if __name__ == '__main__':
     sys.path[0] = os.path.dirname(this)
 
 from collections import namedtuple
-SubjectData = namedtuple("SubjectData", ('sid', 'composite', 'tids',
+SubjectData = namedtuple("SubjectData", ('sid', 'tids', 'composite',
         'report_groups', 'name'))
 
 from core.db import DB
@@ -74,8 +68,9 @@ class Subjects:
 #
 #TODO: weighting of components?
 # Add to composite in FLAGS field: *Ku:2  for weight 2.
-# Possibly accept non-integer weights? (How would the grade processing
-# cope with that?)
+# Weights should be <int>, to preserve exact rouding.
+# The <composite> field could then be a tuple (sid, weight).
+# Actually, also the lists of components are available here!
     def grade_subjects(self, klass):
         """Return a list of <SubjectData> named-tuples for the given class.
         Only subjects relevant for grade reports are included, i.e. those
@@ -84,9 +79,11 @@ class Subjects:
         slots in the template.
         Each element has the following fields:
             sid: the subject tag;
-            composite: if the subject is a component, this will be the
-                sid of its composite (the pupil-group must match);
             tids: a list of teacher ids, empty if the subject is a composite;
+            composite: if the subject is a component, this will be the
+                sid of its composite; if the subject is a composite, this
+                will be the list of components, each is a tuple
+                (sid, weight); otherwise the field is empty;
             report_groups: a list of tags representing a particular block
                 of grades in the report template;
             name: the full name of the subject.
@@ -114,40 +111,53 @@ class Subjects:
                             # >1 "composite"
                             raise CourseError(_MULTI_COMPOSITE.format(
                                     sid = sid))
-                        # Get the associated composite:
+                        # Get the associated composite and the weighting:
                         comp = f[1:]    # remove the '*'
+                        try:
+                            comp, _weight = comp.split(':')
+                        except ValueError:
+                            weight = 1
+                        else:
+                            weight = int(_weight)
+                        if comp == NULL_COMPOSITE:
+                            continue
+                        try:
+                            composites[comp].append((sid, weight))
+                        except KeyError:
+                            composites[comp] = [(sid, weight)]
             tids = sdata['TIDS']
             if tids:
                 tids = tids.split()
             else:
                 # composite subject
-                tids = ''
+                tids = None
                 if comp:
                     raise CourseError(_COMPOSITE_IS_COMPONENT.format(
                             sid = sid))
-                composites[sid] = []
-            subjects.append(SubjectData(sid, comp, tids, rgroups,
+                # The 'composite' field must be modified later
+            subjects.append(SubjectData(sid, tids, comp, rgroups,
                     sdata['SUBJECT']))
-        ### Check that the referenced composites are valid
-        # For checking that all composites have components:
-        cset = set(composites)
+        ### Add the 'composite' field to composite subjects,
+        ### check that the referenced composites are valid,
+        ### check that all composites have components.
+        result = []
         for sbjdata in subjects:
-            if sbjdata.composite:
-                sidc = sbjdata.composite
-                if sidc == NULL_COMPOSITE:
-                    continue
-                if sidc not in composites:
-                    # The target is not a composite
-                    raise CourseError(_NOT_A_COMPOSITE.format(
-                            sidc = sidc, sid = sbjdata.sid))
+            if sbjdata.tids:
+                # Not a composite
+                result.append(sbjdata)
+            else:
+                # A composite
                 try:
-                    cset.remove(sidc)
-                except:
-                    pass
-        # Check that all composites have components
-        if cset:
-            raise CourseError(_NO_COMPONENTS.format(sids = repr(cset)))
-        return subjects
+                    comp = composites.pop(sbjdata.sid)
+                except KeyError:
+                    raise CourseError(_NO_COMPONENTS.format(sid = sbjdata.sid))
+                result.append(sbjdata._replace(composite = comp))
+        for sid, sid_w_list in composites.items():
+            # Invalid composite,
+            # more than one is not very likely, just report the first one
+            raise CourseError(_NOT_A_COMPOSITE.format(
+                    sidc = sid, sid = sid_w_list[0][0]))
+        return result
 
 
 

@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-11-02
+grades/gradetable.py - last updated 2020-11-03
 
 Access grade data, read and build grade tables.
 
@@ -22,34 +22,25 @@ Copyright 2020 Michael Towers
 """
 
 # Header items
-_SCHOOLYEAR = 'Schuljahr'
-_CLASS = 'Klasse'
-_TERM = 'Halbjahr'
+#_SCHOOLYEAR = 'Schuljahr'
+#_CLASS = 'Klasse'
+#_TERM = 'Halbjahr'
 # ... rather 'Anlass' / 'Kategorie' / ...?
 # The value could be "1. Halbjahr", "2. Halbjahr", "Abitur", "Sonderzeugnis".
 # The first letter would then be the key (a scheme which might not work
 # so well for other localities), or there could be a text -> key mapping.
-_ISSUE_D = 'Ausstellungsdatum'      # or 'Ausgabedatum'?
-_GRADES_D = 'Notenkonferenz'
-_TID = 'Kürzel'
-# Perhaps a COMMENT, but insertion of a multiparagraph comment is not so
-# easy in odt ... this part is non-trivial to implement!
-# This is what I found in one template:
-#    <text:p text:style-name="rText">[[COMMENT]]</text:p>
-#    <text:p text:style-name="P16">[[NOCOMMENT]]</text:p>
-# ... so perhaps it would be doable.
-# If the style (rText) is fixed, that should simplify it.
-# Would it be possible to manage without [[NOCOMMENT]] by making the
-# default [[COMMENT]] do its job? This could be an alternative
-# style? Include tags?
-# In any case, the xmlescape would have to be overridden ...
+#_ISSUE_D = 'Ausstellungsdatum'      # or 'Ausgabedatum'?
+#_GRADES_D = 'Notenkonferenz'
+#_TID = 'Kürzel'
+
 
 ### Messages
 _NO_GRADES_ENTRY = "Keine Noten für Schüler {pid} zum {date}"
+_EXCESS_SUBJECTS = "Unerwartete Fachkürzel in der Notenliste: {sids}"
 
 
-_TID_MISMATCH = ("Unerwartete Lehrkraft in Tabellendatei:\n"
-        "    erwartet – {arg} / in Tabelle – {tid}\n  Datei: {fpath}")
+#_TID_MISMATCH = ("Unerwartete Lehrkraft in Tabellendatei:\n"
+#        "    erwartet – {arg} / in Tabelle – {tid}\n  Datei: {fpath}")
 
 
 #TODO
@@ -78,11 +69,13 @@ if __name__ == '__main__':
     sys.path[0] = os.path.dirname(this)
 
 #import datetime
+from fractions import Fraction
 
 from core.base import str2list
 from core.db import DB
 from tables.spreadsheet import Spreadsheet, DBtable
-from local.grade_config import GradeBase#, UNCHOSEN
+from local.base_config import DECIMAL_SEP
+from local.grade_config import GradeBase, UNCHOSEN, NO_GRADE
 
 #from wz_core.configuration import Paths, Dates
 #from wz_core.db import DBT
@@ -96,16 +89,13 @@ class GradeTableError(Exception):
     pass
 
 
-#TODO: The question is: how to handle the grade scale, etc. I can base it
-# on the group, if a group is given, but for single reports I may have
-# no group – it would then have to be based on class/stream.
 class Grades(GradeBase):
     @classmethod
     def forGroupTerm(cls, schoolyear, term, group):
         """Return a list of <Grades> instances for the given group and term.
         This is not intended for 'Single' reports.
         """
-        klass, streams = self.group2klass_streams(group)
+        klass, streams = cls.group2klass_streams(group)
         with DB(schoolyear) as dbconn:
             rows = dbconn.select('GRADES', CLASS = klass, TERM = term)
         if streams:
@@ -113,8 +103,8 @@ class Grades(GradeBase):
         else:
             return [cls(row) for row in rows]
 #
-    @classmethod
-    def list_pupil(cls, schoolyear, pid):
+    @staticmethod
+    def list_pupil(schoolyear, pid):
         """List all grade entries for the given pupil.
         """
         with DB(schoolyear) as dbconn:
@@ -147,7 +137,7 @@ class Grades(GradeBase):
                         pid = pid, zum = term_or_date))
         return cls(row)
 #
-# Do I need the school-year?
+#TODO: Do I need the school-year?
     def __init__(self, grade_row):
         self.grade_row = grade_row
         super().__init__(grade_row)
@@ -164,7 +154,7 @@ class Grades(GradeBase):
             self._grades = {}
             self._sid2tid = {}
             self.empty_grades = []
-            for sg in str2list(self._gradedata):
+            for sg in str2list(self.grade_row['GRADES']):
                 sid, g, tid = sg.split(':')
                 self._grades[sid] = self.filter_grade(sid, g)
                 self._sid2tid[sid] = tid
@@ -181,149 +171,83 @@ class Grades(GradeBase):
             except TypeError:
                 self.grades()   # Ensure cache is loaded
 #
-#TODO
-    def get_full_grades(self, sdata_map):
+    def get_full_grades(self, sdata_list):
         """Return the full grade mapping including for those items/subjects
         which are determined by processing the other grades. This requires
-        the appropriate (ordered) list/map of <SubjectData> instances,
-            <sdata_map>: {sid -> <SubjectData>, ...}.
-        This mapping is already filtered for the relevant pupikl-group.
-        Further information is included as additional attributes on the
-        result mapping: <composites> {sid -> [int, ... ]} is a mapping
-        of "composite" subjects, whose grade is the average of its
-        "components"; <ngcomposites> {sid -> [str, ...]} is similar, but
-        for component "grades" which are not numerical.
+        the appropriate (ordered) list of <SubjectData> instances,
+        <sdata_list>.
+        All subjects relevant for grades in the class are included.
         A <SubjectData> tuple has the following fields:
-            pgroup: the tag of the pupil-group for which this subject is
-                relevant, '*' if whole class;
-            composite: if the subject is a component, this will be the
-                sid of its composite (the pupil-group must match);
-# + weighting?
+            sid: the subject tag;
             tids: a list of teacher ids, empty if the subject is a composite;
+            composite: if the subject is a component, this will be the
+                sid of its composite; if the subject is a composite, this
+                will be the list of components, each is a tuple
+                (sid, weight); otherwise the field is empty;
             report_groups: a list of tags representing a particular block
                 of grades in the report template;
             name: the full name of the subject.
         """
         raw_grades = self.get_raw_grades()
-        # Process composites
+        # Process composites, add subjects missing from GRADES field
         grades = {}
-        composites = {}
-        ngcomposites = {}
-        for sid, sdata in sdata_map.items():
-            grades[sid] = raw_grades.pop(sid, '')
-
-
-
-
-
-        for sid, glist in self.composites.items():
-            if glist:
-                asum = 0
-                for g in glist:
-                    asum += g
-                g = Frac(asum, len(glist)).round()
-                self[sid] = g.zfill(self.ZPAD)
-                self.grades[sid] = int(g)
+        for sdata in sdata_list:
+            sid = sdata.sid
+            if sdata.tids:
+                g = raw_grades.pop(sid, '')
+                grades[sid] = g
             else:
-                self[sid] = NO_GRADE
-        self.evaluateGrades()
+                # A composite subject, calculate the component-average,
+                # if possible. If there are no numeric grades, choose
+                # NO_GRADE, unless all components are UNCHOSEN (in
+                # which case also the composite will be UNCHOSEN).
+                asum = 0
+                ai = 0
+                non_grade = UNCHOSEN
+                for csid, weight in sdata.composite:
+                    try:
+                        gi = self.i_grade[csid]
+                    except KeyError:
+                        if raw_grades.get(csid) != UNCHOSEN:
+                            non_grade = NO_GRADE
+                    else:
+                        ai += 1
+                        asum += gi * weight
+                if ai:
+                    g = Frac(asum, ai).round()
+                    grades[sid] = self.grade_format(g)
+                    self.i_grade[sid] = int(g)
+                else:
+                    grades[sid] = non_grade
+        if raw_grades:
+            REPORT(_EXCESS_SUBJECTS.format(sids = ', '.join(raw_grades)))
+        return grades
 
+###
 
+class Frac(Fraction):
+    """A <Fraction> subclass with custom <truncate> and <round> methods
+    returning strings.
+    """
+    def truncate(self, decimal_places = 0):
+        if not decimal_places:
+            return str(int(self))
+        v = int(self * 10**decimal_places)
+        sval = ("{:0%dd}" % (decimal_places+1)).format(v)
+        return (sval[:-decimal_places] + DECIMAL_SEP + sval[-decimal_places:])
+#
+    def round(self, decimal_places = 0):
+        f = Fraction(1,2) if self >= 0 else Fraction(-1, 2)
+        if not decimal_places:
+            return str(int(self + f))
+        v = int(self * 10**decimal_places + f)
+        sval = ("{:0%dd}" % (decimal_places+1)).format(v)
+        return (sval[:-decimal_places] + DECIMAL_SEP + sval[-decimal_places:])
 
 
 #==========================================
+# OLD: some bits still needed
 
-def getGrades(schoolyear, pid, term = None):
-    """Get the grade entry for the given year, term and pupil.
-    If no term is supplied, get all entries for the given year.
-    """
-    with DB(schoolyear) as dbconn:
-        if term:
-            return dbconn.select1('GRADES', PID = pid, TERM = term)
-        return dbconn.select('GRADES', PID = pid)
-#? see <GradeData>
-def gradeMap(grade_row):
-    """Return a mapping {sid -> grade} for the given database row from
-    the GRADES table.
-    """
-    grades = {}
-    for sg in str2list(grade_row['GRADES']):
-        sid, g, tid = sg.split(':')
-        grades[sid] = g
-    return grades
-
-#
-
-class GradeData:
-    """A (read-only) representation of a set of grades for a pupil,
-    corresponding to a row in the GRADES database table.
-    """
-    def __init__(gdata):
-        self.gklass = gdata['CLASS']
-        self.gterm = gdata['TERM']
-        self.gstream = gdata['STREAM']
-        self.pid = gdata['PID']
-        self.report_type = gdata['REPORT_TYPE']
-        self.issue_d = gdata['ISSUE_D']
-        self.grades_d = gdata['GRADES_D']
-        self.quali = gdata['QUALI']
-        self.comments = gdata['COMMENTS']
-        self._gradedata = gdata['GRADES']
-        self._grades = None
-        self._sid2tid = None
-#
-    def grades(self):
-        """Return the grade mapping, {sid -> grade}
-        """
-        if self._grades == None:
-            self._grades = {}
-            self._sid2tid = {}
-            for sg in str2list(self._gradedata):
-                sid, g, tid = sg.split(':')
-                self._grades[sid] = g
-                self._sid2tid[sid] = tid
-        return self._grades
-#
-    def sid2tid(self, sid):
-        """Return the tag for the teacher who graded the given subject.
-        """
-        while True:
-            try:
-                return self._sid2tid[sid]
-            except KeyError as e:
-                raise Bug("Unknown subject key: %s" % sid)
-            except TypeError:
-                self.grades()   # Ensure cache is loaded
-
-#
-#    def name(self):
-#TODO: this can only work with access to the pupils' data, which
-# requires at least the school-year ...
-#        raise Bug("TODO: GradeData.name")
-
-#
-
-class GradeGroup(GradeBase):
-    """Manage grade information for the given group and term/category.
-    """
-    def __init__(self, schoolyear, group, term):
-        self.schoolyear = schoolyear
-        self.term = term
-        # Set (at least) <self.klass>, <self.streams>, <self.group>,
-        # <self.valid_grades> (a list/tuple)
-        super().__init__(group)
-
-    def gdata_list(self):
-        with DB(schoolyear) as dbconn:
-            rows = dbconn.select('GRADES', CLASS = self.klass,
-                    TERM = self.term)
-        if self.streams:
-            return [row for row in rows if row['STREAM'] in self.streams]
-        else:
-            return list(rows)   # <rows> itself is an iterator, not a list
-
-
-#######################################################
 
 class GradeTable(dict):
     def __init__(self, filepath, tid = None):
@@ -527,6 +451,21 @@ def oldTablePupils(schoolyear, term, klass):
 if __name__ == '__main__':
     from core.base import init
     init('TESTDATA')
+
+    from core.courses import Subjects
+    _schoolyear = 2016
+    _term = '2'
+    _group = '12.R'
+    _k, _ss = Grades.group2klass_streams(_group)
+    _glist = Grades.forGroupTerm(_schoolyear, _term, _group)
+    _courses = Subjects(_schoolyear)
+    _sdata_list = _courses.grade_subjects(_k)
+    for _gdata in _glist:
+        print("\n:::", _gdata['PID'])
+        print(_gdata.get_full_grades(_sdata_list))
+
+    quit(0)
+
 
     print("\nGRADES 10.2:")
     gt = GradeTable(os.path.join(DATA, 'testing', 'Noten_2', 'Noten_10'))

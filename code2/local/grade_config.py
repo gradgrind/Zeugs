@@ -4,7 +4,7 @@
 """
 local/grade_config.py
 
-Last updated:  2020-11-02
+Last updated:  2020-11-03
 
 Configuration for grade handling.
 ====================================
@@ -233,8 +233,13 @@ class GradeBase:
                 pass
         else:
             g = ''  # ensure that the grade is a <str>
-        self._grades[sid] = g
-
+        return g
+#
+    def grade_format(self, g):
+        """Format the grade corresponding to the given numeric string.
+        """
+        return g.zfill(2) if self.isAbitur else g.zfill(1)
+#
 #?
     def printGrade(self, grade):
         """Fetch the grade for the given subject id and return the
