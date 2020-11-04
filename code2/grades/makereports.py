@@ -50,6 +50,8 @@ _WARN_NO_GRADE = "Schüler {pid}: keine Note im Fach {sbj}"
 _UNEXPECTED_GRADE_GROUP = "Ungültiger Fachgruppe ({tag}) in Vorlage:\n" \
         "  {tpath}"
 _NO_SUBJECT_GROUP = "Keine passende Fach-Gruppe für Fach {sbj}"
+_NO_SLOT = "Kein Platz mehr für Fach mit Kürzel {sid} in Fachgruppe {tag}." \
+        " Bisher: {done}"
 
 
 from core.base import Dates
@@ -60,6 +62,7 @@ from local.base_config import SCHOOL_NAME, class_year, print_schoolyear
 from local.grade_config import MISSING_GRADE, UNGRADED, GradeConfigError, \
         STREAMS, NO_SUBJECT
 from local.grade_template import REPORT_TYPES
+from template_engine.template_sub import TemplateError
 from grades.gradetable import Grades, GradeTableError
 
 
@@ -84,7 +87,11 @@ def makeReport1(schoolyear, term_date, pid):
     # The templates are selected according to pupil-group, so this must
     # be determined, based on the pupil's stream.
     group = Grades.klass_stream2group(gdata['CLASS'], gdata['STREAM'])
-    return buildReports(schoolyear, gdata['TERM'], rtype, group, [gdata])
+    term = gdata['TERM']
+    template, gmaplist = prepare_report_data(schoolyear, term, rtype,
+            group, [gdata])
+    return template.make_pdf1(gmaplist[0],
+            year_path(schoolyear, Grades.grade_path(term)))
 
 ###
 
@@ -123,13 +130,19 @@ def makeReports(schoolyear, term, group, pids = None):
                 pids = ', '.join(no_report_type)))
 
     ### Build reports for each report-type separately
-    return [buildReports(schoolyear, term, rtype, group, gdatalist)
-            for rtype, gdatalist in greport_type.items()]
+    fplist = []
+    for rtype, gdatalist in greport_type.items():
+        template, gmaplist = prepare_report_data(schoolyear, term, rtype,
+                group, gdatalist)
+        fplist.append(template.make_pdf(gmaplist,
+                year_path(schoolyear, Grades.grade_path(term))))
+    return fplist
 
 ###
 
-def buildReports(schoolyear, term, rtype, group, gdata_list):
-    """
+def prepare_report_data(schoolyear, term, rtype, group, gdata_list):
+    """Prepare the slot-mappings for report generation.
+    Return a tuple: (template object, list of slot-mappings).
     """
     ### Pupil data
     pupils = Pupils(schoolyear)
@@ -173,7 +186,7 @@ def buildReports(schoolyear, term, rtype, group, gdata_list):
             # pupil – they could differ ...
             gmap[field] = gdata[field] or ''
         gmap['CYEAR'] = class_year(gmap['CLASS'])
-        gmap['issued_d'] = gdata['ISSUE_D']     # for file-names
+        gmap['issue_d'] = gdata['ISSUE_D']     # for file-names
         gmap['ISSUE_D'] = Dates.print_date(gdata['ISSUE_D'])
         gmap['GRADES_D'] = Dates.print_date(gdata['GRADES_D'])
 
@@ -194,8 +207,7 @@ def buildReports(schoolyear, term, rtype, group, gdata_list):
 
         gmaplist.append(gmap)
 
-    return gTemplate.make_pdf(gmaplist,
-            year_path(schoolyear, Grades.grade_path(term)))
+    return (gTemplate, gmaplist)
 
 ###
 
@@ -260,7 +272,7 @@ def sort_grade_keys(sdata_list, gdata, template):
 
     gmap = {}   # for the result
     # Get all the grades, including composites.
-    grades = gdata.get_full_grades(sdata_list)
+    grades = gdata.get_full_grades(sdata_list, with_composites = True)
     for sdata in sdata_list:
         # Get the grade
         g = gdata.print_grade(grades[sdata.sid])
@@ -297,8 +309,8 @@ def sort_grade_keys(sdata_list, gdata, template):
                 i = ilist.pop()
             except IndexError as e:
                 # No indexes left
-                raise TemplateError(_NO_SLOT.format(
-                        tag = rg, sid = sdata.sid)) from e
+                raise TemplateError(_NO_SLOT.format(tag = rg,
+                        sid = sdata.sid, done = repr(gmap))) from e
             gmap['G.%s.%s' % (rg, i)] = g
             # For the name, strip possible extra bits, after '|':
             gmap['S.%s.%s' % (rg, i)] = sbj.split('|', 1)[0].rstrip()
@@ -326,11 +338,12 @@ if __name__ == '__main__':
     from core.base import init
     init('TESTDATA')
 
-    _group = '12.R'
     _term = '2'
     _grades_date = '2016-06-06'
 
-    for f in makeReports(_year, _term, _group):
-        print("\n$$$:", f)
+    # Build reports for a group
+    for f in makeReports(_year, _term, '12.R'):
+        print("\n$$$: %s\n" % f)
 
-#TODO: make a single report
+    # Build a single report
+    print("\n$$$: %s\n" % makeReport1(_year, _term, '200408'))

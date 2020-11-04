@@ -248,7 +248,6 @@ class Template:
         else:
             wdirTD = tempfile.TemporaryDirectory()
             wdir = wdirTD.name
-#datamap['issue_d']?
         file_name = '%s_%s_%s' % (datamap['PSORT'].replace(' ', '_'),
                 datamap['issue_d'], self.TAG)
         # <self.TAG> should be supplied in the subclass.

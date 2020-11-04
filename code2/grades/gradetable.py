@@ -175,7 +175,7 @@ class Grades(GradeBase):
             except TypeError:
                 self.grades()   # Ensure cache is loaded
 #
-    def get_full_grades(self, sdata_list):
+    def get_full_grades(self, sdata_list, with_composites = False):
         """Return the full grade mapping including for those items/subjects
         which are determined by processing the other grades. This requires
         the appropriate (ordered) list of <SubjectData> instances,
@@ -200,7 +200,7 @@ class Grades(GradeBase):
             if sdata.tids:
                 g = raw_grades.pop(sid, '')
                 grades[sid] = g
-            else:
+            elif with_composites:
                 # A composite subject, calculate the component-average,
                 # if possible. If there are no numeric grades, choose
                 # NO_GRADE, unless all components are UNCHOSEN (in
@@ -465,7 +465,8 @@ if __name__ == '__main__':
     _courses = Subjects(_schoolyear)
     _sdata_list = _courses.grade_subjects(_k)
     for _gdata in _glist:
-        print("\n:::", _gdata['PID'])
+        print("\nid:", _gdata['id'])
+        print(":::", _gdata['PID'])
         print(_gdata.get_full_grades(_sdata_list))
 
     quit(0)

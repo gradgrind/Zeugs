@@ -23,3 +23,5 @@ CLASS_SUBJECT_FIELDS = {
 
 DB_TABLES['CLASS_SUBJECT'] = CLASS_SUBJECT_FIELDS
 DB_TABLES['__UNIQUE__']['CLASS_SUBJECT'] = (('CLASS', 'SID'),)
+# Add 'id' integer-primary-key, can aid updates
+DB_TABLES['__PK__'].add('CLASS_SUBJECT')

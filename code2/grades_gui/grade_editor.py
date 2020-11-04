@@ -2,7 +2,7 @@
 """
 grade_editor.py
 
-Last updated:  2020-10-21
+Last updated:  2020-11-04
 
 Grade Editor.
 
@@ -97,11 +97,11 @@ from qtpy.QtCore import Qt
 from grades_gui.grid import Grid, CellStyle, PopupDate, PopupLineEdit, \
         PopupTable
 from grades_gui.gui_support import VLine, KeySelect, ZIcon
+from grades.gradetable import Grades
 from core.base import Dates
 from core.courses import Subjects
 from core.pupils import Pupils
 from local.base_config import print_schoolyear
-from local.grade_config import GRADE_REPORT_CATEGORY, GradeValues
 from local.grade_template import REPORT_TYPES
 
 #TODO: It would probably be good to display at least the date, perhaps
@@ -118,6 +118,44 @@ from local.grade_template import REPORT_TYPES
 # return a title and list of pids. The report templates must be at least
 # "compatible", if not identical.
 
+### I need to get the data for a grade group ...
+# ... GradeValues seems to have vanished! It has turned into GradeBase,
+# but the instances have a different purpose ...
+# I probably need some of the stuff from makereports.
+
+def get_grade_data(schoolyear, term, group):
+# Assume first that we are dealing with old data. This is primarily
+# determined by the entries in the GRADES table and should normally
+# not be changed!
+# In the case of the current term, it is possible that there are
+# changes to pupil data, including stream – and even class. Thus it
+# is probably necessary to distinguish the two cases.
+
+    ### Pupil data
+    pupils = Pupils(schoolyear)
+    # Needed here for pupil names, can use pupils.pid2name(pid)
+    # Fetching the whole class may not be good enough, as it is vaguely
+    # possible that a pupil has changed class.
+
+    ### Subject data (for whole class)
+    _courses = Subjects(schoolyear)
+    klass, streams = Grades.group2klass_streams(group)
+    sdata_list = _courses.grade_subjects(klass)
+
+    for gdata in Grades.forGroupTerm(schoolyear, term, group):
+        # Get all the grades, including composites.
+        grades = gdata.get_full_grades(sdata_list)
+
+
+### The alternative, for the current term, might be
+    for pdata in pupils.classPupils(klass): # date?
+        if streams and (pdata['STREAM'] not in streams):
+            continue
+        gdata = Grades.forPupil(schoolyear, term, pdata['PID'])
+        # Get all the grades, including composites.
+        grades = gdata.get_full_grades(sdata_list)
+# Check for grade entries which are no longer valid?
+# Check for changed pupil stream?
 
 
 
@@ -406,7 +444,7 @@ class GradeGrid(Grid):
 
 ###########################################
 
-class ListItem (QListWidgetItem):
+class ListItem(QListWidgetItem):
     def __init__ (self, text, tag=None):
         super().__init__(text)
         self.tag = tag
@@ -457,7 +495,7 @@ class _GradeEdit(QDialog):
         self.yearSelect = KeySelect([(y, print_schoolyear(y))
                 for y in Dates.get_years()],
                 self.changedYear)
-        self.categorySelect = KeySelect(self.gradeInfo.categories(),
+        self.categorySelect = KeySelect(Grades.categories(),
                 self.changedCategory)
 # Rather use another KeySelect?:
         self.select = QListWidget()
@@ -486,7 +524,10 @@ class _GradeEdit(QDialog):
     def changedCategory(self, key):
         print("Change Category:", key)
 #TODO: choices -> ???
-        self.choices = GRADE_REPORT_CATEGORY[key]
+#        categories = Grades.categories()
+
+
+#        self.choices = GRADE_REPORT_CATEGORY[key]
         self.select.clear()
 
         if key == 'A':
@@ -496,8 +537,12 @@ class _GradeEdit(QDialog):
             # A non-scheduled report
             pass
         else:
-            # A term report, select the pupil group
-            self.select.addItems(list(self.choices))
+            ### A term report, select the pupil group.
+            # Get a list of (group, default-report-type) pairs for this term.
+            # (Note that this will fail for 'A' and 'S'.)
+            self.group_choices = term2group_rtype_list(key)
+
+            self.select.addItems([g for g, _ in self.group_choices])
 # This doesn't initially select any entry
 
 

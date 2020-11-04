@@ -4,7 +4,7 @@
 """
 local/grade_config.py
 
-Last updated:  2020-11-03
+Last updated:  2020-11-04
 
 Configuration for grade handling.
 ====================================
@@ -12,10 +12,9 @@ Configuration for grade handling.
 
 ### Messages
 _BAD_GRADE = "Ungültige \"Note\" im Fach {sid}: {g}"
-
+_BAD_TERM = "Ungültiger \"Anlass\" (Halbjahr): {term}"
 _INVALID_GRADE = "Ungültige \"Note\": {grade}"
 _BAD_GROUP = "Ungültige Schülergruppe: {group}"
-_NO_QUALIFICATION = "Kein Abschluss erreicht"
 
 # Special "grades"
 UNCHOSEN = '/'
@@ -56,6 +55,8 @@ GRADES_FIELDS = {
 #
 DB_TABLES['GRADES'] = GRADES_FIELDS
 DB_TABLES['__INDEX__']['GRADES'] = (('PID', 'TERM'),)
+# Add 'id' integer-primary-key, can aid updates
+DB_TABLES['__PK__'].add('GRADES')
 
 
 class GradeConfigError(Exception):
@@ -194,14 +195,14 @@ class GradeBase:
                     group = klass + '.' + grouptag)) from e
 #
     @classmethod
-    def grade_group(cls, klass, stream):
+    def klass_stream2group(cls, klass, stream):
         """This is needed because the grades in general, and in particular
         the templates, are dependant on the grade groups.
         Return the group containing the given stream.
         """
         try:
             for g, streams in cls._GROUP_STREAMS[klass].items():
-                if s in streams:
+                if stream in streams:
                     return klass + '.' + g
         except KeyError:
             return klass
@@ -274,123 +275,18 @@ class GradeBase:
         return [(cat[0], cat[1]) for cat in cls._CATEGORIES]
 #
     @classmethod
+    def term2group_rtype_list(cls, term):
+        """Return list of (group, default-report-type) pairs for valid
+        groups in the given term.
+        """
+        try:
+            return cls._REPORT_GROUPS[term]
+        except KeyError as e:
+            raise GradeConfigError(_BAD_TERM.format(term = term))
+#
+    @classmethod
     def grade_path(cls, term):
         for cat in cls._CATEGORIES:
             if cat[0] == term:
                 return cat[2]
         raise Bug("Bad category/type: %s" % term)
-
-################################################################
-
-#NODATE = "00.00.0000"
-
-#
-# The subjects may be collected in groups. These groups may vary from
-# class to class – especially in Sek II!
-#ORDERING_GROUPS = {
-#    '13':       ['E', 'G'],
-#    '12.Gym':   ['A', 'B', 'C', 'D', 'X'],
-#    '*':        ['S', 'K']
-#}
-#
-##### Here the subjects are listed in the groups referred to by
-##### <ORDERING_GROUPS>:
-#SUBJECT_GROUPS = {
-### Abitur class 12
-#    'A': ['De', 'En', 'Fr', 'Ku', 'Mu'],
-#    'B': ['Ges', 'Geo', 'Soz', 'Rel'],
-#    'C': ['Ma', 'Bio', 'Ch', 'Ph'],
-#    'D': ['Sp', 'Eu'],
-#    'X': ['Kge', 'Mal', 'Sth'],
-### Abitur class 13
-## eA
-#    'E': ['De.e', 'En.e', 'Ges.e', 'Bio.e'],
-## gA
-#    'G': ['Ma.g', 'En.m', 'Fr.m', 'Bio.m', 'Ku.m', 'Mu.m', 'Sp.m'],
-### Sek-I
-## Versetzungsrelevant
-#    'S': ['De', 'En', 'Fr', 'Ku', 'Mu', 'Ges', 'Soz', 'Geo', 'Rel',
-#        'Ma', 'Bio', 'Ch', 'Ph', 'AWT', 'Sp'],
-## Künstlerisch-praktisch
-#    'K': ['Eu', 'Bb', 'Kge', 'Ktr', 'Mal', 'MZ', 'Pls', 'Snt', 'Sth', 'Web']
-#}
-#
-# Additional fields for grade "evaluation". Some are for the grade tables
-# for display/inspection purposes, some determine details of the grade
-# reports – qualifications, etc.
-#TODO: This still needs some work ... e.g. What are the '*'s for?!
-#EXTRA_FIELDS = {
-#    '13':     [],
-#    '12.Gym':   ['V13'],
-#    '12.RS':     ['*AVE', '*DEM', 'Q12', 'GS'],
-#    '12.HS':     ['*AVE', '*DEM', 'Q12', 'GS'],
-#    '11.Gym':   ['*AVE', 'V', 'GS'],
-#    '11.RS':     ['*AVE', '*DEM', 'GS'],
-#    '11.HS':     ['*AVE', '*DEM', 'GS'],
-#    '10':     ['*AVE', '*DEM', 'GS']
-#}
-#
-#EXTRA_FIELDS_TAGS = {
-## Associate the evaluation field tags with full names.
-#    'AVE':  'Φ Alle Fächer',
-#    'DEM':  'Φ De-En-Ma',
-#    'GS':   'Gleichstellungsvermerk',
-#    'V':    'Versetzung (Quali)',
-#    'Q12':  'Abschluss 12. Kl',
-#    'V13':  'Versetzung (13. Kl.)'
-#}
-
-###
-
-# -> method of grade manager?
-#def print_level(report_type, quali, klass, stream):
-#    """Return the subtitle of the report, the grading level.
-#    """
-#    if report_type == 'Abschluss':
-#        if not quali:
-#            raise GradeConfigError(_NO_QUALIFICATION)
-#        if quali == 'Erw' and klass[:2] != '12':
-#            # 'Erw' is only available in class 12
-#            quali = 'RS'
-#        return {
-#            'Erw': 'Erweiterter Sekundarabschluss I',
-#            'RS': 'Sekundarabschluss I – Realschulabschluss',
-#            'HS': 'Sekundarabschluss I – Hauptschulabschluss'
-#        }[quali]
-#    return 'Maßstab %s' % STREAMS[stream]
-#
-#def print_title(report_type):
-#    """Return the title of the report.
-#    """
-#    return REPORT_TYPES[report_type]
-#
-#TODO: Try to use the table fields in the templates directly!
-#def getPupilData(pdata):
-#    return {
-#            'P.VORNAMEN': pdata['FIRSTNAMES'],
-#            'P.NACHNAME': pdata['LASTNAME'],
-#            'P.G.DAT': Dates.date_conv(pdata['DOB_D'] or NODATE, trap = False),
-#            'P.G.ORT': pdata['POB'],
-#            'P.E.DAT': Dates.date_conv(pdata['ENTRY_D'] or NODATE, trap = False),
-#            'P.X.DAT': Dates.date_conv(pdata['EXIT_D'] or NODATE, trap = False),
-#        # These are for SekII:
-#            'P.HOME': pdata['HOME'],
-#            'P.Q.DAT': Dates.date_conv(pdata['QUALI_D'] or NODATE, trap = False)
-#        }
-
-
-######## Convert between class_stream and class + stream
-#def cs_split(class_stream):
-#    c_s = class_stream.split(':')
-#    if len(c_s) == 1:
-#        return (class_stream, None)
-#    elif len(c_s) == 2:
-#        return c_s
-#    raise Bug("BUG: Bad class_stream: %s" % class_stream)
-##
-#def cs_join(klass, stream = None):
-#    if stream:
-#        return klass + ':' + stream
-#    return klass
-########
-

@@ -82,37 +82,6 @@ TEMPLATE_FILE.update({ # add to template mapping in template module
 })
 
 
-#TODO
-def todo():
-        if data_list.term == 'S':
-            # Unscheduled report, must be a single data set
-            if len(data_list) != 1:
-                raise Bug("Unscheduled reports are handled individually" \
-                        "\n  [in %s]" % __file)
-            gdata = data_list[0]
-            filebase = '%s_%s_%s' % (data_list.ISSUE_D, gdata.report_type,
-#data_list.ISSUE_D? It should be YYYY-MM-DD.
-#gdata.report_type?
-                    gdata['PSORT'])
-            filedir = year_path(data_list.schoolyear, _Grades_Single)
-
-
-        else:
-            filebase = gdata.group
-#gdata.group?
-            if data_list.term == 'A':
-                # Abitur certificates
-                filedir = year_path(data_list.schoolyear, _Grades_Abitur)
-
-            else:
-                # Term reports
-                filedir = year_path(data_list.schoolyear,
-                        _Grades_Term % data_list.term)
-
-            odt_dir = os.path.join(filedir, filebase = gdata.group)
-            os.makedirs(odt_dir, exist_ok = True)
-
-
 # Although most of the template classes specify DOUBLE_SIDED (via the
 # default value in the <Template> class), this should normally not be
 # necessary because the templates are (mostly) fixed with two pages.
@@ -168,7 +137,8 @@ class Zeugnis(Template):
                     and grade_map['CLASS'] >= '11'
                     and grade_map['QUALI'] == 'Erw'):
                 comment = grade_map['COMMENT']
-                newcomment = VERSETZUNG_11_12
+                newcomment = VERSETZUNG_11_12.format(
+                        grades_d = grade_map['GRADES_D'])
                 if comment:
                     newcomment += '\n' + comment
                 grade_map['COMMENT'] = newcomment
@@ -185,7 +155,8 @@ class Zeugnis(Template):
                 if grade_map['QUALI'] == 'Erw':
                     # Versetzung 12.Gym -> 13.Gym
                     comment = grade_map['COMMENT']
-                    newcomment = VERSETZUNG_12_13
+                    newcomment = VERSETZUNG_12_13.format(
+                        grades_d = grade_map['GRADES_D'])
                     if comment:
                         newcomment += '\n' + comment
                     grade_map['COMMENT'] = newcomment

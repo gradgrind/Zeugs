@@ -2,7 +2,7 @@
 """
 gui_support.py
 
-Last updated:  2020-10-21
+Last updated:  2020-11-04
 
 Support stuff for the GUI: dialogs, etc.
 
@@ -78,6 +78,7 @@ class BoldLabel (QLabel):
         super ().__init__ ('<b>' + text + '</b>')
 
 
+#TODO: Might one want to reset the entries?
 class KeySelect(QComboBox):
     def __init__(self, value_mapping, changed_callback = None):
         """A selection widget for key-description pairs. The key is the

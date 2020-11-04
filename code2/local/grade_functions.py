@@ -27,7 +27,7 @@ Copyright 2020 Michael Towers
 =-LICENCE========================================
 """
 
-#TODO!
+#TODO! This module is deprecated: the useful stuff will be moved elsewhere.
 
 # Messages
 

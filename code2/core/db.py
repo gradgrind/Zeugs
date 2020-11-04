@@ -44,14 +44,17 @@ builtins.DB_TABLES = {
     # A special entry for unique field groups:
     #    {table-name -> <unique> parameter to DB.makeTable()}
     '__UNIQUE__': {},
+    # A special entry to include the field 'id', the integer primary key
+    # If required, include the table name in this set
+    '__PK__': set()
 }
-# A key-value mapping for term (or other reason) information:
-DB_TABLES['OCCASION_INFO'] = {
-    'OCCASION'  : 'Anlass',
-    'INFO'      : 'Info',
-    'VALUE'     : 'Wert'
-}
-DB_TABLES['__UNIQUE__']['OCCASION_INFO'] = (('OCCASION', 'INFO'),)
+## A key-value mapping for term (or other reason) information:
+#DB_TABLES['OCCASION_INFO'] = {
+#    'OCCASION'  : 'Anlass',
+#    'INFO'      : 'Info',
+#    'VALUE'     : 'Wert'
+#}
+#DB_TABLES['__UNIQUE__']['OCCASION_INFO'] = (('OCCASION', 'INFO'),)
 
 import local.pupil_config
 import local.course_config
@@ -118,11 +121,20 @@ class DB:
 
                 indexes = DB_TABLES['__INDEX__']
                 uniques = DB_TABLES['__UNIQUE__']
+                pks = DB_TABLES['__PK__']
                 for table, fields in DB_TABLES.items():
                     if table[0] == '_':
                         continue
                     if not self.tableExists(table):
-                        self.makeTable(table, fields,
+                        flist = list(fields)
+                        try:
+                            # Check for int primary key
+                            flist.remove('id')
+                            pk = 'id'
+                        except ValueError:
+                            pk = None
+                        self.makeTable(table, flist,
+                                pk = 'id' if table in pks else None,
                                 index = indexes.get(table),
                                 unique = uniques.get(table))
 
