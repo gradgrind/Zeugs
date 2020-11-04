@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-simpleodt.py - last updated 2020-10-23
+simpleodt.py - last updated 2020-11-04
 
 1) OdtReader
 =============
@@ -165,7 +165,10 @@ class OdtFields:
             else:
                 tag = rem.group(3).decode('utf-8')
             try:
-                sub_string = xmlescape(itemdict[tag]).encode('utf-8')
+                item = itemdict[tag]
+                if item == None:
+                    raise Bug("tag '%s': None" % tag)
+                sub_string = xmlescape(item).encode('utf-8')
                 useditems.add(tag)
             except KeyError:
                 nonitems.add(tag)

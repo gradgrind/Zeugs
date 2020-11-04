@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/db.py - last updated 2020-10-24
+core/db.py - last updated 2020-11-04
 
 Database access.
 
@@ -64,7 +64,7 @@ def year_path(schoolyear, fpath = None):
     <fpath> is a '/' separated path relative to the year folder.
     """
     if fpath:
-        os.path.join(DATA, 'SCHOOLYEARS', str(schoolyear),
+        return os.path.join(DATA, 'SCHOOLYEARS', str(schoolyear),
                 *fpath.split('/'))
     return os.path.join(DATA, 'SCHOOLYEARS', str(schoolyear))
 

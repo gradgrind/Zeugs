@@ -149,6 +149,10 @@ class Grades(GradeBase):
 #
     def get_raw_grades(self):
         """Return the mapping {sid -> grade} for the "real" grades.
+        In addition, the call to <self.filter_grade> also enters numerical
+        grades (as integers) into the mapping <self.i_grade>:
+            {sid -> grade value}.
+        Non-numerical grades are not entered into <self.i_grade>.
         """
         if self._grades == None:
             self._grades = {}

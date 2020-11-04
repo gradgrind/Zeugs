@@ -4,7 +4,7 @@
 """
 local/grade_template.py
 
-Last updated:  2020-10-31
+Last updated:  2020-11-04
 
 Manage templates for grade reports.
 
@@ -35,10 +35,11 @@ Copyright 2020 Michael Towers
 
 ### Messages
 _INVALID_RTYPE = "Ungültiger Zeugnistyp: '{rtype}'"
+_INVALID_QUALI = "Ungültiges Qualifikationsfeld für Schüler {pid}: '{quali}'"
 
 
 from local.grade_config import GradeConfigError, GradeBase, STREAMS
-from template_engine.template_sub import Template
+from template_engine.template_sub import Template, TEMPLATE_FILE
 
 VERSETZUNG_11_12 = "Durch Konferenzbeschluss vom {grades_d} in die" \
                         " Qualifikationsphase versetzt."
@@ -65,7 +66,7 @@ SEKI_TEXT = {
 
 _NOCOMMENT = '––––––––––'
 
-TEMPLATE_FILE = {
+TEMPLATE_FILE.update({ # add to template mapping in template module
     'grades-Orientierung':      'grades/Orientierung.odt',
     'grades-SekII-13_1':        'grades/SekII-13_1.odt',
     'grades-SekII-12':          'grades/SekII-12.odt',
@@ -78,7 +79,7 @@ TEMPLATE_FILE = {
     'grades-Kein-Abitur':       'grades/Abitur-nicht-bestanden.odt',
     'grades-FHS-Reife':         'grades/Fachhochschulreife.odt'
 #
-}
+})
 
 
 #TODO
@@ -125,10 +126,8 @@ class Orientierung(Template):
     def __init__(self, group, term):
         if group >= '12' or (group >= '11' and term != '1'):
             raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
-        self.FILES_PATH = GradeBase.grade_path(term)
-        self._term = term
-        self._group = group
-        super().__init__(TEMPLATE_FILE['grades-Orientierung'])
+        self.GROUP = group
+        super().__init__('grades-Orientierung')
 
     def quali(self, grade_map):
         # These reports have no notion of qualification
@@ -157,13 +156,11 @@ class Zeugnis(Template):
         else:
             t = 'grades-SekI'
             self.GROUPS = self.GROUPS_SekI
-        self.FILES_PATH = GradeBase.grade_path(term)
-        self._term = term
-        self._group = group
+        self.GROUP = group
         super().__init__(t)
 #
     def quali(self, grade_map):
-        if self.template_file == 'grades-SekI':
+        if self.template_tag == 'grades-SekI':
             stream = grade_map['STREAM']
             grade_map['LEVEL'] = STREAMS[stream] # SekI, not 'Abschluss'
             # Versetzung 11.Gym -> 12.Gym
@@ -175,7 +172,7 @@ class Zeugnis(Template):
                 if comment:
                     newcomment += '\n' + comment
                 grade_map['COMMENT'] = newcomment
-        elif self.template_file == 'grades-SekII-12':
+        elif self.template_tag == 'grades-SekII-12':
             grade_map['QP12'] = ''
             term = grade_map['TERM']
             if term == '1':
@@ -204,9 +201,7 @@ class Abschluss(Template):
 #
     def __init__(self, group, term):
         if group in ('12.R', '11') and term == '2':
-            self.FILES_PATH = GradeBase.grade_path(term)
-            self._term = term
-            self._group = group
+            self.GROUP = group
             super().__init__('grades-SekI-Abschluss')
         else:
             raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
@@ -215,7 +210,11 @@ class Abschluss(Template):
         q = grade_map['QUALI']
         if q == 'Erw' and grade_map['CYEAR'] == '11':
             q = 'RS'    # 'Erw' not possible in class 11
-        grade_map['SEKI'] = SEKI_TEXT[stream] # SekI 'Abschluss' only
+        try:
+            grade_map['SEKI'] = SEKI_TEXT[q] # SekI 'Abschluss' only
+        except KeyError as e:
+            raise GradeConfigError(_INVALID_QUALI.format(
+                    pid = grade_map['PID'], quali = q or '')) from e
         grade_map['NOCOMMENT'] = '' if grade_map['COMMENT'] else _NOCOMMENT
 
 ###
@@ -240,13 +239,11 @@ class Abgang(Template):
         else:
             t = 'grades-SekI'
             self.GROUPS = self.GROUPS_SekI
-        self.FILES_PATH = GradeBase.grade_path(term)
-        self._term = term
-        self._group = group
+        self.GROUP = group
         super().__init__(t)
 #
     def quali(self, grade_map):
-        if self.template_file == 'grades-SekI':
+        if self.template_tag == 'grades-SekI':
             grade_map['GSVERMERK'] = ''
             grade_map['GS'] = ''
             stream = grade_map['STREAM']
@@ -260,7 +257,7 @@ class Abgang(Template):
                     grade_map['GS'] = GS_TEXT['HS']     # only HS-Abschluss
                     grade_map['GSVERMERK'] = "Gleichstellungsvermerk"
 
-        elif self.template_file == 'grades-SekII-12':
+        elif self.template_tag == 'grades-SekII-12':
             grade_map['QP12'] = QP12_TEXT.format(
                     vom = grade_map['QUALI_D'],
                     bis = grade_map['EXIT_D'])
@@ -284,9 +281,7 @@ class Zwischen(Template):
     def __init__(self, group, term):
         if grades['CLASS'] >= '12':
             raise GradeConfigError(_INVALID_RTYPE.format(rtype = self.TAG))
-        self.FILES_PATH = GradeBase.grade_path(term)
-        self._term = term
-        self._group = group
+        self.GROUP = group
         super().__init__('grades-SekI')
 #
     def quali(self, grade_map):

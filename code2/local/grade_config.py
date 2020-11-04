@@ -22,6 +22,7 @@ UNCHOSEN = '/'
 NO_GRADE = '*'
 MISSING_GRADE = '?'
 NO_SUBJECT = '––––––––––'   # entry in grade report for excess subject slot
+UNGRADED = "––––––"         # entry in grade report, where there is no grade
 
 # GRADE field in CLASS_SUBJECTS table
 NULL_COMPOSITE = '/'
@@ -154,7 +155,7 @@ class GradeBase:
         '4': "ausreichend",
         '5': "mangelhaft",
         '6': "ungenügend",
-        '*': "––––––",
+        '*': UNGRADED,
         'nt': "nicht teilgenommen",
         't': "teilgenommen",
 #            'ne': "nicht erteilt",
@@ -240,13 +241,18 @@ class GradeBase:
         """
         return g.zfill(2) if self.isAbitur else g.zfill(1)
 #
-#?
-    def printGrade(self, grade):
-        """Fetch the grade for the given subject id and return the
-        string representation required for the reports.
+    def print_grade(self, grade):
+        """Return the string representation of the grade which should
+        appear in the report.
+        If the grade is UNCHOSEN, return <None>.
         The SekII forms have no space for longer remarks, but the
         special "grades" are retained for "Notenkonferenzen".
         """
+        if grade:
+            if grade == UNCHOSEN:
+                return None
+        else:
+            return MISSING_GRADE
         try:
             if self.isAbitur:
                 if grade in self.valid_grades:
@@ -254,25 +260,19 @@ class GradeBase:
                         int(grade)
                         return grade
                     except:
-                        if grade == UNCHOSEN:
-                            raise
-                        return "––––––"
+                        return UNGRADED
             else:
                 return self._PRINT_GRADE[grade.rstrip('+-')]
         except:
             pass
-        if grade:
-            raise GradeConfigError(_INVALID_GRADE.format(
-                    grade = repr(grade)))
-        # No grade
-        return '?'
-
+        raise GradeConfigError(_INVALID_GRADE.format(grade = repr(grade)))
+#
     @classmethod
     def categories(cls):
         """Return list of tuples: (term tag, term name).
         """
         return [(cat[0], cat[1]) for cat in cls._CATEGORIES]
-
+#
     @classmethod
     def grade_path(cls, term):
         for cat in cls._CATEGORIES:

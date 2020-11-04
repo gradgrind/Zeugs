@@ -4,7 +4,7 @@
 """
 template_engine/template_sub.py
 
-Last updated:  2020-10-30
+Last updated:  2020-11-04
 
 Manage the substitution of "special" fields in an odt template.
 
@@ -48,6 +48,10 @@ _Grades_Single = 'Notenzeugnisse/Einzeln'
 _Grades_Term = 'Notenzeugnisse/HJ%s'
 _Grades_Abitur = 'Notenzeugnisse/Abitur'
 
+TEMPLATE_FILE = {}  # This gets filled by other (local) modules. Its
+# entries are: template tag -> file path relative to templates folder.
+
+
 import sys, os
 if __name__ == '__main__':
     # Enable package import if running as module
@@ -60,7 +64,6 @@ import tempfile
 from pikepdf import Pdf, Page
 
 from core.run_extern import run_extern
-from core.db import year_path
 from template_engine.simpleodt import OdtFields
 
 
@@ -137,36 +140,41 @@ class Template:
     TAG = "___"         # This should be overridden in a subclass.
     DOUBLE_SIDED = True # This can be overridden in a subclass.
 #
-    def __init__(self, template_file):
-        """<template_file> is the path to the template file (without the
-        type-suffix), relative to the templates folder.
+    def __init__(self, template_tag):
+        """<template_tag> is the tag for the template file, the key to
+        the mapping TEMPLATE_FILE giving the path relative to the
+        templates folder.
         """
-        self.template_file = template_file
+        self.template_tag = template_tag
         self.template_path = os.path.join(RESOURCES, 'templates',
-                *(template_file + '.odt').split('/'))
+                *TEMPLATE_FILE[template_tag].split('/'))
 #
     def all_keys(self):
         return {k for k,s in OdtFields.listUserFields(self.template_path)}
 #
 
-#TODO: possibly pass schoolyear as parameter?
     def make_pdf(self, data_list, working_dir = None):
         """From the supplied list of data mappings produce a pdf
         containing the concatenated individual reports.
-        <working_dir> is a path ('/'-separated) relative to the data
-        area for the school-year being processed. If it is not supplied,
-        a temporary directory is created, which is removed automatically
-        when the function completes.
+        Files are built in <working_dir>, which will normally be a path
+        within the data area for the school-year being processed.
+        If it is not supplied, a temporary directory is created, which
+        is removed automatically when the function completes.
+        Note that the return value varies according to whether <working_dir>
+        is provided:
+            With <working_dir>: path to resulting pdf-file
+            No <working_dir>: (pdf-bytes, file-name (no path))
         For single reports use method <make_pdf1>.
         """
         if working_dir:
-            # Make the full path, e.g. 2016/<Grades>/<TERM2>
-            wdir = year_path(data_list.schoolyear, self.FILES_PATH)
+            wdir = working_dir
+            if not os.path.isdir(wdir):
+                os.makedirs(wdir)
         else:
             wdirTD = tempfile.TemporaryDirectory()
             wdir = wdirTD.name
         dir_name = '%s_%s' % (self.GROUP, self.TAG)
-        # <self.TAG> should be supplied in the subclass.
+        # <self.GROUP> and <self.TAG> should be supplied in the subclass.
         odt_dir = os.path.join(wdir, dir_name)
         clean_dir(odt_dir)
         odt_list = []
@@ -196,13 +204,19 @@ class Template:
         # to build the final result.
         # Get pad2sided from the template data (single-sided documents
         # should not be padded!).
-        pdf_bytes = merge_pdf([], pad2sided = self.DOUBLE_SIDED)
+        pdf_bytes = merge_pdf([os.path.join(pdf_dir, pdf)
+                        for pdf in sorted(pdfs)],
+                pad2sided = self.DOUBLE_SIDED)
         # If a working folder is provided, store the result in it
         pdf_file = dir_name + '.pdf'
-        with open(os.path.join(wdir, pdf_file), 'wb') as fout:
-            fout.write(pdf_bytes)
-
-        return (pdf_bytes, pdf_file)
+        if working_dir:
+            pdf_path = os.path.join(wdir, pdf_file)
+            with open(pdf_path, 'wb') as fout:
+                    fout.write(pdf_bytes)
+            clean_dir(pdf_dir)
+            return pdf_path
+        else:
+            return (pdf_bytes, pdf_file)
 
 # For odt-templates, there needs to be a folder to receive the odt-files.
 # These would then be batch-converted to pdf-files – in another folder.
@@ -218,15 +232,17 @@ class Template:
     def make_pdf1(self, datamap, working_dir = None):
         """From the supplied data mapping produce a pdf of the
         corresponding report.
-        <working_dir> is a path ('/'-separated) relative to the data
-        area for the school-year being processed. If it is not supplied,
-        a temporary directory is created, which is removed automatically
-        when the function completes.
+        Files are built in <working_dir>, which will normally be a path
+        within the data area for the school-year being processed.
+        If it is not supplied,va temporary directory is created, which
+        is removed automatically when the function completes.
+        Note that the return value varies according to whether <working_dir>
+        is provided:
+            With <working_dir>: path to resulting pdf-file
+            No <working_dir>: (pdf-bytes, file-name (no path))
         """
         if working_dir:
-            # Make the full path, e.g. 2016/<Grades>/<Single>
-#datamap['schoolyear']?
-            wdir = year_path(datamap['schoolyear'], self.FILES_PATH)
+            wdir = working_dir
             if not os.path.isdir(wdir):
                 os.makedirs(wdir)
         else:
@@ -249,8 +265,11 @@ class Template:
             raise TemplateError(_MISSING_PDF.format(fpath = pdf_file))
 # Maybe there's output from libreoffice somewhere?
 
-        with open(pdf_file, 'rb') as fin:
-            return (fin.read(), file_name + '.pdf')
+        if working_dir:
+            return pdf_file
+        else:
+            with open(pdf_file, 'rb') as fin:
+                return (fin.read(), file_name + '.pdf')
 
 
 
