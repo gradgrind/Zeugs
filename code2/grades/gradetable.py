@@ -35,7 +35,7 @@ Copyright 2020 Michael Towers
 
 
 ### Messages
-_NO_GRADES_ENTRY = "Keine Noten für Schüler {pid} zum {date}"
+_NO_GRADES_ENTRY = "Keine Noten für Schüler {pid} zum {zum}"
 _EXCESS_SUBJECTS = "Unerwartete Fachkürzel in der Notenliste: {sids}"
 
 
@@ -99,9 +99,10 @@ class Grades(GradeBase):
         with DB(schoolyear) as dbconn:
             rows = dbconn.select('GRADES', CLASS = klass, TERM = term)
         if streams:
-            return [cls(row) for row in rows if row['STREAM'] in streams]
+            return [cls(schoolyear, row) for row in rows
+                    if row['STREAM'] in streams]
         else:
-            return [cls(row) for row in rows]
+            return [cls(schoolyear, row) for row in rows]
 #
     @staticmethod
     def list_pupil(schoolyear, pid):
@@ -110,6 +111,7 @@ class Grades(GradeBase):
         with DB(schoolyear) as dbconn:
             return list(dbconn.select('GRADES', PID = pid))
 #
+#TODO: handling of 'S' reports not yet ok!
     @classmethod
     def forPupil(cls, schoolyear, term_or_date, pid):
         """Return <Grades> instance for the given pupil and term. If
@@ -135,7 +137,7 @@ class Grades(GradeBase):
             if not row:
                 raise GradeTableError(_NO_GRADES_ENTRY.format(
                         pid = pid, zum = term_or_date))
-        return cls(row)
+        return cls(schoolyear, row)
 #
     @classmethod
     def newPupil(cls, schoolyear, **fields):
@@ -145,10 +147,11 @@ class Grades(GradeBase):
         with DB(schoolyear) as dbconn:
             rowid = dbconn.addEntry('GRADES', fields)
             row = dbconn.select1('GRADES', id = rowid)
-        return cls(row)
+        return cls(schoolyear, row)
 #
 #TODO: Do I need the school-year?
-    def __init__(self, grade_row):
+    def __init__(self, schoolyear, grade_row):
+        self.schoolyear = schoolyear
         self.grade_row = grade_row
         super().__init__(grade_row)
         self._grades = None
@@ -156,6 +159,17 @@ class Grades(GradeBase):
 #
     def __getitem__(self, key):
         return self.grade_row[key]
+#
+    def update(self, **changes):
+        """Update the fields of the grade entry.
+        """
+        with DB(self.schoolyear) as dbconn:
+            rowid = self.grade_row['id']
+            dbconn.updateOrAdd('GRADES', changes, update_only = True,
+                    id = rowid)
+            row = dbconn.select1('GRADES', id = rowid)
+        # Reinitialize the instance
+        self.__init__(self.schoolyear, row)
 #
     def get_raw_grades(self):
         """Return the mapping {sid -> grade} for the "real" grades.
@@ -475,12 +489,26 @@ def oldTablePupils(schoolyear, term, klass):
 if __name__ == '__main__':
     from core.base import init
     init('TESTDATA')
+    _schoolyear = 2016
 
-#    print("NEW ROW:", Grades.newPupil(2016, TERM = 'S1',
-#            CLASS = '12', STREAM = 'RS', PID = '200888'))
+    print("NEW ROW:", Grades.newPupil(_schoolyear, TERM = 'S1',
+            CLASS = '12', STREAM = 'Gym', PID = '200888'))
+
+#TODO ... forPupil AND seems to be adding nearly empty row!!!
+#    g = Grades.forPupil(_schoolyear, 'S1', '200888')
+
+    with DB(_schoolyear) as dbconn:
+        row = dbconn.select1('GRADES', PID = '200888', TERM = 'S1')
+    g = Grades(_schoolyear, row)
+
+    g.update(STREAM = 'RS')
+    print("CHANGED TO:", dict(g.grade_row))
+
+    with DB(_schoolyear) as dbconn:
+        dbconn.deleteEntry ('GRADES', id = g['id'])
+
 
     from core.courses import Subjects
-    _schoolyear = 2016
     _term = '2'
     _group = '12.R'
     _k, _ss = Grades.group2klass_streams(_group)

@@ -76,6 +76,8 @@ GRADETABLE_FIELDNAMES = {
 ### Messages
 _SID_IN_MULTIPLE_GROUPS = "Fächertabelle: Fachgruppe für Fach {sid}" \
         " ist nicht eindeutig"
+_GROUP_CHANGE = "{pname} hat die Gruppe gewechselt: {delta}"
+
 
 #####################################################
 
@@ -167,11 +169,19 @@ def get_grade_data(schoolyear, term, group):
             gdata = Grades.newPupil(schoolyear, TERM = term,
                     CLASS = pdata['CLASS'], STREAM = pdata['STREAM'],
                     PID = pdata['PID'])
-#        else:
-# Check for grade entries which are no longer valid?
-# Check for changed pupil stream?
-
-        # Get all the grades, including composites.
+        else:
+            # Check for changed pupil stream and class
+            changes = {}
+            if pdata['CLASS'] != gdata['CLASS']:
+                changes['CLASS'] = pdata['CLASS']
+            if pdata['STREAM'] != gdata['STREAM']:
+                changes['STREAM']  = pdata['STREAM']
+            if changes:
+                REPORT(_GROUP_CHANGE.format(
+                        pname = pupils.pdata2name(pdata),
+                        delta = repr(changes)))
+                gdata.update(**changes)
+        # Get all the grades, including composites
         grades = gdata.get_full_grades(sdata_list)
 
 

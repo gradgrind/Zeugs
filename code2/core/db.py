@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/db.py - last updated 2020-11-04
+core/db.py - last updated 2020-11-05
 
 Database access.
 
@@ -435,7 +435,9 @@ class DB:
                     criteria=repr(criteria),
                     data=repr(data))
             )
-        if update_only and self._cursor.rowcount < 1:
+        if self._cursor.rowcount == 1:
+            return
+        if update_only:
             raise UpdateError
         cmd = 'INSERT OR IGNORE INTO {}({}) VALUES({})'.format(table,
                         ','.join(fields),
