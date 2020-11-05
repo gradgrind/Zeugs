@@ -2,7 +2,7 @@
 """
 grade_editor.py
 
-Last updated:  2020-11-04
+Last updated:  2020-11-05
 
 Grade Editor.
 
@@ -123,6 +123,7 @@ from local.grade_template import REPORT_TYPES
 # but the instances have a different purpose ...
 # I probably need some of the stuff from makereports.
 
+#TODO: What about unscheduled reports?
 def get_grade_data(schoolyear, term, group):
 # Assume first that we are dealing with old data. This is primarily
 # determined by the entries in the GRADES table and should normally
@@ -142,20 +143,36 @@ def get_grade_data(schoolyear, term, group):
     klass, streams = Grades.group2klass_streams(group)
     sdata_list = _courses.grade_subjects(klass)
 
+    gdata_list = [] # collect row data
     for gdata in Grades.forGroupTerm(schoolyear, term, group):
         # Get all the grades, including composites.
-        grades = gdata.get_full_grades(sdata_list)
+        gdata.get_full_grades(sdata_list)
+        gdata.set_pupil_name(pupils.pid2name(gdata['PID']))
+        gdata_list.append(gdata)
+
+    return gdata_list
 
 
+#TODO ...
 ### The alternative, for the current term, might be
-    for pdata in pupils.classPupils(klass): # date?
+    gdata_list = [] # collect row data
+    for pdata in pupils.classPupils(klass):
+#TODO: date?
         if streams and (pdata['STREAM'] not in streams):
             continue
-        gdata = Grades.forPupil(schoolyear, term, pdata['PID'])
-        # Get all the grades, including composites.
-        grades = gdata.get_full_grades(sdata_list)
+        try:
+            gdata = Grades.forPupil(schoolyear, term, pdata['PID'])
+        except GradeTableError:
+            # No entry in database table
+            gdata = Grades.newPupil(schoolyear, TERM = term,
+                    CLASS = pdata['CLASS'], STREAM = pdata['STREAM'],
+                    PID = pdata['PID'])
+#        else:
 # Check for grade entries which are no longer valid?
 # Check for changed pupil stream?
+
+        # Get all the grades, including composites.
+        grades = gdata.get_full_grades(sdata_list)
 
 
 

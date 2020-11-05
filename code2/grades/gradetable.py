@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-11-03
+grades/gradetable.py - last updated 2020-11-05
 
 Access grade data, read and build grade tables.
 
@@ -137,6 +137,16 @@ class Grades(GradeBase):
                         pid = pid, zum = term_or_date))
         return cls(row)
 #
+    @classmethod
+    def newPupil(cls, schoolyear, **fields):
+        """Add a new grade entry for the given term and pupil.
+        """
+#TODO: What about "unscheduled" reports?
+        with DB(schoolyear) as dbconn:
+            rowid = dbconn.addEntry('GRADES', fields)
+            row = dbconn.select1('GRADES', id = rowid)
+        return cls(row)
+#
 #TODO: Do I need the school-year?
     def __init__(self, grade_row):
         self.grade_row = grade_row
@@ -167,19 +177,18 @@ class Grades(GradeBase):
     def sid2tid(self, sid):
         """Return the tag for the teacher who graded the given subject.
         """
-        while True:
-            try:
-                return self._sid2tid[sid]
-            except KeyError as e:
-                raise Bug("Unknown subject key: %s" % sid) from e
-            except TypeError:
-                self.grades()   # Ensure cache is loaded
+        if self._sid2tid == None:
+            self.grades()   # Ensure cache is loaded
+        try:
+            return self._sid2tid[sid]
+        except KeyError as e:
+            raise Bug("Unknown subject key: %s" % sid) from e
 #
     def get_full_grades(self, sdata_list, with_composites = False):
-        """Return the full grade mapping including for those items/subjects
-        which are determined by processing the other grades. This requires
-        the appropriate (ordered) list of <SubjectData> instances,
-        <sdata_list>.
+        """Return the full grade mapping including all subjects in
+        <sdata_list>, a list of <SubjectData> instances. If
+        <with_composites> is true, also the "composite" subjects will be
+        processed and included.
         All subjects relevant for grades in the class are included.
         A <SubjectData> tuple has the following fields:
             sid: the subject tag;
@@ -191,9 +200,10 @@ class Grades(GradeBase):
             report_groups: a list of tags representing a particular block
                 of grades in the report template;
             name: the full name of the subject.
+        The result is also saved as <self.full_grades>.
         """
         raw_grades = self.get_raw_grades()
-        # Process composites, add subjects missing from GRADES field
+        # Add subjects missing from GRADES field, process composites
         grades = {}
         for sdata in sdata_list:
             sid = sdata.sid
@@ -215,7 +225,7 @@ class Grades(GradeBase):
                         if raw_grades.get(csid) != UNCHOSEN:
                             non_grade = NO_GRADE
                     else:
-                        ai += 1
+                        ai += weight
                         asum += gi * weight
                 if ai:
                     g = Frac(asum, ai).round()
@@ -225,7 +235,17 @@ class Grades(GradeBase):
                     grades[sid] = non_grade
         if raw_grades:
             REPORT(_EXCESS_SUBJECTS.format(sids = ', '.join(raw_grades)))
+        self.full_grades = grades
         return grades
+#
+    def set_pupil_name(self, name):
+        """The pupil name can be set externally. This avoids having this
+        module deal with pupil data.
+        """
+        self._pname = name
+#
+    def pupil_name(self):
+        return self._pname
 
 ###
 
@@ -455,6 +475,9 @@ def oldTablePupils(schoolyear, term, klass):
 if __name__ == '__main__':
     from core.base import init
     init('TESTDATA')
+
+#    print("NEW ROW:", Grades.newPupil(2016, TERM = 'S1',
+#            CLASS = '12', STREAM = 'RS', PID = '200888'))
 
     from core.courses import Subjects
     _schoolyear = 2016

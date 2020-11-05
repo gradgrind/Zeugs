@@ -66,11 +66,6 @@ class Subjects:
             return list(self.dbconn.select('CLASS_SUBJECT',
                     CLASS = klass, order = 'rowid'))
 #
-#TODO: weighting of components?
-# Add to composite in FLAGS field: *Ku:2  for weight 2.
-# Weights should be <int>, to preserve exact rouding.
-# The <composite> field could then be a tuple (sid, weight).
-# Actually, also the lists of components are available here!
     def grade_subjects(self, klass):
         """Return a list of <SubjectData> named-tuples for the given class.
         Only subjects relevant for grade reports are included, i.e. those
@@ -91,6 +86,9 @@ class Subjects:
         Grade "components" are marked by having '*' as the first character
         of their GRADE field. The first element of this field (after
         stripping the '*') is the composite subject tag.
+        *** Weighting of components ***
+         Add to composite in FLAGS field: *Ku:2  for weight 2.
+        Weights should be <int>, to preserve exact rouding.
         """
         composites = {}
         subjects = []

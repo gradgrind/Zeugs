@@ -4,14 +4,14 @@
 """
 local/grade_config.py
 
-Last updated:  2020-11-04
+Last updated:  2020-11-05
 
 Configuration for grade handling.
 ====================================
 """
 
 ### Messages
-_BAD_GRADE = "Ungültige \"Note\" im Fach {sid}: {g}"
+_BAD_GRADE = "ERROR: Ungültige \"Note\" im Fach {sid}: {g}"
 _BAD_TERM = "Ungültiger \"Anlass\" (Halbjahr): {term}"
 _INVALID_GRADE = "Ungültige \"Note\": {grade}"
 _BAD_GROUP = "Ungültige Schülergruppe: {group}"
@@ -54,6 +54,8 @@ GRADES_FIELDS = {
 }
 #
 DB_TABLES['GRADES'] = GRADES_FIELDS
+#TODO: There is a problem with the unique index – category 'S*'! There
+# can be multiple unscheduled reports ...
 DB_TABLES['__INDEX__']['GRADES'] = (('PID', 'TERM'),)
 # Add 'id' integer-primary-key, can aid updates
 DB_TABLES['__PK__'].add('GRADES')
@@ -99,7 +101,7 @@ class GradeBase:
         ('1', '1. Halbjahr', 'NOTEN/HJ1'),
         ('2', '2. Halbjahr', 'NOTEN/HJ2'),
         ('A', 'Abitur', 'NOTEN/Abitur'),
-        ('S', 'Einzelzeugnisse', 'NOTEN/Einzel')
+        ('S*', 'Einzelzeugnisse', 'NOTEN/Einzel')
     )
     _GROUP_STREAMS = { # The classes which are divided into groups for
         # grade reports. This maps the groups to the pupils' streams.
@@ -224,15 +226,17 @@ class GradeBase:
         """
         # There can be normal, empty, non-numeric and badly-formed grades
         if g:
-            if g not in self.valid_grades:
-                raise GradeError(_BAD_GRADE.format(sid = sid, g = g))
-            # Separate out numeric grades, ignoring '+' and '-'.
-            # This can also be used for the Abitur scale, though the
-            # stripping is superfluous.
-            try:
-                self.i_grade[sid] = int(g.rstrip('+-'))
-            except ValueError:
-                pass
+            if g in self.valid_grades:
+                # Separate out numeric grades, ignoring '+' and '-'.
+                # This can also be used for the Abitur scale, though the
+                # stripping is superfluous.
+                try:
+                    self.i_grade[sid] = int(g.rstrip('+-'))
+                except ValueError:
+                    pass
+            else:
+                REPORT(_BAD_GRADE.format(sid = sid, g = g))
+                g = ''
         else:
             g = ''  # ensure that the grade is a <str>
         return g
