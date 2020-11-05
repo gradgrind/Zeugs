@@ -6,5 +6,12 @@ logs
 flask_session
 
 zeugs_data
+DATA
+old
+TESTING
+_TESTING
+NOTEN
 
 zeugs_web/db.sqlite3
+zeugs_web-pre
+Zeugs_Web_Project
