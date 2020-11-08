@@ -1,7 +1,7 @@
 ### python >= 3.7
 # -*- coding: utf-8 -*-
 """
-grades/gradetable.py - last updated 2020-11-05
+grades/gradetable.py - last updated 2020-11-08
 
 Access grade data, read and build grade tables.
 
@@ -68,11 +68,13 @@ if __name__ == '__main__':
     this = sys.path[0]
     sys.path[0] = os.path.dirname(this)
 
-#import datetime
+import datetime
 from fractions import Fraction
 
-from core.base import str2list
 from core.db import DB
+from core.base import str2list, Dates
+from core.pupils import Pupils
+from core.courses import Subjects
 from tables.spreadsheet import Spreadsheet, DBtable
 from local.base_config import DECIMAL_SEP
 from local.grade_config import GradeBase, UNCHOSEN, NO_GRADE
@@ -281,6 +283,129 @@ class Frac(Fraction):
         v = int(self * 10**decimal_places + f)
         sval = ("{:0%dd}" % (decimal_places+1)).format(v)
         return (sval[:-decimal_places] + DECIMAL_SEP + sval[-decimal_places:])
+
+
+#TODO: What about unscheduled reports?
+class TermGrade:
+    """Manage the grade data for a term (etc.) and group.
+    With old data (past reports), the entries in the GRADES table are
+    primary as far as the pupils are concerned. The class, stream and
+    pupil list can differ from the "current" state.
+    For current (not yet issued) reports, the entries in the GRADES
+    table should adapt to the current pupil data.
+    """
+    def __init__(self, schoolyear, term, group, with_composites = False):
+        self.schoolyear = schoolyear
+        self.term = term
+        self.group = group
+        ### Pupil data
+        pupils = Pupils(schoolyear)
+        # Needed here for pupil names, can use pupils.pid2name(pid)
+        # Fetching the whole class may not be good enough, as it is vaguely
+        # possible that a pupil has changed class.
+
+        ### Subject data (for whole class)
+        _courses = Subjects(schoolyear)
+        klass, streams = Grades.group2klass_streams(group)
+        self.sdata_list = _courses.grade_subjects(klass)
+
+        ### Collect rows
+        self.grades_info = self.get_grade_info(schoolyear, term, group)
+        self.gdata_list = []
+        if self._grades_closed():
+            for gdata in Grades.forGroupTerm(schoolyear, term, group):
+                # Get all the grades, possibly including composites.
+                gdata.get_full_grades(self.sdata_list, with_composites)
+                gdata.set_pupil_name(pupils.pid2name(gdata['PID']))
+                self.gdata_list.append(gdata)
+        else:
+            date = self.grades_info['ISSUE_D']
+            for pdata in pupils.classPupils(klass, date):
+                if streams and (pdata['STREAM'] not in streams):
+                    continue
+                pname = pupils.pdata2name(pdata)
+                try:
+                    gdata = Grades.forPupil(schoolyear, term, pdata['PID'])
+                except GradeTableError:
+                    # No entry in database table
+                    gdata = Grades.newPupil(schoolyear, TERM = term,
+                            CLASS = pdata['CLASS'], STREAM = pdata['STREAM'],
+                            PID = pdata['PID'], ISSUE_D = '*', GRADES_D = '*',
+                            REPORT_TYPE = default_report_type(term, group))
+                else:
+                    # Check for changed pupil stream and class
+                    changes = {}
+                    if pdata['CLASS'] != gdata['CLASS']:
+                        changes['CLASS'] = pdata['CLASS']
+                    if pdata['STREAM'] != gdata['STREAM']:
+                        changes['STREAM']  = pdata['STREAM']
+                    if changes:
+                        REPORT(_GROUP_CHANGE.format(
+                                pname = pname,
+                                delta = repr(changes)))
+                        gdata.update(**changes)
+                # Get all the grades, possibly including composites
+                gdata.get_full_grades(self.sdata_list, with_composites)
+                gdata.set_pupil_name(pname)
+                self.gdata_list.append(gdata)
+#
+    def _grades_closed(self):
+#TODO: Ensure that the data exists!
+        idate = self.grades_info['ISSUE_D']
+        return idate and Dates.today() > idate
+#
+    @staticmethod
+    def default_report_type(term, group):
+        for grp, rtype in Grades.term2group_rtype_list(term):
+            if grp == group:
+                return rtype
+        raise Bug("No report type for term {term}, group {group}".format(
+                term = term, group = group))
+#
+    @classmethod
+    def get_grade_info(cls, schoolyear, term, group):
+        """Fetch general information for the term/group.
+        If necessary, initialize the entries.
+        """
+        kb = cls.info_keybase(term, group)
+        ginfo = {}
+        with DB(schoolyear) as dbconn:
+            row = dbconn.select1('INFO', K = kb.format(field = 'ISSUE_D'))
+            if row:
+                ginfo['ISSUE_D'] = row['V']
+                ginfo['GRADES_D'] = dbconn.select1('INFO',
+                        K = kb.format(field = 'GRADES_D'))['V']
+            else:
+                # Initialize the information
+                try:
+                    date = dbconn.select1('INFO',
+                            K = 'CALENDAR_TERM_%d' % (int(term) + 1))['V']
+                except TypeError:
+                    date = dbconn.select1('INFO',
+                            K = 'CALENDAR_LAST_DAY')['V']
+                else:
+                    # Previous day, ensure that it is a weekday
+                    td = datetime.timedelta(days = 1)
+                    d = datetime.date.fromisoformat(date)
+                    while True:
+                        d -= td
+                        if d.weekday() < 5:
+                            date = d.isoformat()
+                            break
+                kb = cls.info_keybase(term, group)
+                ginfo = {'ISSUE_D': date, 'GRADES_D': None}
+                for key, value in ginfo.items():
+                    dbconn.updateOrAdd('INFO',
+                            {'K': kb.format(field = key), 'V': value},
+                            K = key)
+        return ginfo
+#
+    @staticmethod
+    def info_keybase(term, group):
+        """Return the base for the INFO table key.
+        """
+        return 'GRADES_%s.%s_{field}' % (group, term)
+
 
 
 #==========================================
@@ -494,9 +619,6 @@ if __name__ == '__main__':
     print("NEW ROW:", Grades.newPupil(_schoolyear, TERM = 'S1',
             CLASS = '12', STREAM = 'Gym', PID = '200888'))
 
-#TODO ... forPupil AND seems to be adding nearly empty row!!!
-#    g = Grades.forPupil(_schoolyear, 'S1', '200888')
-
     with DB(_schoolyear) as dbconn:
         row = dbconn.select1('GRADES', PID = '200888', TERM = 'S1')
     g = Grades(_schoolyear, row)
@@ -507,18 +629,20 @@ if __name__ == '__main__':
     with DB(_schoolyear) as dbconn:
         dbconn.deleteEntry ('GRADES', id = g['id'])
 
-
-    from core.courses import Subjects
     _term = '2'
     _group = '12.R'
-    _k, _ss = Grades.group2klass_streams(_group)
-    _glist = Grades.forGroupTerm(_schoolyear, _term, _group)
-    _courses = Subjects(_schoolyear)
-    _sdata_list = _courses.grade_subjects(_k)
-    for _gdata in _glist:
+    term_grade = TermGrade(_schoolyear, _term, _group)
+    for _gdata in term_grade.gdata_list:
         print("\nid:", _gdata['id'])
         print(":::", _gdata['PID'])
-        print(_gdata.get_full_grades(_sdata_list))
+        print(_gdata.full_grades)
+
+    _group = '12.G'
+    term_grade = TermGrade(_schoolyear, _term, _group, with_composites = True)
+    for _gdata in term_grade.gdata_list:
+        print("\nid:", _gdata['id'])
+        print(":::", _gdata['PID'])
+        print(_gdata.full_grades)
 
     quit(0)
 

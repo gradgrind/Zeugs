@@ -2,7 +2,7 @@
 """
 grade_editor.py
 
-Last updated:  2020-11-05
+Last updated:  2020-11-07
 
 Grade Editor.
 
@@ -123,66 +123,8 @@ from local.grade_template import REPORT_TYPES
 ### I need to get the data for a grade group ...
 # ... GradeValues seems to have vanished! It has turned into GradeBase,
 # but the instances have a different purpose ...
-# I probably need some of the stuff from makereports.
-
-#TODO: What about unscheduled reports?
-def get_grade_data(schoolyear, term, group):
-# Assume first that we are dealing with old data. This is primarily
-# determined by the entries in the GRADES table and should normally
-# not be changed!
-# In the case of the current term, it is possible that there are
-# changes to pupil data, including stream – and even class. Thus it
-# is probably necessary to distinguish the two cases.
-
-    ### Pupil data
-    pupils = Pupils(schoolyear)
-    # Needed here for pupil names, can use pupils.pid2name(pid)
-    # Fetching the whole class may not be good enough, as it is vaguely
-    # possible that a pupil has changed class.
-
-    ### Subject data (for whole class)
-    _courses = Subjects(schoolyear)
-    klass, streams = Grades.group2klass_streams(group)
-    sdata_list = _courses.grade_subjects(klass)
-
-    gdata_list = [] # collect row data
-    for gdata in Grades.forGroupTerm(schoolyear, term, group):
-        # Get all the grades, including composites.
-        gdata.get_full_grades(sdata_list)
-        gdata.set_pupil_name(pupils.pid2name(gdata['PID']))
-        gdata_list.append(gdata)
-
-    return gdata_list
 
 
-#TODO ...
-### The alternative, for the current term, might be
-    gdata_list = [] # collect row data
-    for pdata in pupils.classPupils(klass):
-#TODO: date?
-        if streams and (pdata['STREAM'] not in streams):
-            continue
-        try:
-            gdata = Grades.forPupil(schoolyear, term, pdata['PID'])
-        except GradeTableError:
-            # No entry in database table
-            gdata = Grades.newPupil(schoolyear, TERM = term,
-                    CLASS = pdata['CLASS'], STREAM = pdata['STREAM'],
-                    PID = pdata['PID'])
-        else:
-            # Check for changed pupil stream and class
-            changes = {}
-            if pdata['CLASS'] != gdata['CLASS']:
-                changes['CLASS'] = pdata['CLASS']
-            if pdata['STREAM'] != gdata['STREAM']:
-                changes['STREAM']  = pdata['STREAM']
-            if changes:
-                REPORT(_GROUP_CHANGE.format(
-                        pname = pupils.pdata2name(pdata),
-                        delta = repr(changes)))
-                gdata.update(**changes)
-        # Get all the grades, including composites
-        grades = gdata.get_full_grades(sdata_list)
 
 
 

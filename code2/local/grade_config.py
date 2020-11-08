@@ -4,7 +4,7 @@
 """
 local/grade_config.py
 
-Last updated:  2020-11-05
+Last updated:  2020-11-08
 
 Configuration for grade handling.
 ====================================

@@ -56,8 +56,8 @@ _NO_SLOT = "Kein Platz mehr für Fach mit Kürzel {sid} in Fachgruppe {tag}." \
         " Bisher: {done}"
 
 
-from core.base import Dates
 from core.db import year_path
+from core.base import Dates
 from core.pupils import Pupils
 from core.courses import Subjects
 from local.base_config import SCHOOL_NAME, class_year, print_schoolyear
@@ -65,7 +65,7 @@ from local.grade_config import MISSING_GRADE, UNGRADED, GradeConfigError, \
         STREAMS, NO_SUBJECT
 from local.grade_template import REPORT_TYPES
 from template_engine.template_sub import TemplateError
-from grades.gradetable import Grades, GradeTableError
+from grades.gradetable import TermGrade, Grades, GradeTableError
 
 
 #TODO: Does this handle Abitur reports?
@@ -90,6 +90,10 @@ def makeReport1(schoolyear, term_date, pid):
     # be determined, based on the pupil's stream.
     group = Grades.klass_stream2group(gdata['CLASS'], gdata['STREAM'])
     term = gdata['TERM']
+
+######################################
+#TODO: prepare_report_data changed! (grade_data, rtype)
+# How to get a TermGrade for a single report?
     template, gmaplist = prepare_report_data(schoolyear, term, rtype,
             group, [gdata])
     return template.make_pdf1(gmaplist[0],
@@ -111,20 +115,18 @@ def makeReports(schoolyear, term, group, pids = None):
     added as necessary.
     Return a list of file-paths for the report-type pdf-files.
     """
-    ### Fetch grade data and split according to report type
-    greport_type = {}
+    ### Fetch grade data and inspect report types
+    greport_type = set()
     no_report_type = []
-    for gdata in Grades.forGroupTerm(schoolyear, term, group):
+    grade_data = TermGrade(schoolyear, term, group, with_composites = True)
+    for gdata in grade_data.gdata_list:
         # <forGroupTerm> accepts only valid grade-groups.
         # Check pupil filter, <pids>:
         if pids and (gdata['PID'] not in pids):
             continue
         rtype = gdata['REPORT_TYPE']
         if rtype:
-            try:
-                greport_type[rtype].append(gdata)
-            except KeyError:
-                greport_type[rtype] = [gdata]
+            greport_type.add(rtype)
         else:
             no_report_type.append(gdata['PID'])
     if no_report_type:
@@ -133,29 +135,23 @@ def makeReports(schoolyear, term, group, pids = None):
 
     ### Build reports for each report-type separately
     fplist = []
-    for rtype, gdatalist in greport_type.items():
-        template, gmaplist = prepare_report_data(schoolyear, term, rtype,
-                group, gdatalist)
+    for rtype in greport_type:
+        template, gmaplist = prepare_report_data(grade_data, rtype)
         fplist.append(template.make_pdf(gmaplist,
                 year_path(schoolyear, Grades.grade_path(term))))
     return fplist
 
 ###
 
-def prepare_report_data(schoolyear, term, rtype, group, gdata_list):
+def prepare_report_data(grade_data, rtype):
     """Prepare the slot-mappings for report generation.
     Return a tuple: (template object, list of slot-mappings).
     """
     ### Pupil data
-    pupils = Pupils(schoolyear)
+    pupils = Pupils(grade_data.schoolyear)
     # The individual pupil data can be fetched using pupils[pid].
     # Fetching the whole class may not be good enough, as it is vaguely
     # possible that a pupil has changed class.
-
-    ### Subject data (for whole class)
-    _courses = Subjects(schoolyear)
-    klass, streams = Grades.group2klass_streams(group)
-    sdata_list = _courses.grade_subjects(klass)
 
     ### Grade report template
     try:
@@ -163,11 +159,11 @@ def prepare_report_data(schoolyear, term, rtype, group, gdata_list):
     except KeyError as e:
         raise Bug("Invalid report type for group %s: %s" %
                 (group, rtype)) from e
-    gTemplate = GradeTemplate(group, term)
+    gTemplate = GradeTemplate(grade_data.group, grade_data.term)
 
     ## Build the data mappings and generate the reports
     gmaplist = []
-    for gdata in gdata_list:
+    for gdata in grade_data.gdata_list:
         gmap = {}
         pid = gdata['PID']
         # Get pupil data, an <sqlite3.Row> instance
@@ -194,14 +190,14 @@ def prepare_report_data(schoolyear, term, rtype, group, gdata_list):
 
         ## Process the grades themselves ...
         # Sort into grade groups
-        grade_map = sort_grade_keys(sdata_list, gdata, gTemplate)
+        grade_map = sort_grade_keys(grade_data.sdata_list, gdata, gTemplate)
         gmap.update(grade_map)
 
         ## Add general data
         gmap['SCHOOL'] = SCHOOL_NAME
         gmap['SCHOOLBIG'] = SCHOOL_NAME.upper()
-        gmap['schoolyear'] = str(schoolyear)
-        gmap['SCHOOLYEAR'] = print_schoolyear(schoolyear)
+        gmap['schoolyear'] = str(grade_data.schoolyear)
+        gmap['SCHOOLYEAR'] = print_schoolyear(grade_data.schoolyear)
         gmap['Zeugnis'] = gTemplate.NAME
         gmap['ZEUGNIS'] = gTemplate.NAME.upper()
         # Add local stuff
@@ -274,7 +270,7 @@ def sort_grade_keys(sdata_list, gdata, template):
 
     gmap = {}   # for the result
     # Get all the grades, including composites.
-    grades = gdata.get_full_grades(sdata_list, with_composites = True)
+    grades = gdata.full_grades
     for sdata in sdata_list:
         # Get the grade
         g = gdata.print_grade(grades[sdata.sid])

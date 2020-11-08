@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/db.py - last updated 2020-11-05
+core/db.py - last updated 2020-11-08
 
 Database access.
 
@@ -48,14 +48,8 @@ builtins.DB_TABLES = {
     # If required, include the table name in this set
     '__PK__': set()
 }
-## A key-value mapping for term (or other reason) information:
-#DB_TABLES['OCCASION_INFO'] = {
-#    'OCCASION'  : 'Anlass',
-#    'INFO'      : 'Info',
-#    'VALUE'     : 'Wert'
-#}
-#DB_TABLES['__UNIQUE__']['OCCASION_INFO'] = (('OCCASION', 'INFO'),)
 
+import local.base_config
 import local.pupil_config
 import local.course_config
 import local.grade_config
