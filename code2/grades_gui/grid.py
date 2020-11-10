@@ -3,7 +3,7 @@
 """
 grid.py
 
-Last updated:  2020-10-20
+Last updated:  2020-11-10
 
 Widget with editable tiles on grid layout (QGraphicsScene/QGraphicsView).
 
@@ -62,8 +62,8 @@ from qtpy.QtWidgets import (QLineEdit,
     QFileDialog, QDialog, QDialogButtonBox)
 from qtpy.QtGui import (QFont, QPen, QColor, QBrush, QTransform,
         QPainter, QPdfWriter, QPageLayout)
-from qtpy.QtCore import Qt, QDate, QMarginsF, QRectF, QBuffer, QByteArray
-
+from qtpy.QtCore import Qt, QDate, QMarginsF, QRectF, QBuffer, QByteArray, \
+        QLocale
 from grades_gui.gui_support import PopupError
 
 class GridError(Exception):
@@ -371,9 +371,9 @@ class CellStyle:
         if align:
             newstyle.setAlign(align)
         if bg:
-            self.bgColour = self.getBrush(bg)
-        if border:
-            self.border = border
+            newstyle.bgColour = self.getBrush(bg)
+        if border != None:
+            newstyle.border = border
         return newstyle
 
 

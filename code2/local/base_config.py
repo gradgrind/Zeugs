@@ -4,13 +4,15 @@
 """
 local/base_config.py
 
-Last updated:  2020-11-08
+Last updated:  2020-11-10
 
 General configuration items.
 ============================
 """
 
 SCHOOL_NAME = 'Freie Michaelschule'
+FONT = 'Droid Sans'
+
 
 DECIMAL_SEP = ','
 
