@@ -4,7 +4,7 @@
 """
 local/grade_config.py
 
-Last updated:  2020-11-08
+Last updated:  2020-11-11
 
 Configuration for grade handling.
 ====================================
@@ -64,8 +64,8 @@ DB_TABLES['__PK__'].add('GRADES')
 class GradeConfigError(Exception):
     pass
 
-class GradeError(Exception):
-    pass
+#class GradeError(Exception):
+#    pass
 
 def all_streams(klass):
     """Return a list of streams available in the given class.
@@ -120,12 +120,21 @@ class GradeBase:
             ('11.R', 'Orientierung')
         ),
         '2': (
+            ('13', None),      # Only for the grade table
             ('12.G', 'Zeugnis'),
             ('12.R', 'Abschluss'),
             ('11.G', 'Zeugnis'),
             ('11.R', 'Zeugnis'),
             ('10', 'Orientierung')
+        ),
+        'A': (
+            ('13', 'Abitur'),
         )
+    }
+    GRADE_TABLES = { # without .xlsx suffix
+        '*':        'grades/Noteneingabe',      # default
+        '12.G':     'grades/Noteneingabe-SII',
+        '13':       'grades/Noteneingabe-Abitur'
     }
     _NORMAL_GRADES = (
         '1+', '1', '1-',
@@ -294,3 +303,50 @@ class GradeBase:
             if cat[0] == term:
                 return cat[2]
         raise Bug("Bad category/type: %s" % term)
+#
+    @staticmethod
+    def special_term(termGrade):
+        if termGrade.term != 'A':
+            raise GradeConfigError(_BAD_TERM.format(term = term))
+        # Add additional oral exam grades
+        slist = []
+        termGrade.sdata_list
+        for sdata in termGrade.sdata_list:
+            slist.append(sdata)
+            if sdata.sid.endswith('.e') or sdata.sid.endswith('.g'):
+                slist.append(sdata._replace(
+                        sid = sdata.sid[:-1] + 'x',
+# <tids> must have a value, otherwise it will not be passed by the
+# composites filter, but is this alright? (rather ['X']?)
+                        tids = 'X',
+                        composite = None,
+                        report_groups = None,
+                        name = sdata.name.split('|', 1)[0] + '| nach'
+                    )
+                )
+        termGrade.sdata_list = slist
+#
+    @staticmethod
+    def category2text(term):
+        """For grade tables, produce readable "term" entries.
+        """
+        if term in ('1', '2'):
+            return '%s. Halbjahr' % term
+        if term == 'A':
+            return 'Abitur'
+        if term[0] == 'S':
+            return term
+        raise Bug("INVALID term: %s" % term)
+#
+    @staticmethod
+    def text2category(text):
+        """For grade tables, convert the readable "term" entries to
+        the corresponding tag.
+        """
+        t0 = text[0]
+        if t0 in ('1', '2', 'A'):
+            return t0
+        if text[0] == 'S':
+            return text
+        raise Bug("INVALID term text: %s" % text)
+

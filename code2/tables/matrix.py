@@ -135,7 +135,7 @@ class KlassMatrix(Table):
     """
 
     def setTitle(self, title):
-        """The title cell is at a fixed position, "B1". "A1" is empty.
+        """The title cell is at a fixed position, "B1". "A1" contains "#".
         """
         self.setCell('B1', title)
 
@@ -150,7 +150,8 @@ class KlassMatrix(Table):
         i, x = 0, 0
         for row in self.rows:
             i += 1
-            if row[0] == '#':
+            c0 = row[0]
+            if c0 == '+++':
                 try:
                     k, v = info[x]
                 except IndexError:
@@ -159,7 +160,7 @@ class KlassMatrix(Table):
                 x += 1
                 self.setCell('B%d' % i, k)
                 self.setCell('C%d' % i, v)
-            elif row[0]:
+            elif c0 and c0 != '#':
                 # The subject key line
                 break
         if x < len(info):

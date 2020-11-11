@@ -3,7 +3,7 @@
 """
 tables/spreadsheet.py
 
-Last updated:  2020-10-04
+Last updated:  2020-11-11
 
 Spreadsheet file reader, returning all cells as strings.
 For reading, simple tsv files (no quoting, no escapes), Excel files (.xlsx)
@@ -211,6 +211,8 @@ class Spreadsheet:
             self.filename = os.path.basename(filepath)
             try:
                 ending = self.filename.rsplit('.', 1)[1]
+                if ending not in self._SUPPORTED_TYPES:
+                    raise IndexError
             except IndexError as e:
                 ending = None
                 # No type-extension provided, test valid possibilities
@@ -361,13 +363,13 @@ class DBtable:
     being a list of fields.
     A row with '#' in the first column is regarded as a comment
     and ignored.
-    The first row with an entry (except '#') in the first column is
+    The first rows are set aside for group information. Those with
+    '+++' in the first column are "info-lines". They are available as a
+    list of rows – without the first column – as <self.info>.
+    After these, the first non-empty, non-comment row is
     taken as containing the field names. In this row empty fields
     should be avoided. If there are any empty ones, these will be
     allocated numbered tags beginning with '$'.
-    All non-comment rows before this header-row are regarded as possible
-    general-information rows. They are available as a list of rows –
-    without the (empty) first column – as <self.info>.
     All subsequent non-empty rows are taken as records (unless the
     first column contains '#').
     The table is iterable and indexable (returning the rows).
@@ -400,6 +402,8 @@ class DBtable:
                 continue
             if self.header:
                 self.rows.append(self.header(row))
+            elif c1 == '+++':
+                self.info.append(row[1:])
             elif c1:
                 # The field names
                 i = 0   # for automatic tagging of unnamed columns
@@ -414,14 +418,13 @@ class DBtable:
                         i += 1
                         cols.append('$%02d' % i)
                 self.header = dictuple('DBROW', cols)
-            else:
-                self.info.append(row[1:])
 
     def fieldnames(self):
         return self.header.fieldnames()
 
 
 if __name__ == '__main__':
+    import core.db
     from core.base import init
     init('TESTDATA')
 
